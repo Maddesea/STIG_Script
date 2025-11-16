@@ -1,0 +1,31 @@
+"""
+Remediation module for STIG fix extraction and processing.
+
+This module handles extraction of remediation commands from XCCDF benchmarks
+and provides multi-format export capabilities (JSON, CSV, Bash, PowerShell).
+
+Key Components:
+    - Fix: Dataclass representing a single remediation fix
+    - FixExt: Extractor for parsing XCCDF and generating remediation scripts
+
+Usage:
+    from stig_assessor.remediation import Fix, FixExt
+
+    # Extract fixes from XCCDF
+    extractor = FixExt("/path/to/benchmark.xml")
+    fixes = extractor.extract()
+
+    # Export to various formats
+    extractor.to_json("fixes.json")
+    extractor.to_csv("fixes.csv")
+    extractor.to_bash("remediate.sh", dry_run=True)
+    extractor.to_powershell("Remediate.ps1", dry_run=True)
+"""
+
+from .models import Fix
+from .extractor import FixExt
+
+__all__ = [
+    "Fix",
+    "FixExt",
+]
