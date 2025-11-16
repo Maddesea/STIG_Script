@@ -1,0 +1,4 @@
+vid,ok,msg,out,err
+V-254238,true,Remediated on SERVER-01,Registry updated,
+V-254239,true,Remediated on SERVER-01,GPO applied,
+V-254240,true,Remediated on SERVER-01,Service disabled,

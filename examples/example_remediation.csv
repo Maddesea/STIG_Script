@@ -1,0 +1,9 @@
+vid,ok,msg,out,err
+V-254238,true,Successfully remediated,Registry key HKLM\System\CurrentControlSet\Control\Lsa set to 1,
+V-254239,true,Successfully remediated,Audit policy enabled via Group Policy,
+V-254240,false,Failed to remediate,,Insufficient permissions - requires Domain Admin
+V-254241,true,Remediated,Service disabled and startup type set to Disabled,
+V-254242,true,Remediated,TLS 1.2 enabled in registry,
+V-254243,true,Not applicable - already configured,System already meets requirement,
+V-254244,false,Unable to remediate,,Third-party software conflict detected
+V-254245,true,Remediated via GPO,Applied security template MS-Windows-2022-baseline.inf,

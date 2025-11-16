@@ -1,0 +1,4 @@
+vid,ok,msg,out,err
+V-254238,true,Remediated on SERVER-02,Registry updated,
+V-254239,false,Failed on SERVER-02,,Permission denied
+V-254240,true,Remediated on SERVER-02,Service disabled,
