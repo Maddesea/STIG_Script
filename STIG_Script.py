@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-STIG Assessor - Complete Production Edition v7.2.0
+STIG Assessor - Complete Production Edition v7.2.1
 ───────────────────────────────────────────────────────────────────────────────
 PRODUCTION-READY • ZERO-DEPENDENCY • AIR-GAP CERTIFIED • BULLETPROOF
 
@@ -21,6 +21,16 @@ Highlights
     ✓ Validation (comprehensive STIG Viewer compatibility)
     ✓ GUI with async operations (requires tkinter, optional)
     ✓ CLI feature parity with GUI
+
+Release 7.2.1 Improvements (2025-11-16)
+    ✓ BUG FIX (CRITICAL): Fixed repair command passing wrong variable to _write_ckl() (line 2763)
+    ✓ BUG FIX (HIGH): Enabled backups in FixResPro._write_ckl() for data protection
+    ✓ BUG FIX (HIGH): Fixed silent validation failure - now logs validator crashes
+    ✓ BUG FIX (HIGH): Replaced MD5 with SHA256 for command deduplication (consistency)
+    ✓ BUG FIX (HIGH): Added tuple validation to prevent IndexError on empty tuples
+    ✓ IMPROVEMENT: Added missing type hints for _extract_meta() and _extract_vuln_data()
+    ✓ IMPROVEMENT: Enhanced logging for asset name truncation warnings
+    ✓ IMPROVEMENT: Added logging for failed history entry imports (debugging aid)
 
 Release 7.2 Improvements (2025-11-16)
     ✓ SECURITY: Fixed symlink validation to use proper path comparison (not string prefix)
@@ -103,7 +113,7 @@ warnings.filterwarnings("ignore", category=ResourceWarning)
 # CONSTANTS
 # ──────────────────────────────────────────────────────────────────────────────
 
-VERSION = "7.2.0"
+VERSION = "7.2.1"
 BUILD_DATE = "2025-11-16"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
@@ -930,7 +940,10 @@ class San:
     def asset(value: str) -> str:
         if not value or not str(value).strip():
             raise ValidationError("Empty asset")
-        value = str(value).strip()[:255]
+        orig_value = str(value).strip()
+        value = orig_value[:255]
+        if len(orig_value) > 255:
+            LOG.w(f"Asset name truncated from {len(orig_value)} to 255 characters")
         if not San.ASSET.match(value):
             raise ValidationError(f"Invalid asset: {value}")
         return value
@@ -1501,7 +1514,8 @@ class HistMgr:
                 for entry_data in entries:
                     try:
                         entry = Hist.from_dict(entry_data)
-                    except Exception:
+                    except Exception as exc:
+                        LOG.w(f"Failed to load history entry for {vid}: {exc}")
                         continue
                     if any(existing.chk == entry.chk for existing in slot):
                         continue
@@ -1940,8 +1954,9 @@ class Proc:
                 raise ValidationError(f"Generated CKL failed validation: {errs[0] if errs else 'Unknown error'}")
         except ValidationError:
             raise
-        except Exception:
-            pass  # Do not block output if validator crashes
+        except Exception as exc:
+            LOG.w(f"Validator crashed (non-blocking): {exc}")
+            # Continue but allow output despite validation failure
 
         LOG.i(f"Checklist created: {out}")
         LOG.clear()
@@ -1954,7 +1969,7 @@ class Proc:
             return {"ns": uri}
         return {}
 
-    def _extract_meta(self, root, ns: Dict[str, str]) -> Dict[str, str]:
+    def _extract_meta(self, root: Any, ns: Dict[str, str]) -> Dict[str, str]:
         meta = {
             "title": "Unknown STIG",
             "description": "",
@@ -2490,7 +2505,7 @@ class Proc:
         LOG.clear()
         return results
 
-    def _extract_vuln_data(self, root) -> Dict[str, Dict[str, str]]:
+    def _extract_vuln_data(self, root: Any) -> Dict[str, Dict[str, str]]:
         """Extract vulnerability data from a checklist for comparison."""
         vulns = {}
         stigs = root.find("STIGS")
@@ -2760,7 +2775,7 @@ class Proc:
 
         # Write repaired checklist
         XmlUtils.indent_xml(root)
-        self._write_ckl(tree, out_path)
+        self._write_ckl(root, out_path)
 
         LOG.i(f"Repaired checklist written to {out_path}")
         LOG.i(f"Repairs applied: {len(repairs)}")
@@ -3459,7 +3474,10 @@ class FixExt:
 
         for cand in candidates:
             if isinstance(cand, tuple):
-                cand = cand[-1]
+                # Extract first non-empty string from tuple (regex groups)
+                cand = next((s for s in cand if s and isinstance(s, str)), '')
+                if not cand:
+                    continue
 
             # Clean up the command
             lines = []
@@ -3478,8 +3496,8 @@ class FixExt:
             if len(cmd) > 2000:  # Too long, probably not a command
                 continue
 
-            # Deduplicate
-            cmd_hash = hashlib.md5(cmd.encode()).hexdigest()
+            # Deduplicate using SHA256 (consistent with other hash operations)
+            cmd_hash = hashlib.sha256(cmd.encode()).hexdigest()[:16]
             if cmd_hash in seen:
                 continue
             seen.add(cmd_hash)
@@ -4037,7 +4055,8 @@ class FixResPro:
 
 
     def _write_ckl(self, root, out: Path) -> None:
-        with FO.atomic(out, mode="wb", bak=False) as handle:
+        """Write CKL with backup protection."""
+        with FO.atomic(out, mode="wb", bak=True) as handle:
             handle.write(b'<?xml version="1.0" encoding="UTF-8"?>\n')
             handle.write(f"<!--{Sch.COMMENT}-->\n".encode("utf-8"))
             xml_text = ET.tostring(root, encoding="unicode", method="xml")
