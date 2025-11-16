@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-STIG Assessor - Complete Production Edition v7.1.0
+STIG Assessor - Complete Production Edition v7.2.0
 ───────────────────────────────────────────────────────────────────────────────
 PRODUCTION-READY • ZERO-DEPENDENCY • AIR-GAP CERTIFIED • BULLETPROOF
 
@@ -15,10 +15,26 @@ Highlights
     ✓ History tracking (microsecond precision, deduplicated)
     ✓ Boilerplate templates (status-aware, customisable)
     ✓ Validation (comprehensive STIG Viewer compatibility)
+    ✓ Self-test suite (verify tool integrity in airgapped environments)
+    ✓ Statistics & batch validation (quick assessment status checks)
     ✓ GUI with async operations (requires tkinter, optional)
     ✓ CLI feature parity with GUI
 
-Release 7.1 Improvements (2025-11-16)
+Release 7.2 Improvements (2025-11-16) - ACCURACY & RELIABILITY FOCUS
+    ✓ CRITICAL FIX: History deduplication now checks ALL entries, not just last 20
+      (prevents duplicate history entries when history exceeds 20 entries)
+    ✓ RELIABILITY: Backup checksum verification added - validates backup integrity
+      with SHA-256 hash comparison, rejects corrupted backups
+    ✓ AIRGAPPED SUPPORT: New --self-test command runs 8 comprehensive validation
+      tests to verify tool integrity without network access
+    ✓ STATISTICS: New --stats command shows quick assessment status (compliance
+      rate, severity breakdown, open findings) without opening STIG Viewer
+    ✓ BATCH VALIDATION: New --batch-validate validates all CKL files in a directory
+      and reports pass/fail summary (critical for large-scale deployments)
+    ✓ Data integrity: All backup operations now verify file integrity
+    ✓ Better debugging: Enhanced logging for duplicate detection and backup verification
+
+Release 7.1 Improvements (2025-11-16) - SECURITY & PERFORMANCE
     ✓ Security hardening: Symlink attack prevention, ZIP extraction validation
     ✓ Checklist comparison: New --diff command to compare two checklists and
       identify changes in status, findings, and comments
@@ -83,7 +99,7 @@ warnings.filterwarnings("ignore", category=ResourceWarning)
 # CONSTANTS
 # ──────────────────────────────────────────────────────────────────────────────
 
-VERSION = "7.1.0"
+VERSION = "7.2.0"
 BUILD_DATE = "2025-11-16"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
@@ -1012,6 +1028,14 @@ class FO:
                 backup_path = Cfg.BACKUP_DIR / f"{target.stem}_{timestamp}{target.suffix}.bak"
                 shutil.copy2(str(target), str(backup_path))
 
+                # RELIABILITY: Verify backup integrity with checksum
+                original_hash = hashlib.sha256(target.read_bytes()).hexdigest()
+                backup_hash = hashlib.sha256(backup_path.read_bytes()).hexdigest()
+                if original_hash != backup_hash:
+                    backup_path.unlink()  # Remove corrupted backup
+                    raise FileError(f"Backup checksum verification failed for {target.name}")
+                LOG.d(f"Backup verified: {backup_path.name} [{backup_hash[:12]}...]")
+
             fd, tmp_name = tempfile.mkstemp(
                 dir=str(target.parent),
                 prefix=f".stig_tmp_{os.getpid()}_",
@@ -1261,7 +1285,11 @@ class HistMgr:
                 LOG.w(f"Failed to compute digest for {vid}, using fallback: {exc}")
                 digest = f"chk_{uuid.uuid4().hex[:6]}"
 
-            if any(entry.chk == digest for entry in self._h[vid][-20:]):
+            # CRITICAL FIX: Check ALL entries for duplicates, not just last 20
+            # Previous code only checked self._h[vid][-20:] which allowed duplicates
+            # to slip through when history exceeded 20 entries
+            if any(entry.chk == digest for entry in self._h[vid]):
+                LOG.d(f"Skipping duplicate history entry for {vid} (digest: {digest})")
                 return False
 
             if not who:
@@ -2453,6 +2481,271 @@ class Proc:
                 print(f"  {vid}")
             if len(results["only_in_comparison"]) > 20:
                 print(f"  ... and {len(results['only_in_comparison']) - 20} more")
+
+    # ------------------------------------------------------------------ stats
+    def get_stats(self, ckl: Union[str, Path]) -> Dict[str, Any]:
+        """
+        Get statistics from a checklist file.
+
+        Args:
+            ckl: Path to checklist file
+
+        Returns:
+            Dictionary containing assessment statistics
+        """
+        ckl = San.path(ckl, exist=True, file=True)
+        LOG.ctx(op="get_stats", file=ckl.name)
+        LOG.i(f"Analyzing checklist statistics: {ckl.name}")
+
+        try:
+            tree = FO.parse_xml(ckl)
+            root = tree.getroot()
+        except Exception as exc:
+            raise ParseError(f"Failed to parse checklist: {exc}") from exc
+
+        # Extract asset info
+        asset_elem = root.find("ASSET")
+        asset_name = asset_elem.findtext("HOST_NAME", "Unknown") if asset_elem is not None else "Unknown"
+        asset_ip = asset_elem.findtext("HOST_IP", "") if asset_elem is not None else ""
+
+        # Count vulnerabilities by status
+        stats = defaultdict(int)
+        severity_counts = defaultdict(int)
+        total = 0
+
+        stigs = root.find("STIGS")
+        if stigs is not None:
+            for istig in stigs.findall("iSTIG"):
+                for vuln in istig.findall("VULN"):
+                    total += 1
+                    status = vuln.findtext("STATUS", "Not_Reviewed")
+                    stats[status] += 1
+
+                    # Get severity
+                    for sd in vuln.findall("STIG_DATA"):
+                        if sd.findtext("VULN_ATTRIBUTE") == "Severity":
+                            sev = sd.findtext("ATTRIBUTE_DATA", "medium")
+                            severity_counts[sev] += 1
+                            break
+
+        # Calculate compliance metrics
+        reviewed = total - stats["Not_Reviewed"]
+        compliant = stats["NotAFinding"]
+        open_findings = stats["Open"]
+        not_applicable = stats["Not_Applicable"]
+
+        compliance_pct = (compliant / reviewed * 100) if reviewed > 0 else 0
+        review_pct = (reviewed / total * 100) if total > 0 else 0
+
+        results = {
+            "asset": asset_name,
+            "ip": asset_ip,
+            "total_vulnerabilities": total,
+            "reviewed": reviewed,
+            "not_reviewed": stats["Not_Reviewed"],
+            "compliant": compliant,
+            "open": open_findings,
+            "not_applicable": not_applicable,
+            "compliance_percentage": round(compliance_pct, 1),
+            "review_percentage": round(review_pct, 1),
+            "severity_breakdown": {
+                "high": severity_counts["high"],
+                "medium": severity_counts["medium"],
+                "low": severity_counts["low"],
+            },
+            "open_by_severity": self._get_open_by_severity(root),
+        }
+
+        LOG.clear()
+        return results
+
+    def _get_open_by_severity(self, root) -> Dict[str, int]:
+        """Count open findings by severity."""
+        open_sev = defaultdict(int)
+        stigs = root.find("STIGS")
+        if stigs is not None:
+            for istig in stigs.findall("iSTIG"):
+                for vuln in istig.findall("VULN"):
+                    status = vuln.findtext("STATUS", "Not_Reviewed")
+                    if status == "Open":
+                        for sd in vuln.findall("STIG_DATA"):
+                            if sd.findtext("VULN_ATTRIBUTE") == "Severity":
+                                sev = sd.findtext("ATTRIBUTE_DATA", "medium")
+                                open_sev[sev] += 1
+                                break
+        return dict(open_sev)
+
+    # ---------------------------------------------------------------- self-test
+    @staticmethod
+    def self_test() -> Dict[str, Any]:
+        """
+        Run comprehensive self-test suite for airgapped validation.
+
+        Returns:
+            Dictionary containing test results
+        """
+        results = {
+            "passed": [],
+            "failed": [],
+            "warnings": [],
+        }
+
+        print(f"\n{'='*80}")
+        print(f"STIG Assessor Self-Test v{VERSION}")
+        print(f"{'='*80}\n")
+
+        # Test 1: Configuration
+        print("[1/8] Testing configuration...")
+        try:
+            ok, errs = Cfg.check()
+            if ok:
+                results["passed"].append("Configuration validation")
+                print("  ✓ Configuration valid")
+            else:
+                results["failed"].append(f"Configuration: {errs}")
+                print(f"  ✗ Configuration errors: {errs}")
+        except Exception as exc:
+            results["failed"].append(f"Configuration test: {exc}")
+            print(f"  ✗ Configuration test failed: {exc}")
+
+        # Test 2: Status and Severity Enums
+        print("[2/8] Testing Enum definitions...")
+        try:
+            assert len(Status.all_values()) == 4, "Status enum should have 4 values"
+            assert len(Severity.all_values()) == 3, "Severity enum should have 3 values"
+            assert Status.is_valid("NotAFinding"), "NotAFinding should be valid"
+            assert Severity.is_valid("high"), "high should be valid"
+            results["passed"].append("Enum validation")
+            print("  ✓ Status and Severity enums valid")
+        except AssertionError as exc:
+            results["failed"].append(f"Enum test: {exc}")
+            print(f"  ✗ Enum test failed: {exc}")
+
+        # Test 3: XML Utilities
+        print("[3/8] Testing XML utilities...")
+        try:
+            test_elem = ET.Element("TEST")
+            ET.SubElement(test_elem, "CHILD").text = "test"
+            XmlUtils.indent_xml(test_elem)
+            assert "\n" in (test_elem.text or ""), "XML indentation should add newlines"
+            results["passed"].append("XML utilities")
+            print("  ✓ XML utilities functional")
+        except Exception as exc:
+            results["failed"].append(f"XML utilities: {exc}")
+            print(f"  ✗ XML utilities test failed: {exc}")
+
+        # Test 4: Sanitization
+        print("[4/8] Testing input sanitization...")
+        try:
+            assert San.status("NotAFinding") == "NotAFinding"
+            assert San.sev("high") == "high"
+            try:
+                San.vuln("invalid")
+                results["failed"].append("Sanitization: Invalid VID accepted")
+                print("  ✗ Sanitization failed to reject invalid VID")
+            except ValidationError:
+                results["passed"].append("Input sanitization")
+                print("  ✓ Sanitization functions working")
+        except Exception as exc:
+            results["failed"].append(f"Sanitization: {exc}")
+            print(f"  ✗ Sanitization test failed: {exc}")
+
+        # Test 5: File Operations
+        print("[5/8] Testing file system access...")
+        try:
+            assert Cfg.APP_DIR.exists(), "App directory should exist"
+            assert Cfg.LOG_DIR.exists(), "Log directory should exist"
+            assert Cfg.BACKUP_DIR.exists(), "Backup directory should exist"
+
+            # Test write permissions
+            test_file = Cfg.APP_DIR / f".self_test_{os.getpid()}"
+            test_file.write_text("test", encoding="utf-8")
+            assert test_file.read_text(encoding="utf-8") == "test"
+            test_file.unlink()
+
+            results["passed"].append("File system access")
+            print("  ✓ File system access OK")
+        except Exception as exc:
+            results["failed"].append(f"File system: {exc}")
+            print(f"  ✗ File system test failed: {exc}")
+
+        # Test 6: History Manager
+        print("[6/8] Testing history management...")
+        try:
+            hist_mgr = HistMgr()
+            added = hist_mgr.add("V-000001", "NotAFinding", "Test finding", "Test comment", "self-test")
+            assert added, "History entry should be added"
+
+            # Test deduplication
+            duplicate = hist_mgr.add("V-000001", "NotAFinding", "Test finding", "Test comment", "self-test")
+            assert not duplicate, "Duplicate entry should be rejected"
+
+            results["passed"].append("History manager")
+            print("  ✓ History manager functional")
+        except Exception as exc:
+            results["failed"].append(f"History manager: {exc}")
+            print(f"  ✗ History manager test failed: {exc}")
+
+        # Test 7: XML Parser
+        print("[7/8] Testing XML parser...")
+        try:
+            test_xml = '<root><element>test</element></root>'
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False, encoding='utf-8') as f:
+                f.write(test_xml)
+                temp_path = Path(f.name)
+
+            tree = FO.parse_xml(temp_path)
+            assert tree.getroot().tag == "root"
+            assert tree.getroot().findtext("element") == "test"
+            temp_path.unlink()
+
+            results["passed"].append("XML parser")
+            print("  ✓ XML parser functional")
+        except Exception as exc:
+            results["failed"].append(f"XML parser: {exc}")
+            print(f"  ✗ XML parser test failed: {exc}")
+
+        # Test 8: Backup System
+        print("[8/8] Testing backup system...")
+        try:
+            test_file = Cfg.APP_DIR / f"backup_test_{os.getpid()}.txt"
+            test_file.write_text("original", encoding="utf-8")
+
+            with FO.atomic(test_file, mode="w", bak=True) as f:
+                f.write("modified")
+
+            assert test_file.read_text(encoding="utf-8") == "modified"
+
+            # Check backup was created
+            backups = list(Cfg.BACKUP_DIR.glob(f"backup_test_{os.getpid()}_*.bak"))
+            assert len(backups) > 0, "Backup should have been created"
+
+            # Cleanup
+            test_file.unlink()
+            for bak in backups:
+                bak.unlink()
+
+            results["passed"].append("Backup system")
+            print("  ✓ Backup system functional")
+        except Exception as exc:
+            results["failed"].append(f"Backup system: {exc}")
+            print(f"  ✗ Backup system test failed: {exc}")
+
+        # Summary
+        print(f"\n{'='*80}")
+        print(f"SELF-TEST SUMMARY")
+        print(f"{'='*80}")
+        print(f"Passed: {len(results['passed'])}/8")
+        print(f"Failed: {len(results['failed'])}/8")
+
+        if results["failed"]:
+            print(f"\nFailed tests:")
+            for failure in results["failed"]:
+                print(f"  ✗ {failure}")
+            return results
+
+        print(f"\n✓ All tests passed! STIG Assessor is ready for use.")
+        return results
 
     # ----------------------------------------------------------------- helpers
     def _ingest_history(self, path: Path) -> None:
@@ -4905,6 +5198,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     history_group.add_argument("--export-history", help="Export history JSON")
     history_group.add_argument("--import-history", help="Import history JSON")
 
+    utility_group = parser.add_argument_group("Utility Commands (Airgapped Support)")
+    utility_group.add_argument("--self-test", action="store_true", help="Run comprehensive self-test suite")
+    utility_group.add_argument("--stats", help="Show checklist assessment statistics")
+    utility_group.add_argument("--batch-validate", help="Validate all CKL files in directory")
+
     parser.add_argument("--validate", help="Validate checklist compatibility")
 
     args = parser.parse_args(argv)
@@ -4921,7 +5219,87 @@ def main(argv: Optional[List[str]] = None) -> int:
             gui.run()
             return 0
 
+        # Airgapped utility commands (no proc needed)
+        if args.self_test:
+            results = Proc.self_test()
+            return 0 if len(results["failed"]) == 0 else 1
+
         proc = Proc()
+
+        if args.stats:
+            result = proc.get_stats(args.stats)
+            print(f"\n{'='*80}")
+            print(f"STIG Assessment Statistics: {result['asset']}")
+            print(f"{'='*80}\n")
+            print(f"Asset Information:")
+            print(f"  Name: {result['asset']}")
+            print(f"  IP: {result['ip']}")
+            print(f"\nVulnerability Summary:")
+            print(f"  Total Vulnerabilities: {result['total_vulnerabilities']}")
+            print(f"  Reviewed: {result['reviewed']} ({result['review_percentage']}%)")
+            print(f"  Not Reviewed: {result['not_reviewed']}")
+            print(f"\nCompliance Status:")
+            print(f"  Compliant (NotAFinding): {result['compliant']}")
+            print(f"  Open Findings: {result['open']}")
+            print(f"  Not Applicable: {result['not_applicable']}")
+            print(f"  Compliance Rate: {result['compliance_percentage']}%")
+            print(f"\nSeverity Breakdown:")
+            print(f"  High (CAT I): {result['severity_breakdown']['high']}")
+            print(f"  Medium (CAT II): {result['severity_breakdown']['medium']}")
+            print(f"  Low (CAT III): {result['severity_breakdown']['low']}")
+            if result['open_by_severity']:
+                print(f"\nOpen Findings by Severity:")
+                for sev, count in sorted(result['open_by_severity'].items()):
+                    print(f"  {sev.capitalize()}: {count}")
+            print()
+            return 0
+
+        if args.batch_validate:
+            validate_dir = Path(args.batch_validate)
+            if not validate_dir.exists() or not validate_dir.is_dir():
+                print(f"ERROR: Directory not found: {args.batch_validate}", file=sys.stderr)
+                return 1
+
+            ckl_files = list(validate_dir.glob("*.ckl"))
+            if not ckl_files:
+                print(f"No CKL files found in {args.batch_validate}")
+                return 0
+
+            print(f"\nValidating {len(ckl_files)} checklist(s)...\n")
+            results = {}
+            passed = 0
+            failed = 0
+
+            for ckl in sorted(ckl_files):
+                try:
+                    ok, errs, warns, info = proc.validator.validate(ckl)
+                    results[ckl.name] = {
+                        "valid": ok,
+                        "errors": len(errs),
+                        "warnings": len(warns),
+                    }
+                    if ok:
+                        print(f"  ✓ {ckl.name}")
+                        passed += 1
+                    else:
+                        print(f"  ✗ {ckl.name} ({len(errs)} errors, {len(warns)} warnings)")
+                        for err in errs[:3]:  # Show first 3 errors
+                            print(f"      - {err}")
+                        if len(errs) > 3:
+                            print(f"      ... and {len(errs) - 3} more errors")
+                        failed += 1
+                except Exception as exc:
+                    print(f"  ✗ {ckl.name} (validation failed: {exc})")
+                    results[ckl.name] = {"valid": False, "error": str(exc)}
+                    failed += 1
+
+            print(f"\n{'='*80}")
+            print(f"Batch Validation Summary")
+            print(f"{'='*80}")
+            print(f"Passed: {passed}/{len(ckl_files)}")
+            print(f"Failed: {failed}/{len(ckl_files)}")
+            print()
+            return 0 if failed == 0 else 1
 
         if args.create:
             if not (args.xccdf and args.asset and args.out):
