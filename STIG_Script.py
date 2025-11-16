@@ -59,9 +59,11 @@ from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, IO, Iterable, List, Optional, Tuple, Union
 
-warnings.filterwarnings("ignore")
+# Filter only specific warnings that are expected in air-gapped environments
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="xml")
+warnings.filterwarnings("ignore", category=ResourceWarning)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CONSTANTS
@@ -281,6 +283,11 @@ class Deps:
 
 Deps.check()
 ET, XMLParseError = Deps.get_xml()
+
+# Warn if defusedxml is not available (security risk)
+if not Deps.HAS_DEFUSEDXML:
+    print("WARNING: defusedxml not available. Falling back to unsafe XML parser.", file=sys.stderr)
+    print("  Install defusedxml for protection against XML entity expansion attacks.", file=sys.stderr)
 
 if Deps.HAS_TKINTER:
     import tkinter as tk
@@ -520,6 +527,7 @@ class Log:
             if data:
                 return "[" + ", ".join(f"{k}={v}" for k, v in data.items()) + "] "
         except Exception:
+            # Silently ignore context extraction failures in logging helper
             pass
         return ""
 
@@ -527,6 +535,7 @@ class Log:
         try:
             getattr(self.log, level)(self._context_str() + str(message), exc_info=exc)
         except Exception:
+            # Fallback to stderr if logging system fails
             print(f"[{level.upper()}] {message}", file=sys.stderr)
 
     def d(self, msg: str) -> None:
@@ -726,7 +735,7 @@ class San:
         except ValidationError:
             raise
         except Exception as exc:
-            raise ValidationError(f"Path error: {exc}")
+            raise ValidationError(f"Path validation failed for '{value}': {exc}")
 
     @staticmethod
     def asset(value: str) -> str:
@@ -745,11 +754,20 @@ class San:
         if not value:
             return ""
         if not San.IP.match(value):
-            raise ValidationError(f"Invalid IP: {value}")
-        for idx, octet in enumerate(value.split(".")):
-            oct_val = int(octet)
+            raise ValidationError(f"Invalid IP format: {value}")
+        octets = value.split(".")
+        if len(octets) != 4:
+            raise ValidationError(f"IP must have exactly 4 octets, got {len(octets)}: {value}")
+        for idx, octet in enumerate(octets):
+            # Check for leading zeros (except "0" itself)
+            if len(octet) > 1 and octet[0] == "0":
+                raise ValidationError(f"IP octet {idx + 1} has leading zeros: {octet}")
+            try:
+                oct_val = int(octet)
+            except ValueError:
+                raise ValidationError(f"IP octet {idx + 1} is not numeric: {octet}")
             if not (0 <= oct_val <= 255):
-                raise ValidationError(f"IP octet {idx + 1} invalid: {oct_val}")
+                raise ValidationError(f"IP octet {idx + 1} out of range (0-255): {oct_val}")
         return value
 
     @staticmethod
@@ -798,7 +816,9 @@ class San:
         if not isinstance(value, str):
             try:
                 value = str(value)
-            except Exception:
+            except Exception as exc:
+                # Cannot convert to string, return empty
+                LOG.w(f"Failed to convert value to string for XML sanitization: {type(value)} - {exc}")
                 return ""
         value = San.CTRL.sub("", value)
         value = (
@@ -824,7 +844,7 @@ class FO:
     @staticmethod
     @contextmanager
     @retry()
-    def atomic(target: Union[str, Path], mode: str = "w", enc: str = "utf-8", bak: bool = True):
+    def atomic(target: Union[str, Path], mode: str = "w", enc: str = "utf-8", bak: bool = True) -> Generator[IO, None, None]:
         target = San.path(target, mkpar=True)
         tmp_path: Optional[Path] = None
         backup_path: Optional[Path] = None
@@ -909,14 +929,16 @@ class FO:
         path = San.path(path, exist=True, file=True)
         for encoding in ENCODINGS:
             try:
-                with open(path, "r", encoding=encoding, errors="replace") as handle:
+                # Use strict error handling to properly detect encoding issues
+                with open(path, "r", encoding=encoding, errors="strict") as handle:
                     data = handle.read()
+                # Remove BOM if present
                 if data.startswith("\ufeff"):
                     data = data[1:]
                 return data
-            except UnicodeDecodeError:
+            except (UnicodeDecodeError, UnicodeError):
                 continue
-        raise FileError(f"Unable to decode file: {path}")
+        raise FileError(f"Unable to decode file with any known encoding: {path}")
 
     @staticmethod
     def parse_xml(path: Union[str, Path]):
@@ -1069,7 +1091,8 @@ class HistMgr:
                 vid = San.vuln(vid)
                 stat = San.status(stat)
                 sev = San.sev(sev)
-            except Exception:
+            except (ValidationError, ValueError) as exc:
+                LOG.w(f"Failed to add history for {vid}: validation error: {exc}")
                 return False
 
             if not find and not comm:
@@ -1078,7 +1101,8 @@ class HistMgr:
             summary = f"{stat}|{find}|{comm}|{sev}|{who}"
             try:
                 digest = hashlib.sha256(summary.encode("utf-8")).hexdigest()[:16]
-            except Exception:
+            except (UnicodeEncodeError, AttributeError) as exc:
+                LOG.w(f"Failed to compute digest for {vid}, using fallback: {exc}")
                 digest = f"chk_{uuid.uuid4().hex[:6]}"
 
             if any(entry.chk == digest for entry in self._h[vid][-20:]):
@@ -1528,10 +1552,6 @@ class Val:
 # PROCESSOR (XCCDF ➜ CKL, CKL merge)
 # ──────────────────────────────────────────────────────────────────────────────
 
-# ──────────────────────────────────────────────────────────────────────────────
-# PROCESSOR (XCCDF ➜ CKL, CKL merge)
-# ──────────────────────────────────────────────────────────────────────────────
-
 
 class Proc:
     """Checklist processor."""
@@ -1642,7 +1662,7 @@ class Proc:
         return {"ok": True, "output": str(out), "processed": processed, "skipped": skipped, "errors": errors}
 
     # ------------------------------------------------------------------- helpers
-    def _namespace(self, root) -> Dict[str, str]:
+    def _namespace(self, root: Any) -> Dict[str, str]:
         if "}" in root.tag:
             uri = root.tag.split("}")[0][1:]
             return {"ns": uri}
@@ -1790,7 +1810,8 @@ class Proc:
                 return elem.text.strip()
             try:
                 return ET.tostring(elem, encoding="unicode", method="text").strip()
-            except Exception:
+            except Exception as exc:
+                LOG.w(f"Failed to extract text from XML element {elem.tag}: {exc}")
                 return ""
 
         rule_title = text(find("title"))[:300]
@@ -1910,7 +1931,7 @@ class Proc:
     def _collect_fix_text(self, elem) -> str:
         """
         Enhanced fix text extraction with proper handling of XCCDF mixed content.
-        
+
         Handles:
         - Plain text content
         - Nested HTML elements (xhtml:br, xhtml:code, etc.)
@@ -1919,7 +1940,7 @@ class Proc:
         """
         if elem is None:
             return ""
-        
+
         # Method 1: itertext() with proper newline preservation
         try:
             parts: List[str] = []
@@ -1930,7 +1951,7 @@ class Proc:
                     cleaned = text_fragment.strip()
                     if cleaned:
                         parts.append(cleaned)
-            
+
             if parts:
                 # Join with newlines to preserve command structure
                 result = '\n'.join(parts)
@@ -1939,7 +1960,7 @@ class Proc:
                 return result.strip()
         except Exception as exc:
             LOG.d(f"itertext() extraction failed: {exc}")
-        
+
         # Method 2: Manual traversal for complex mixed content
         try:
             def extract_text_recursive(element) -> List[str]:
@@ -1957,7 +1978,7 @@ class Proc:
                         if tail:
                             texts.append(tail)
                 return texts
-            
+
             parts = extract_text_recursive(elem)
             if parts:
                 result = '\n'.join(parts)
@@ -1965,11 +1986,11 @@ class Proc:
                 return result.strip()
         except Exception as exc:
             LOG.d(f"Recursive extraction failed: {exc}")
-        
+
         # Method 3: Direct text attribute (simple elements only)
         if elem.text and elem.text.strip():
             return elem.text.strip()
-        
+
         # Method 4: Last resort - tostring
         try:
             text_content = ET.tostring(elem, encoding='unicode', method='text')
@@ -1979,7 +2000,7 @@ class Proc:
                 return text_content.strip()
         except Exception as exc:
             LOG.d(f"tostring() extraction failed: {exc}")
-        
+
         return ""
 
 
@@ -1990,12 +2011,11 @@ class Proc:
         if len(elem):
             if not elem.text or not elem.text.strip():
                 elem.text = indent + "\t"
-            for child in elem:
+            for i, child in enumerate(elem):
                 self._indent_xml(child, level + 1)
                 if not child.tail or not child.tail.strip():
-                    child.tail = indent + "\t"
-            if not child.tail or not child.tail.strip():
-                child.tail = indent
+                    # Last child gets dedented, others get full indent
+                    child.tail = indent if i == len(elem) - 1 else indent + "\t"
         else:
             if level and (not elem.tail or not elem.tail.strip()):
                 elem.tail = indent
@@ -2275,13 +2295,13 @@ class FixExt:
         return self.fixes
 
     # ---------------------------------------------------------------- helpers
-    def _namespace(self, root) -> Dict[str, str]:
+    def _namespace(self, root: Any) -> Dict[str, str]:
         if "}" in root.tag:
             uri = root.tag.split("}")[0][1:]
             return {"ns": uri}
         return {}
 
-    def _groups(self, root) -> List[Any]:
+    def _groups(self, root: Any) -> List[Any]:
         search = ".//ns:Group" if self.ns else ".//Group"
         groups = root.findall(search, self.ns)
         valid: List[Any] = []
@@ -2291,7 +2311,7 @@ class FixExt:
                 valid.append(group)
         return valid
 
-    
+
     def _parse_group(self, group) -> Optional[Fix]:
         vid = group.get("id", "")
         if not vid:
@@ -2321,7 +2341,8 @@ class FixExt:
                 return elem.text.strip()
             try:
                 return ET.tostring(elem, encoding="unicode", method="text").strip()
-            except Exception:
+            except Exception as exc:
+                LOG.w(f"Failed to extract text from XML element {elem.tag}: {exc}")
                 return ""
 
         title = text(find("title"))
@@ -2338,7 +2359,7 @@ class FixExt:
             if not fix_text.strip():
                 LOG.w(f"{vid}: Empty fixtext extracted, checking attributes")
                 fix_text = fix_elem.get('fixref', '') or fix_elem.get('id', '')
-        
+
         if not fix_text.strip():
             LOG.d(f"{vid}: Skipping - no fix text available")
             return None
@@ -2386,16 +2407,16 @@ class FixExt:
         )
 
 
-    def _collect_text(self, elem) -> str:
+    def _collect_text(self, elem: Any) -> str:
         """
         Enhanced text extraction with proper mixed content handling.
-        
+
         Handles XCCDF elements that contain plain text, nested elements,
         and preserves command formatting.
         """
         if elem is None:
             return ""
-        
+
         # Method 1: itertext() with proper newline preservation
         try:
             parts: List[str] = []
@@ -2406,7 +2427,7 @@ class FixExt:
                     cleaned = text_fragment.strip()
                     if cleaned:
                         parts.append(cleaned)
-            
+
             if parts:
                 # Join with newlines to preserve command structure
                 result = '\n'.join(parts)
@@ -2415,7 +2436,7 @@ class FixExt:
                 return result.strip()
         except Exception as exc:
             LOG.d(f"itertext() extraction failed: {exc}")
-        
+
         # Method 2: Manual traversal for complex mixed content
         try:
             def extract_text_recursive(element) -> List[str]:
@@ -2433,7 +2454,7 @@ class FixExt:
                         if tail:
                             texts.append(tail)
                 return texts
-            
+
             parts = extract_text_recursive(elem)
             if parts:
                 result = '\n'.join(parts)
@@ -2441,11 +2462,11 @@ class FixExt:
                 return result.strip()
         except Exception as exc:
             LOG.d(f"Recursive extraction failed: {exc}")
-        
+
         # Method 3: Direct text attribute (simple elements only)
         if elem.text and elem.text.strip():
             return elem.text.strip()
-        
+
         # Method 4: Last resort - tostring
         try:
             text_content = ET.tostring(elem, encoding='unicode', method='text')
@@ -2455,14 +2476,14 @@ class FixExt:
                 return text_content.strip()
         except Exception as exc:
             LOG.d(f"tostring() extraction failed: {exc}")
-        
+
         return ""
 
 
     def _extract_command(self, text_block: str) -> Optional[str]:
         """
         Enhanced command extraction supporting multiple STIG fixtext formats.
-        
+
         Handles:
         - Shell commands (with or without prompts)
         - PowerShell commands
@@ -2578,11 +2599,11 @@ class FixExt:
         # ═══ CLEANUP: Remove comments, filter, and deduplicate ═══
         commands: List[str] = []
         seen = set()
-        
+
         for cand in candidates:
             if isinstance(cand, tuple):
                 cand = cand[-1]
-            
+
             # Clean up the command
             lines = []
             for line in cand.strip().splitlines():
@@ -2591,21 +2612,21 @@ class FixExt:
                 if not line or (line.startswith('#') and not any(cmd in line for cmd in ['chmod', 'chown', 'Edit'])):
                     continue
                 lines.append(line)
-            
+
             cmd = '\n'.join(lines)
-            
+
             # Validation: must meet minimum criteria
             if len(cmd) < 5:
                 continue
             if len(cmd) > 2000:  # Too long, probably not a command
                 continue
-            
+
             # Deduplicate
             cmd_hash = hashlib.md5(cmd.encode()).hexdigest()
             if cmd_hash in seen:
                 continue
             seen.add(cmd_hash)
-            
+
             commands.append(cmd)
 
         if not commands:
@@ -2904,13 +2925,13 @@ class FixResPro:
     def load(self, path: Union[str, Path]) -> Tuple[int, int]:
         """
         Load remediation results from JSON with support for multiple formats.
-        
+
         Supported formats:
         1. Array: [{"vid": "V-1", "ok": true, ...}, ...]
         2. Object: {"results": [...], "meta": {...}}
         3. Multi-system: {"systems": {"host1": [...], "host2": [...]}}
         4. Alternative keys: {"vulnerabilities": [...], "entries": [...]}
-        
+
         Returns: (unique_count, skipped_count)
         """
         path = San.path(path, exist=True, file=True)
@@ -2935,16 +2956,16 @@ class FixResPro:
             LOG.d("Detected array format")
             self.meta = {"format": "array", "source": str(path)}
             entries = payload
-            
+
         elif isinstance(payload, dict):
             self.meta = payload.get("meta", {})
             self.meta["source"] = str(path)
-            
+
             # Format 2: Standard "results" key
             if "results" in payload:
                 LOG.d("Detected standard object format with 'results' key")
                 entries = payload["results"]
-            
+
             # Format 3: Multi-system grouped format
             elif "systems" in payload:
                 LOG.i("Detected multi-system format")
@@ -2958,7 +2979,7 @@ class FixResPro:
                                     entry['_source_system'] = system_name
                             entries.extend(system_results)
                             LOG.d(f"  Loaded {len(system_results)} from system '{system_name}'")
-            
+
             # Format 4: Alternative keys
             elif "vulnerabilities" in payload:
                 LOG.d("Detected 'vulnerabilities' format")
@@ -2994,11 +3015,11 @@ class FixResPro:
 
         # ═══ PROCESS ENTRIES WITH DEDUPLICATION ═══
         dedup: Dict[str, FixResult] = {}
-        
+
         for idx, entry in enumerate(entries, 1):
             try:
                 result = FixResult.from_dict(entry)
-                
+
                 # Deduplication: keep most recent for each VID
                 if result.vid in dedup:
                     existing = dedup[result.vid]
@@ -3009,9 +3030,9 @@ class FixResPro:
                         LOG.d(f"  {result.vid}: keeping existing (newer)")
                 else:
                     dedup[result.vid] = result
-                
+
                 imported += 1
-                
+
             except Exception as exc:
                 skipped += 1
                 LOG.w(f"Entry {idx}: invalid - {exc}")
@@ -3029,7 +3050,7 @@ class FixResPro:
         unique_count = len(dedup)
         LOG.i(f"Loaded {unique_count} unique results from {imported} total entries (skipped {skipped})")
         LOG.clear()
-        
+
         return unique_count, skipped
 
 
@@ -3117,7 +3138,7 @@ class FixResPro:
                     status_node = vuln.find("STATUS")
                     if status_node is None:
                         status_node = ET.SubElement(vuln, "STATUS")
-                    status_node.text = "NotAFinding"
+                    status_node.text = San.status("NotAFinding")
 
         # Track results that didn't match any vulnerability
         for vid in self.results:
@@ -3171,12 +3192,11 @@ class FixResPro:
         if len(elem):
             if not elem.text or not elem.text.strip():
                 elem.text = indent + "\t"
-            for child in elem:
+            for i, child in enumerate(elem):
                 self._indent_xml(child, level + 1)
                 if not child.tail or not child.tail.strip():
-                    child.tail = indent + "\t"
-            if not child.tail or not child.tail.strip():
-                child.tail = indent
+                    # Last child gets dedented, others get full indent
+                    child.tail = indent if i == len(elem) - 1 else indent + "\t"
         else:
             if level and (not elem.tail or not elem.tail.strip()):
                 elem.tail = indent
@@ -3736,38 +3756,38 @@ if Deps.HAS_TKINTER:
         def _tab_results(self, frame):
             """Results import tab with batch file support."""
             r = 0
-            
+
             # ═══ BATCH IMPORT ═══
             batch_frame = ttk.LabelFrame(frame, text="📁 Batch Import (Multiple JSON Files)", padding=10)
             batch_frame.grid(row=r, column=0, columnspan=3, sticky="ew", pady=(0, 10))
-            
+
             ttk.Label(batch_frame, text="Results Files:").grid(row=0, column=0, sticky="nw", padx=5, pady=5)
-            
+
             list_container = ttk.Frame(batch_frame)
             list_container.grid(row=0, column=1, padx=5, sticky="ew")
-            
+
             self.results_list = tk.Listbox(list_container, height=5, width=65, selectmode=tk.EXTENDED)
             self.results_list.pack(side="left", fill="both", expand=True)
-            
+
             scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=self.results_list.yview)
             scrollbar.pack(side="right", fill="y")
             self.results_list.config(yscrollcommand=scrollbar.set)
-            
+
             self.results_files: List[str] = []
-            
+
             btn_container = ttk.Frame(batch_frame)
             btn_container.grid(row=0, column=2, sticky="n", padx=5)
             ttk.Button(btn_container, text="Add Files…", command=self._add_results_files, width=15).pack(fill="x", pady=2)
             ttk.Button(btn_container, text="Remove", command=self._remove_results_file, width=15).pack(fill="x", pady=2)
             ttk.Button(btn_container, text="Clear All", command=self._clear_results_files, width=15).pack(fill="x", pady=2)
-            
+
             batch_frame.columnconfigure(1, weight=1)
             r += 1
-            
+
             # ═══ SINGLE FILE (LEGACY) ═══
             single_frame = ttk.LabelFrame(frame, text="📄 Single File Import", padding=10)
             single_frame.grid(row=r, column=0, columnspan=3, sticky="ew", pady=(0, 10))
-            
+
             ttk.Label(single_frame, text="Results JSON:").grid(row=0, column=0, sticky="w", padx=5)
             self.results_json = tk.StringVar()
             ttk.Entry(single_frame, textvariable=self.results_json, width=70).grid(row=0, column=1, padx=5)
@@ -3827,7 +3847,7 @@ if Deps.HAS_TKINTER:
                     self.results_files.append(path)
                     self.results_list.insert(tk.END, Path(path).name)
                     added += 1
-            
+
             if added:
                 self.results_status.set(f"✓ Added {added} file(s) - Total: {len(self.results_files)} queued")
 
@@ -3836,11 +3856,11 @@ if Deps.HAS_TKINTER:
             selections = self.results_list.curselection()
             if not selections:
                 return
-            
+
             for index in reversed(selections):
                 self.results_list.delete(index)
                 self.results_files.pop(index)
-            
+
             self.results_status.set(f"{len(self.results_files)} file(s) remaining")
 
         def _clear_results_files(self):
@@ -3856,7 +3876,7 @@ if Deps.HAS_TKINTER:
             if not self.results_ckl.get() or not self.results_out.get():
                 messagebox.showerror("Missing input", "Please provide checklist and output path.")
                 return
-            
+
             # Collect files: batch list takes priority over single field
             files_to_process = []
             if self.results_files:
@@ -3876,7 +3896,7 @@ if Deps.HAS_TKINTER:
                 total_loaded = 0
                 total_skipped = 0
                 failed_files = []
-                
+
                 for idx, result_file in enumerate(files_to_process, 1):
                     try:
                         LOG.i(f"Loading {idx}/{len(files_to_process)}: {Path(result_file).name}")
@@ -3887,10 +3907,10 @@ if Deps.HAS_TKINTER:
                         LOG.e(f"Failed to load {result_file}: {exc}")
                         failed_files.append((Path(result_file).name, str(exc)))
                         continue
-                
+
                 if not combined_processor.results:
                     raise ValidationError("No valid results loaded from any file")
-                
+
                 result = combined_processor.update_ckl(
                     self.results_ckl.get(),
                     self.results_out.get(),
@@ -3911,7 +3931,7 @@ if Deps.HAS_TKINTER:
                 else:
                     nf = result.get("not_found", [])
                     nf_display = f"{len(nf)} VIDs" if nf else "None"
-                    
+
                     summary = (
                         f"✔ Batch import complete!\n"
                         f"Files: {result.get('files_processed', 0)} | "
@@ -3921,7 +3941,7 @@ if Deps.HAS_TKINTER:
                         f"Not found: {nf_display}\n"
                         f"Output: {result.get('output', 'dry run')}"
                     )
-                    
+
                     self.results_status.set(summary)
                     messagebox.showinfo("Success", summary)
 
@@ -3993,7 +4013,7 @@ if Deps.HAS_TKINTER:
             try:
                 while True:
                     item = self.queue.get_nowait()
-                    
+
                     # Handle different message types
                     if len(item) == 3:
                         # Standard callback format
@@ -4008,7 +4028,7 @@ if Deps.HAS_TKINTER:
                             self.root.update_idletasks()  # Force UI refresh
             except queue.Empty:
                 pass
-            
+
             self.root.after(200, self._process_queue)
 
 
@@ -4610,21 +4630,21 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(json.dumps(extractor.stats_summary(), indent=2, ensure_ascii=False))
             return 0
 
-        
+
         if args.apply_results:
             if not (args.checklist and args.results_out):
                 parser.error("--apply-results requires --checklist and --results-out")
-            
+
             # ═══ ENHANCED: Support multiple result files ═══
             result_files = args.apply_results if isinstance(args.apply_results, list) else [args.apply_results]
-            
+
             processor = FixResPro()
             total_loaded = 0
             total_skipped = 0
             failed_files = []
-            
+
             print(f"[INFO] Processing {len(result_files)} result file(s)...", file=sys.stderr)
-            
+
             for idx, result_file in enumerate(result_files, 1):
                 try:
                     print(f"[{idx}/{len(result_files)}] Loading {Path(result_file).name}...", file=sys.stderr)
@@ -4636,13 +4656,13 @@ def main(argv: Optional[List[str]] = None) -> int:
                     print(f"  ✘ Failed: {exc}", file=sys.stderr)
                     failed_files.append({"file": str(result_file), "error": str(exc)})
                     continue
-            
+
             if not processor.results:
                 print(f"[ERROR] No valid results loaded from any file", file=sys.stderr)
                 return 1
-            
+
             print(f"\n[INFO] Applying {len(processor.results)} unique results to checklist...", file=sys.stderr)
-            
+
             # Apply to checklist
             result = processor.update_ckl(
                 args.checklist,
@@ -4650,7 +4670,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 auto_status=not args.no_auto_status,
                 dry=args.results_dry_run,
             )
-            
+
             # Add batch statistics
             result['batch_stats'] = {
                 'files_total': len(result_files),
@@ -4659,10 +4679,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                 'results_skipped': total_skipped,
                 'unique_vulns': len(processor.results),
             }
-            
+
             if failed_files:
                 result['failed_files'] = failed_files
-            
+
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if len(failed_files) == 0 else 2  # Exit code 2 if some files failed
 
