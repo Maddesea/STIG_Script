@@ -1067,14 +1067,11 @@ class San:
                                             if not target_str.startswith(base_str + os.sep) and target_str != base_str:
                                                 raise ValidationError(f"Symlink escape attempt detected: {parent}")
                                         except (ValueError, OSError) as e:
-                                            raise ValidationError(f"Symlink validation failed: {parent} - {e}")
-                                except (ValueError, TypeError) as e:
-                                    raise ValidationError(f"Symlink validation failed: {parent} - {e}")
-                                        # Fallback: use relative_to() which raises ValueError if not contained
-                                        try:
-                                            target.relative_to(expected_base)
-                                        except ValueError:
-                                            raise ValidationError(f"Symlink escape attempt detected: {parent}")
+                                            # If resolve fails, try relative_to() as final fallback
+                                            try:
+                                                target.relative_to(expected_base)
+                                            except ValueError:
+                                                raise ValidationError(f"Symlink escape attempt detected: {parent}")
                                 except (ValueError, TypeError) as ve:
                                     raise ValidationError(f"Symlink validation failed: {parent}: {ve}")
                     except ValidationError:
@@ -1483,10 +1480,14 @@ class Hist:
     def __post_init__(self) -> None:
         if self.ts.tzinfo is None:
             self.ts = self.ts.replace(tzinfo=timezone.utc)
-        with suppress(Exception):
+        try:
             self.stat = San.status(self.stat)
-        with suppress(Exception):
+        except (ValidationError, ValueError):
+            self.stat = "Not_Reviewed"  # Default fallback
+        try:
             self.sev = San.sev(self.sev)
+        except (ValidationError, ValueError):
+            self.sev = "medium"  # Default fallback
         if not self.who:
             self.who = os.getenv("USER") or os.getenv("USERNAME") or "System"
 
@@ -2748,13 +2749,13 @@ class Proc:
                 for sd in vuln.findall("STIG_DATA"):
                     attr = sd.findtext("VULN_ATTRIBUTE")
                     if attr == "Severity":
-                        severity = sd.findtext("ATTRIBUTE_DATA", "")
+                        severity = sd.findtext("ATTRIBUTE_DATA", default="")
                     elif attr == "Rule_Title":
-                        rule_title = sd.findtext("ATTRIBUTE_DATA", "")
+                        rule_title = sd.findtext("ATTRIBUTE_DATA", default="")
 
-                status = vuln.findtext("STATUS", "")
-                finding_details = vuln.findtext("FINDING_DETAILS", "")
-                comments = vuln.findtext("COMMENTS", "")
+                status = vuln.findtext("STATUS", default="")
+                finding_details = vuln.findtext("FINDING_DETAILS", default="")
+                comments = vuln.findtext("COMMENTS", default="")
 
                 vulns[vid] = {
                     "status": status,
@@ -2844,7 +2845,7 @@ class Proc:
                 for sd in vuln.findall("STIG_DATA"):
                     attr = sd.findtext("VULN_ATTRIBUTE")
                     if attr == "Severity":
-                        severity = San.sev(sd.findtext("ATTRIBUTE_DATA", "medium"))
+                        severity = San.sev(sd.findtext("ATTRIBUTE_DATA", default="medium"))
 
                 if finding.strip() or comment.strip():
                     self.history.add(
@@ -2995,7 +2996,7 @@ class Proc:
 
         # Write repaired checklist
         XmlUtils.indent_xml(root)
-        self._write_ckl(tree, out_path)
+        self._write_ckl(root, out_path)
 
         LOG.i(f"Repaired checklist written to {out_path}")
         LOG.i(f"Repairs applied: {len(repairs)}")
@@ -3207,7 +3208,7 @@ class Proc:
                     for sd in vuln.findall("STIG_DATA"):
                         attr = sd.findtext("VULN_ATTRIBUTE")
                         if attr == "Severity":
-                            severity = sd.findtext("ATTRIBUTE_DATA", "medium")
+                            severity = sd.findtext("ATTRIBUTE_DATA", default="medium")
                             break
 
                     stats["by_severity"][severity] += 1
