@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-STIG Assessor - Complete Production Edition v7.2.0
+STIG Assessor - Complete Production Edition v7.3.0
 ───────────────────────────────────────────────────────────────────────────────
 PRODUCTION-READY • ZERO-DEPENDENCY • AIR-GAP CERTIFIED • BULLETPROOF
 
@@ -21,6 +21,16 @@ Highlights
     ✓ Validation (comprehensive STIG Viewer compatibility)
     ✓ GUI with async operations (requires tkinter, optional)
     ✓ CLI feature parity with GUI
+
+Release 7.3 Improvements (2025-11-16)
+    ✓ SECURITY: Fixed critical bug in repair() - correct object passed to _write_ckl()
+    ✓ SECURITY: Improved symlink validation for Windows multi-drive systems
+    ✓ SECURITY: Replaced MD5 with SHA256 for command deduplication (collision-resistant)
+    ✓ SECURITY: Fixed temp file race condition using os.fdopen() instead of close/reopen
+    ✓ SECURITY: Enhanced input validation - length check before processing in San.xml()
+    ✓ RELIABILITY: Fixed timezone handling - all timestamps normalized to UTC consistently
+    ✓ MAINTAINABILITY: Added named constants for history management magic numbers
+    ✓ CODE QUALITY: Improved code organization and readability throughout
 
 Release 7.2 Improvements (2025-11-16)
     ✓ SECURITY: Fixed symlink validation to use proper path comparison (not string prefix)
@@ -103,7 +113,7 @@ warnings.filterwarnings("ignore", category=ResourceWarning)
 # CONSTANTS
 # ──────────────────────────────────────────────────────────────────────────────
 
-VERSION = "7.2.0"
+VERSION = "7.3.0"
 BUILD_DATE = "2025-11-16"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
@@ -409,6 +419,11 @@ class Cfg:
     MAX_VULNS = 15000
     KEEP_BACKUPS = 30
     KEEP_LOGS = 15
+
+    # History management constants
+    HIST_RECENT_CHECK = 20      # Number of recent history entries to check for duplicates
+    HIST_COMPRESS_HEAD = 15     # Number of oldest entries to keep when compressing
+    HIST_COMPRESS_TAIL = 100    # Number of newest entries to keep when compressing
 
     _lock = threading.RLock()
     _done = False
@@ -887,12 +902,18 @@ class San:
                                         if not target.is_relative_to(expected_base):
                                             raise ValidationError(f"Symlink escape attempt detected: {parent}")
                                     else:
-                                        # Fallback: use commonpath
-                                        import os.path
-                                        if os.path.commonpath([target, expected_base]) != str(expected_base):
+                                        # Fallback: use path string comparison with separator check
+                                        # On Windows, check drives first
+                                        if Cfg.IS_WIN and hasattr(target, 'drive') and hasattr(expected_base, 'drive'):
+                                            if target.drive != expected_base.drive:
+                                                raise ValidationError(f"Symlink crosses drives: {parent} ({target.drive} -> {expected_base.drive})")
+                                        # Use string prefix check with separator to prevent false positives
+                                        target_str = str(target)
+                                        base_str = str(expected_base)
+                                        if not target_str.startswith(base_str + os.sep) and target_str != base_str:
                                             raise ValidationError(f"Symlink escape attempt detected: {parent}")
-                                except (ValueError, TypeError):
-                                    raise ValidationError(f"Symlink validation failed: {parent}")
+                                except (ValueError, TypeError) as e:
+                                    raise ValidationError(f"Symlink validation failed: {parent}: {e}")
                     except ValidationError:
                         raise
                     except Exception as symlink_err:
@@ -1009,6 +1030,12 @@ class San:
                 # Cannot convert to string, return empty
                 LOG.w(f"Failed to convert value to string for XML sanitization: {type(value)} - {exc}")
                 return ""
+
+        # Check and truncate length BEFORE processing to prevent memory exhaustion
+        if mx is not None and len(value) > mx:
+            value = value[: mx - 15] + "\n[TRUNCATED]"
+
+        # Sanitize control characters and XML entities
         value = San.CTRL.sub("", value)
         value = (
             value.replace("&", "&amp;")
@@ -1017,8 +1044,6 @@ class San:
             .replace('"', "&quot;")
             .replace("'", "&apos;")
         )
-        if mx is not None and len(value) > mx:
-            value = value[: mx - 15] + "\n[TRUNCATED]"
         return value
 
 
@@ -1051,14 +1076,14 @@ class FO:
                 suffix=".tmp",
                 text="b" not in mode,
             )
-            os.close(fd)
             tmp_path = Path(tmp_name)
             GLOBAL.add_temp(tmp_path)
 
+            # Use os.fdopen to avoid race condition (don't close and reopen)
             if "b" in mode:
-                fh = open(tmp_path, mode)
+                fh = os.fdopen(fd, mode)
             else:
-                fh = open(tmp_path, mode, encoding=enc, errors="replace", newline="\n")
+                fh = os.fdopen(fd, mode, encoding=enc, errors="replace", newline="\n")
 
             yield fh
 
@@ -1256,8 +1281,12 @@ class Hist:
     who: str = field(default="", compare=False)
 
     def __post_init__(self) -> None:
+        # Always normalize timestamp to UTC to prevent mixed timezone issues
         if self.ts.tzinfo is None:
             self.ts = self.ts.replace(tzinfo=timezone.utc)
+        else:
+            # Convert to UTC if not already
+            self.ts = self.ts.astimezone(timezone.utc)
         with suppress(Exception):
             self.stat = San.status(self.stat)
         with suppress(Exception):
@@ -1287,8 +1316,11 @@ class Hist:
         if ts_str:
             with suppress(Exception):
                 ts = datetime.fromisoformat(ts_str.rstrip("Z"))
+        # Normalize to UTC
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
+        else:
+            ts = ts.astimezone(timezone.utc)
 
         return cls(
             ts=ts,
@@ -1338,7 +1370,7 @@ class HistMgr:
                 LOG.w(f"Failed to compute digest for {vid}, using fallback: {exc}")
                 digest = f"chk_{uuid.uuid4().hex[:6]}"
 
-            if any(entry.chk == digest for entry in self._h[vid][-20:]):
+            if any(entry.chk == digest for entry in self._h[vid][-Cfg.HIST_RECENT_CHECK:]):
                 return False
 
             if not who:
@@ -1366,9 +1398,9 @@ class HistMgr:
         if len(entries) <= Cfg.MAX_HIST:
             return
 
-        head = entries[:15]
-        tail = entries[-100:]
-        middle = entries[15:-100]
+        head = entries[:Cfg.HIST_COMPRESS_HEAD]
+        tail = entries[-Cfg.HIST_COMPRESS_TAIL:]
+        middle = entries[Cfg.HIST_COMPRESS_HEAD:-Cfg.HIST_COMPRESS_TAIL]
 
         if middle:
             compressed = Hist(
@@ -2760,7 +2792,7 @@ class Proc:
 
         # Write repaired checklist
         XmlUtils.indent_xml(root)
-        self._write_ckl(tree, out_path)
+        self._write_ckl(root, out_path)
 
         LOG.i(f"Repaired checklist written to {out_path}")
         LOG.i(f"Repairs applied: {len(repairs)}")
@@ -3478,8 +3510,8 @@ class FixExt:
             if len(cmd) > 2000:  # Too long, probably not a command
                 continue
 
-            # Deduplicate
-            cmd_hash = hashlib.md5(cmd.encode()).hexdigest()
+            # Deduplicate using SHA256 (more collision-resistant than MD5)
+            cmd_hash = hashlib.sha256(cmd.encode()).hexdigest()[:32]  # Use first 32 chars for efficiency
             if cmd_hash in seen:
                 continue
             seen.add(cmd_hash)
@@ -3759,8 +3791,11 @@ class FixResult:
         if ts_str:
             with suppress(Exception):
                 ts = datetime.fromisoformat(ts_str.rstrip("Z"))
+        # Normalize to UTC
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
+        else:
+            ts = ts.astimezone(timezone.utc)
         return cls(
             vid=vid,
             ts=ts,
@@ -4082,8 +4117,11 @@ class EvidenceMeta:
         if imported_str:
             with suppress(Exception):
                 imported = datetime.fromisoformat(imported_str.rstrip("Z"))
+        # Normalize to UTC
         if imported.tzinfo is None:
             imported = imported.replace(tzinfo=timezone.utc)
+        else:
+            imported = imported.astimezone(timezone.utc)
         return cls(
             vid=vid,
             filename=str(data.get("filename", "")),
