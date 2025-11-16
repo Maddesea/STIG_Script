@@ -6,6 +6,10 @@ Department of Defense (DoD) Security Technical Implementation Guide (STIG) asses
 Version: 8.0.0
 Build Date: 2025-11-16
 STIG Viewer Compatibility: 2.18
+"""STIG Assessor - Department of Defense STIG compliance assessment tool.
+
+A production-ready, zero-dependency, air-gap certified security compliance tool
+for Security Technical Implementation Guide (STIG) assessments.
 """
 
 from __future__ import annotations

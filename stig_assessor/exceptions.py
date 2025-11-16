@@ -20,6 +20,14 @@ class STIGError(Exception):
         msg: The error message
         ctx: Optional dictionary of contextual information (e.g., file paths, VIDs)
     """
+"""Custom exception classes for STIG Assessor."""
+
+from __future__ import annotations
+from typing import Optional, Dict, Any
+
+
+class STIGError(Exception):
+    """Base exception with context."""
 
     def __init__(self, msg: str, ctx: Optional[Dict[str, Any]] = None):
         super().__init__(msg)
@@ -43,3 +51,12 @@ class FileError(STIGError):
 
 class ParseError(STIGError):
     """Raised when XML parsing fails."""
+    """Validation failure."""
+
+
+class FileError(STIGError):
+    """File operation failure."""
+
+
+class ParseError(STIGError):
+    """Parsing failure."""
