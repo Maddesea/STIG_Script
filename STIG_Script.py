@@ -172,7 +172,27 @@ class Severity(str, Enum):
 
 
 class GlobalState:
-    """Process wide shutdown coordination."""
+    """
+    Process-wide shutdown coordinator and resource manager (Singleton).
+
+    Responsibilities:
+    - Signal handling (SIGINT, SIGTERM) for graceful shutdown
+    - Temporary file tracking and cleanup
+    - Registration of cleanup callbacks
+    - Thread-safe shutdown coordination
+
+    Usage:
+        GLOBAL = GlobalState()  # First call creates instance
+        GLOBAL.add_temp(tmp_file)  # Track for cleanup
+        GLOBAL.add_cleanup(lambda: close_connection())  # Register callback
+
+    Cleanup is automatic on exit via atexit, but can be manually triggered
+    with GLOBAL.cleanup(). Thread-safe via RLock.
+
+    Thread Safety:
+        All public methods are thread-safe via internal RLock. Safe to call
+        from multiple threads or signal handlers.
+    """
 
     _instance: Optional["GlobalState"] = None
     _lock = threading.RLock()
@@ -361,8 +381,20 @@ ET, XMLParseError = Deps.get_xml()
 
 # Warn if defusedxml is not available (security risk)
 if not Deps.HAS_DEFUSEDXML:
-    print("WARNING: defusedxml not available. Falling back to unsafe XML parser.", file=sys.stderr)
-    print("  Install defusedxml for protection against XML entity expansion attacks.", file=sys.stderr)
+    warning_msg = """
+╔════════════════════════════════════════════════════════════╗
+║ SECURITY WARNING: defusedxml not installed                ║
+║                                                            ║
+║ Using unsafe XML parser vulnerable to XXE/billion laughs  ║
+║ attacks. This is NOT recommended for DoD production use.  ║
+║                                                            ║
+║ Install with: pip install defusedxml                      ║
+║                                                            ║
+║ DoD systems MUST NOT use unsafe parser with untrusted     ║
+║ XCCDF/CKL files from external sources.                    ║
+╚════════════════════════════════════════════════════════════╝
+"""
+    print(warning_msg, file=sys.stderr)
 
 if Deps.HAS_TKINTER:
     import tkinter as tk
@@ -809,6 +841,81 @@ class XmlUtils:
                 results.append(child.text.strip())
         return join_with.join(results) if results else default
 
+    @staticmethod
+    def extract_text_content(elem) -> str:
+        """
+        Enhanced text extraction with proper mixed content handling.
+
+        This method handles XCCDF elements that contain plain text, nested elements,
+        and preserves command formatting. Uses multiple fallback strategies to handle
+        complex XML structures.
+
+        Args:
+            elem: XML element to extract text from
+
+        Returns:
+            Extracted and normalized text content, or empty string if no content
+
+        Strategies:
+            1. itertext() with newline preservation for mixed content
+            2. Recursive manual traversal for complex nested structures
+            3. Direct text attribute access for simple elements
+        """
+        if elem is None:
+            return ""
+
+        # Method 1: itertext() with proper newline preservation
+        try:
+            parts: List[str] = []
+            # Collect all text including from nested elements
+            for text_fragment in elem.itertext():
+                if text_fragment:
+                    # Only strip leading/trailing whitespace, preserve internal structure
+                    cleaned = text_fragment.strip()
+                    if cleaned:
+                        parts.append(cleaned)
+
+            if parts:
+                # Join with newlines to preserve command structure
+                result = '\n'.join(parts)
+                # Clean up excessive blank lines but keep structure
+                result = re.sub(r'\n\s*\n\s*\n+', '\n\n', result)
+                return result.strip()
+        except Exception as exc:
+            LOG.d(f"itertext() extraction failed: {exc}")
+
+        # Method 2: Manual traversal for complex mixed content
+        try:
+            def extract_text_recursive(element) -> List[str]:
+                texts = []
+                if element.text:
+                    txt = element.text.strip()
+                    if txt:
+                        texts.append(txt)
+                for child in element:
+                    # Recursively get text from children
+                    texts.extend(extract_text_recursive(child))
+                    # Get tail text (text after child element)
+                    if child.tail:
+                        tail = child.tail.strip()
+                        if tail:
+                            texts.append(tail)
+                return texts
+
+            parts = extract_text_recursive(elem)
+            if parts:
+                result = '\n'.join(parts)
+                result = re.sub(r'\n\s*\n\s*\n+', '\n\n', result)
+                return result.strip()
+        except Exception as exc:
+            LOG.d(f"Recursive extraction failed: {exc}")
+
+        # Method 3: Direct text attribute (simple elements only)
+        if elem.text and elem.text.strip():
+            return elem.text.strip()
+
+        return ""
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # SANITISER
@@ -816,7 +923,33 @@ class XmlUtils:
 
 
 class San:
-    """Input validation helpers."""
+    """
+    Input sanitization and validation utilities.
+
+    Philosophy:
+    - Fail fast: Raise ValidationError on invalid input, never silently accept bad data
+    - No silent coercion: Don't "fix" or modify invalid input, reject it explicitly
+    - Defense in depth: Multiple validation layers for critical security boundaries
+    - Explicit over implicit: Clear validation rules with informative error messages
+
+    Validation Categories:
+    - File paths: Traversal detection, symlink validation, size limits, permission checks
+    - Network: IP/MAC format validation with proper octet/segment checking
+    - Identifiers: Vulnerability IDs (V-NNNNNN), UUIDs (RFC 4122)
+    - XML: Entity escaping, control character removal, length limits
+    - STIG values: Status/severity enumeration validation against STIG Viewer schema
+
+    Security Features:
+    - Path traversal prevention (../ sequences)
+    - Symlink attack detection
+    - Control character filtering (prevents XML injection)
+    - XML entity escaping (&, <, >, ", ')
+    - File size limits (prevents resource exhaustion)
+    - Input length limits (prevents buffer issues)
+
+    All methods raise ValidationError on invalid input. Never returns None or
+    silently fails - caller must handle ValidationError explicitly.
+    """
 
     ASSET = re.compile(r"^[a-zA-Z0-9._-]{1,255}$")
     IP = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
@@ -887,12 +1020,21 @@ class San:
                                         if not target.is_relative_to(expected_base):
                                             raise ValidationError(f"Symlink escape attempt detected: {parent}")
                                     else:
-                                        # Fallback: use commonpath
-                                        import os.path
-                                        if os.path.commonpath([target, expected_base]) != str(expected_base):
-                                            raise ValidationError(f"Symlink escape attempt detected: {parent}")
-                                except (ValueError, TypeError):
-                                    raise ValidationError(f"Symlink validation failed: {parent}")
+                                        # Fallback: use resolve and path prefix validation
+                                        # Safer than commonpath which has cross-drive vulnerabilities on Windows
+                                        try:
+                                            target_resolved = target.resolve()
+                                            base_resolved = expected_base.resolve()
+                                            # Normalize paths and check prefix with separator to prevent partial matches
+                                            target_str = str(target_resolved)
+                                            base_str = str(base_resolved)
+                                            # Add separator to prevent matching "/foo" with "/foobar"
+                                            if not target_str.startswith(base_str + os.sep) and target_str != base_str:
+                                                raise ValidationError(f"Symlink escape attempt detected: {parent}")
+                                        except (ValueError, OSError) as e:
+                                            raise ValidationError(f"Symlink validation failed: {parent} - {e}")
+                                except (ValueError, TypeError) as e:
+                                    raise ValidationError(f"Symlink validation failed: {parent} - {e}")
                     except ValidationError:
                         raise
                     except Exception as symlink_err:
@@ -1085,7 +1227,16 @@ class FO:
                         else:
                             LOG.w(f"Could not delete target file after {max_attempts} attempts, replace may fail")
 
-            tmp_path.replace(target)
+            # Perform atomic replace with final retry for Windows file locking
+            try:
+                tmp_path.replace(target)
+            except OSError as e:
+                if Cfg.IS_WIN and hasattr(e, 'winerror') and e.winerror == 32:  # File in use
+                    LOG.d("Replace failed due to file lock, retrying with delay")
+                    time.sleep(1.0)  # One final longer delay
+                    tmp_path.replace(target)  # Final attempt, let exception propagate if still fails
+                else:
+                    raise
             tmp_path = None
 
             if bak:
@@ -1099,10 +1250,14 @@ class FO:
                 with suppress(Exception):
                     tmp_path.unlink()
             if backup_path and backup_path.exists():
-                with suppress(Exception):
+                try:
                     if target.exists():
                         target.unlink()
                     shutil.copy2(str(backup_path), str(target))
+                    LOG.i(f"Restored from backup: {backup_path}")
+                except Exception as rollback_err:
+                    LOG.c(f"CRITICAL: Rollback failed! Manual recovery needed. Backup: {backup_path}", exc=True)
+                    raise FileError(f"Atomic write failed AND rollback failed: {exc}. Backup at: {backup_path}") from rollback_err
             raise FileError(f"Atomic write failed: {exc}")
         finally:
             if tmp_path and tmp_path.exists():
@@ -3937,71 +4092,76 @@ class FixResPro:
         if stigs is None:
             raise ParseError("Checklist missing STIGS section")
 
-        updated = 0
-        not_found: List[str] = []
-
+        # Build VID index once for O(1) lookups (performance optimization)
+        LOG.d("Building VID index for fast lookups")
+        vid_to_vuln: Dict[str, Any] = {}
         for istig in stigs.findall("iSTIG"):
             for vuln in istig.findall("VULN"):
                 vid = XmlUtils.get_vid(vuln)
-                if not vid or vid not in self.results:
-                    continue
+                if vid:
+                    vid_to_vuln[vid] = vuln
 
-                result = self.results[vid]
-                updated += 1
+        updated = 0
+        not_found: List[str] = []
 
-                finding_node = vuln.find("FINDING_DETAILS")
-                if finding_node is None:
-                    finding_node = ET.SubElement(vuln, "FINDING_DETAILS")
-
-                summary = [
-                    "┌" + "─" * 78 + "┐",
-                    "│ AUTOMATED REMEDIATION".center(80) + "│",
-                    "└" + "─" * 78 + "┘",
-                    f"Timestamp: {result.ts.strftime('%Y-%m-%d %H:%M:%S UTC')}",
-                    f"Result: {'✔ SUCCESS' if result.ok else '✘ FAILED'}",
-                    f"Mode: {self.meta.get('mode', 'unknown')}",
-                ]
-                if result.message:
-                    summary.append(f"Message: {result.message}")
-                if result.output:
-                    summary.append("")
-                    summary.append("Output:")
-                    summary.append(result.output)
-                if result.error:
-                    summary.append("")
-                    summary.append("Error:")
-                    summary.append(result.error)
-
-                existing = finding_node.text or ""
-                if existing.strip():
-                    combined = "\n".join(summary) + "\n\n" + "═" * 80 + "\n[PREVIOUS]\n" + "═" * 80 + "\n\n" + existing
-                else:
-                    combined = "\n".join(summary)
-                if len(combined) > Cfg.MAX_FIND:
-                    combined = combined[: Cfg.MAX_FIND - 15] + "\n[TRUNCATED]"
-                finding_node.text = combined
-
-                comment_node = vuln.find("COMMENTS")
-                if comment_node is None:
-                    comment_node = ET.SubElement(vuln, "COMMENTS")
-                comments = comment_node.text or ""
-                entry = f"[Automated Remediation {result.ts.strftime('%Y-%m-%d %H:%M:%S UTC')}] {result.message or 'Refer to details'}"
-                if comments.strip():
-                    comment_node.text = entry + "\n" + comments
-                else:
-                    comment_node.text = entry
-
-                if auto_status and result.ok:
-                    status_node = vuln.find("STATUS")
-                    if status_node is None:
-                        status_node = ET.SubElement(vuln, "STATUS")
-                    status_node.text = San.status("NotAFinding")
-
-        # Track results that didn't match any vulnerability
-        for vid in self.results:
-            if not self._find_vuln(root, vid):
+        # Use index for O(1) lookups instead of O(n) searches
+        for vid, result in self.results.items():
+            vuln = vid_to_vuln.get(vid)
+            if not vuln:
                 not_found.append(vid)
+                continue
 
+            updated += 1
+
+            finding_node = vuln.find("FINDING_DETAILS")
+            if finding_node is None:
+                finding_node = ET.SubElement(vuln, "FINDING_DETAILS")
+
+            summary = [
+                "┌" + "─" * 78 + "┐",
+                "│ AUTOMATED REMEDIATION".center(80) + "│",
+                "└" + "─" * 78 + "┘",
+                f"Timestamp: {result.ts.strftime('%Y-%m-%d %H:%M:%S UTC')}",
+                f"Result: {'✔ SUCCESS' if result.ok else '✘ FAILED'}",
+                f"Mode: {self.meta.get('mode', 'unknown')}",
+            ]
+            if result.message:
+                summary.append(f"Message: {result.message}")
+            if result.output:
+                summary.append("")
+                summary.append("Output:")
+                summary.append(result.output)
+            if result.error:
+                summary.append("")
+                summary.append("Error:")
+                summary.append(result.error)
+
+            existing = finding_node.text or ""
+            if existing.strip():
+                combined = "\n".join(summary) + "\n\n" + "═" * 80 + "\n[PREVIOUS]\n" + "═" * 80 + "\n\n" + existing
+            else:
+                combined = "\n".join(summary)
+            if len(combined) > Cfg.MAX_FIND:
+                combined = combined[: Cfg.MAX_FIND - 15] + "\n[TRUNCATED]"
+            finding_node.text = combined
+
+            comment_node = vuln.find("COMMENTS")
+            if comment_node is None:
+                comment_node = ET.SubElement(vuln, "COMMENTS")
+            comments = comment_node.text or ""
+            entry = f"[Automated Remediation {result.ts.strftime('%Y-%m-%d %H:%M:%S UTC')}] {result.message or 'Refer to details'}"
+            if comments.strip():
+                comment_node.text = entry + "\n" + comments
+            else:
+                comment_node.text = entry
+
+            if auto_status and result.ok:
+                status_node = vuln.find("STATUS")
+                if status_node is None:
+                    status_node = ET.SubElement(vuln, "STATUS")
+                status_node.text = San.status("NotAFinding")
+
+        # not_found list is now built during the main loop (performance optimization)
         XmlUtils.indent_xml(root)
 
         if dry:
@@ -4025,16 +4185,6 @@ class FixResPro:
         }
 
     # ---------------------------------------------------------------- helpers
-
-    def _find_vuln(self, root, vid: str) -> bool:
-        for sd in root.findall(".//STIG_DATA"):
-            attr = sd.findtext("VULN_ATTRIBUTE")
-            if attr == "Vuln_Num":
-                value = sd.findtext("ATTRIBUTE_DATA")
-                if value and value.strip() == vid:
-                    return True
-        return False
-
 
     def _write_ckl(self, root, out: Path) -> None:
         with FO.atomic(out, mode="wb", bak=False) as handle:
