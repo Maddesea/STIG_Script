@@ -499,10 +499,12 @@ class Cfg:
                     cls.HOME = candidate
                     break
                 except (OSError, PermissionError, IOError) as exc:
-                    LOG.d(f"Cannot use {candidate}: {exc}")
+                    # LOG not initialized yet during Cfg.init()
+                    # Use stderr for debugging if needed
                     continue
                 except Exception as exc:
-                    LOG.d(f"Unexpected error with {candidate}: {exc}")
+                    # LOG not initialized yet during Cfg.init()
+                    # Use stderr for debugging if needed
                     continue
 
             if not cls.HOME:
@@ -1613,7 +1615,7 @@ class HistMgr:
                 comm="",
                 src="system",
                 chk="compressed",
-                sev="info",
+                sev="medium",  # Fixed: "info" is not a valid severity; use "medium" for system entries
                 who="system",
             )
             self._h[vid] = head + [compressed] + tail
@@ -4524,7 +4526,9 @@ class EvidenceMgr:
 
                     # Verify resolved path stays within extraction directory
                     target_path = (tmp_path / member).resolve()
-                    if not str(target_path).startswith(str(tmp_path.resolve())):
+                    try:
+                        target_path.relative_to(tmp_path.resolve())
+                    except ValueError:
                         raise ValidationError(f"Archive path escapes extraction directory: {member}")
 
                 # Safe to extract after validation
@@ -5117,7 +5121,7 @@ if Deps.HAS_TKINTER:
                     if len(item) == 3:
                         # Standard callback format
                         kind, func, payload = item
-                        if kind == "callback":
+                        if kind == "callback" and callable(func):
                             func(payload)
                     elif len(item) == 2:
                         # Status update format
