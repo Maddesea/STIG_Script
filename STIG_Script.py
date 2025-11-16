@@ -1260,17 +1260,21 @@ class FO:
             else:
                 fh = os.fdopen(fd, mode, encoding=enc, errors="replace", newline="\n")
 
-            yield fh
+            try:
+                yield fh
 
-            fh.flush()
-            if not Cfg.IS_WIN:
-                os.fsync(fh.fileno())
-            else:
-                with suppress(Exception):
-                    fh.flush()
+                fh.flush()
+                if not Cfg.IS_WIN:
                     os.fsync(fh.fileno())
-            fh.close()
-            fh = None
+                else:
+                    with suppress(Exception):
+                        fh.flush()
+                        os.fsync(fh.fileno())
+            finally:
+                # Ensure file handle is always closed, even if fsync fails
+                if fh and not fh.closed:
+                    fh.close()
+                fh = None
 
             # Windows file replacement with retry logic for antivirus/indexing locks
             if Cfg.IS_WIN and target.exists():
@@ -1289,7 +1293,9 @@ class FO:
             try:
                 tmp_path.replace(target)
             except OSError as e:
-                if Cfg.IS_WIN and hasattr(e, 'winerror') and e.winerror == 32:  # File in use
+                # Safely check for Windows error code 32 (file in use)
+                winerror = getattr(e, 'winerror', None)
+                if Cfg.IS_WIN and winerror == 32:
                     LOG.d("Replace failed due to file lock, retrying with delay")
                     time.sleep(1.0)  # One final longer delay
                     tmp_path.replace(target)  # Final attempt, let exception propagate if still fails
@@ -5117,18 +5123,31 @@ if Deps.HAS_TKINTER:
                 while True:
                     item = self.queue.get_nowait()
 
-                    # Handle different message types
-                    if len(item) == 3:
-                        # Standard callback format
-                        kind, func, payload = item
-                        if kind == "callback" and callable(func):
-                            func(payload)
-                    elif len(item) == 2:
-                        # Status update format
-                        kind, message = item
-                        if kind == "status":
-                            self.results_status.set(message)
-                            self.root.update_idletasks()  # Force UI refresh
+                    # Handle different message types with validation
+                    try:
+                        if not isinstance(item, tuple):
+                            LOG.w(f"Invalid queue item type: {type(item)}")
+                            continue
+
+                        if len(item) == 3:
+                            # Standard callback format
+                            kind, func, payload = item
+                            if kind == "callback" and callable(func):
+                                func(payload)
+                            else:
+                                LOG.w(f"Invalid callback item: kind={kind}, callable={callable(func)}")
+                        elif len(item) == 2:
+                            # Status update format
+                            kind, message = item
+                            if kind == "status":
+                                self.results_status.set(message)
+                                self.root.update_idletasks()  # Force UI refresh
+                            else:
+                                LOG.w(f"Unknown queue item kind: {kind}")
+                        else:
+                            LOG.w(f"Invalid queue item length: {len(item)}")
+                    except Exception as e:
+                        LOG.e(f"Error processing queue item: {e}", exc=True)
             except queue.Empty:
                 pass
 
