@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-STIG Assessor - Complete Production Edition v7.2.0
+STIG Assessor - Complete Production Edition v7.3.0
 ───────────────────────────────────────────────────────────────────────────────
 PRODUCTION-READY • ZERO-DEPENDENCY • AIR-GAP CERTIFIED • BULLETPROOF
 
@@ -21,6 +21,20 @@ Highlights
     ✓ Validation (comprehensive STIG Viewer compatibility)
     ✓ GUI with async operations (requires tkinter, optional)
     ✓ CLI feature parity with GUI
+
+Release 7.3 Improvements (2025-11-16)
+    ✓ SECURITY: Fixed symlink validation fallback to use relative_to() instead of commonpath
+    ✓ SECURITY: Fixed file handle race condition in atomic writes (now uses os.fdopen)
+    ✓ SECURITY: Large XML files now fail without defusedxml (was warning only)
+    ✓ SECURITY: Replaced MD5 with SHA256 for command deduplication
+    ✓ ACCURACY: Improved IP validation regex to reject leading zeros (e.g., 192.001.001.001)
+    ✓ ACCURACY: Lowered error threshold from 90% to 25% for earlier failure detection
+    ✓ ACCURACY: History deduplication now checks all entries (not just last 20)
+    ✓ ACCURACY: Severity validation now supports strict mode (raises errors vs defaulting)
+    ✓ CODE QUALITY: Added constants for magic numbers (dedup window, compression thresholds)
+    ✓ CODE QUALITY: Added missing type hints to key functions (XmlUtils.get_vid)
+    ✓ CODE QUALITY: Improved error messages with context (config init, zip creation)
+    ✓ CODE QUALITY: Better exception handling with specific types vs broad suppression
 
 Release 7.2 Improvements (2025-11-16)
     ✓ SECURITY: Fixed symlink validation to use proper path comparison (not string prefix)
@@ -103,7 +117,7 @@ warnings.filterwarnings("ignore", category=ResourceWarning)
 # CONSTANTS
 # ──────────────────────────────────────────────────────────────────────────────
 
-VERSION = "7.2.0"
+VERSION = "7.3.0"
 BUILD_DATE = "2025-11-16"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
@@ -442,6 +456,15 @@ class Cfg:
     KEEP_BACKUPS = 30
     KEEP_LOGS = 15
 
+    # History deduplication and compression constants
+    DEDUP_CHECK_WINDOW = 20  # Check last N entries for duplicate prevention
+    HIST_COMPRESS_HEAD = 15  # Keep first N entries when compressing history
+    HIST_COMPRESS_TAIL = 100  # Keep last N entries when compressing history
+
+    # Error rate thresholds for validation
+    ERROR_RATE_WARN_THRESHOLD = 10.0  # Warn at 10% error rate
+    ERROR_RATE_FAIL_THRESHOLD = 25.0  # Fail at 25% error rate
+
     _lock = threading.RLock()
     _done = False
 
@@ -465,7 +488,9 @@ class Cfg:
             with suppress(Exception):
                 candidates.append(Path.cwd() / ".stig_home")
 
+            attempted_paths: List[str] = []
             for candidate in candidates:
+                attempted_paths.append(str(candidate))
                 try:
                     candidate.mkdir(parents=True, exist_ok=True)
                     tmp = candidate / f".stig_test_{os.getpid()}"
@@ -473,11 +498,18 @@ class Cfg:
                     tmp.unlink()
                     cls.HOME = candidate
                     break
-                except Exception:
+                except (OSError, PermissionError, IOError) as exc:
+                    LOG.d(f"Cannot use {candidate}: {exc}")
+                    continue
+                except Exception as exc:
+                    LOG.d(f"Unexpected error with {candidate}: {exc}")
                     continue
 
             if not cls.HOME:
-                raise RuntimeError("Cannot find writable home directory")
+                raise RuntimeError(
+                    f"Cannot find writable home directory. Tried: {', '.join(attempted_paths[:5])}. "
+                    f"Please ensure write permissions on one of these directories or set $HOME/$USERPROFILE."
+                )
 
             cls.APP_DIR = cls.HOME / ".stig_assessor"
             cls.LOG_DIR = cls.APP_DIR / "logs"
@@ -802,7 +834,7 @@ class XmlUtils:
                 elem.tail = indent
 
     @staticmethod
-    def get_vid(vuln) -> Optional[str]:
+    def get_vid(vuln: ET.Element) -> Optional[str]:
         """
         Extract Vulnerability ID (VID) from VULN element.
 
@@ -817,8 +849,10 @@ class XmlUtils:
             if attr == "Vuln_Num":
                 vid = sd.findtext("ATTRIBUTE_DATA")
                 if vid:
-                    with suppress(Exception):
+                    try:
                         return San.vuln(vid.strip())
+                    except ValidationError as exc:
+                        LOG.d(f"Invalid VID format: {vid.strip()}: {exc}")
         return None
 
     @staticmethod
@@ -952,7 +986,8 @@ class San:
     """
 
     ASSET = re.compile(r"^[a-zA-Z0-9._-]{1,255}$")
-    IP = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
+    # IP regex now rejects leading zeros (e.g., 192.001.001.001)
+    IP = re.compile(r"^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$")
     MAC = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")
     VULN = re.compile(r"^V-\d{1,10}$")
     UUID = re.compile(r"^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$", re.I)
@@ -1035,6 +1070,13 @@ class San:
                                             raise ValidationError(f"Symlink validation failed: {parent} - {e}")
                                 except (ValueError, TypeError) as e:
                                     raise ValidationError(f"Symlink validation failed: {parent} - {e}")
+                                        # Fallback: use relative_to() which raises ValueError if not contained
+                                        try:
+                                            target.relative_to(expected_base)
+                                        except ValueError:
+                                            raise ValidationError(f"Symlink escape attempt detected: {parent}")
+                                except (ValueError, TypeError) as ve:
+                                    raise ValidationError(f"Symlink validation failed: {parent}: {ve}")
                     except ValidationError:
                         raise
                     except Exception as symlink_err:
@@ -1131,11 +1173,28 @@ class San:
         return value
 
     @staticmethod
-    def sev(value: str) -> str:
+    def sev(value: str, strict: bool = False) -> str:
+        """
+        Validate and normalize severity value.
+
+        Args:
+            value: Severity value to validate
+            strict: If True, raises ValidationError for invalid values instead of defaulting
+
+        Returns:
+            Normalized severity value ('high', 'medium', or 'low')
+
+        Raises:
+            ValidationError: If strict=True and value is invalid
+        """
         if not value:
+            if strict:
+                raise ValidationError("Empty severity value")
             return "medium"
         value = str(value).strip().lower()
         if value not in Sch.SEV_VALS:
+            if strict:
+                raise ValidationError(f"Invalid severity: {value} (must be one of: {', '.join(Sch.SEV_VALS)})")
             LOG.w(f"Invalid severity '{value}', defaulting to 'medium'")
             return "medium"
         return value
@@ -1193,14 +1252,14 @@ class FO:
                 suffix=".tmp",
                 text="b" not in mode,
             )
-            os.close(fd)
             tmp_path = Path(tmp_name)
             GLOBAL.add_temp(tmp_path)
 
+            # Use os.fdopen() to avoid race condition between close/open
             if "b" in mode:
-                fh = open(tmp_path, mode)
+                fh = os.fdopen(fd, mode)
             else:
-                fh = open(tmp_path, mode, encoding=enc, errors="replace", newline="\n")
+                fh = os.fdopen(fd, mode, encoding=enc, errors="replace", newline="\n")
 
             yield fh
 
@@ -1322,10 +1381,15 @@ class FO:
         if file_size > MAX_XML_SIZE:
             raise ValidationError(f"XML file too large: {file_size} bytes (max: {MAX_XML_SIZE})")
 
-        # Warn about XML bomb risk if defusedxml not available
-        if not Deps.HAS_DEFUSEDXML and file_size > LARGE_FILE_THRESHOLD:
-            LOG.w(f"Large XML file ({file_size} bytes) being parsed with unsafe parser")
-            LOG.w("Install defusedxml for protection against XML entity expansion attacks")
+        # Security: require defusedxml for large files to prevent XML bomb attacks
+        if not Deps.HAS_DEFUSEDXML:
+            if file_size > LARGE_FILE_THRESHOLD:
+                raise ValidationError(
+                    f"Large XML file ({file_size} bytes) requires defusedxml for safe parsing. "
+                    f"Install defusedxml (pip install defusedxml) or use a smaller file. "
+                    f"Without defusedxml, only files under {LARGE_FILE_THRESHOLD / 1024 / 1024:.1f}MB can be parsed."
+                )
+            LOG.w("Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious")
 
         try:
             return ET.parse(str(path))
@@ -1365,6 +1429,7 @@ class FO:
             os.close(fd)
             tmp_zip = Path(tmp_name)
 
+            failed_files: List[str] = []
             with zipfile.ZipFile(tmp_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
                 for arcname, source in files.items():
                     try:
@@ -1374,9 +1439,14 @@ class FO:
                         added += 1
                     except Exception as exc:
                         LOG.w(f"Skipping {arcname}: {exc}")
+                        failed_files.append(f"{arcname} ({exc})")
 
             if added == 0:
-                raise FileError("No files added to zip")
+                failed_summary = "; ".join(failed_files[:3])
+                raise FileError(
+                    f"No files added to zip (total attempted: {len(files)}, all failed). "
+                    f"First failures: {failed_summary}"
+                )
 
             if Cfg.IS_WIN and out_path.exists():
                 out_path.unlink()
@@ -1493,8 +1563,17 @@ class HistMgr:
                 LOG.w(f"Failed to compute digest for {vid}, using fallback: {exc}")
                 digest = f"chk_{uuid.uuid4().hex[:6]}"
 
-            if any(entry.chk == digest for entry in self._h[vid][-20:]):
+            # Check for duplicates - performance optimization: check recent entries first,
+            # but fall back to checking all if not found in recent window
+            recent_entries = self._h[vid][-Cfg.DEDUP_CHECK_WINDOW:]
+            if any(entry.chk == digest for entry in recent_entries):
                 return False
+            # If history is longer than window, check older entries too
+            if len(self._h[vid]) > Cfg.DEDUP_CHECK_WINDOW:
+                older_entries = self._h[vid][:-Cfg.DEDUP_CHECK_WINDOW]
+                if any(entry.chk == digest for entry in older_entries):
+                    LOG.d(f"Duplicate found in older history for {vid}")
+                    return False
 
             if not who:
                 who = os.getenv("USER") or os.getenv("USERNAME") or "System"
@@ -1521,9 +1600,9 @@ class HistMgr:
         if len(entries) <= Cfg.MAX_HIST:
             return
 
-        head = entries[:15]
-        tail = entries[-100:]
-        middle = entries[15:-100]
+        head = entries[:Cfg.HIST_COMPRESS_HEAD]
+        tail = entries[-Cfg.HIST_COMPRESS_TAIL:]
+        middle = entries[Cfg.HIST_COMPRESS_HEAD:-Cfg.HIST_COMPRESS_TAIL]
 
         if middle:
             compressed = Hist(
@@ -2068,12 +2147,13 @@ class Proc:
         # Check error threshold - fail if too many vulnerabilities failed to process
         total = processed + skipped
         error_rate = (skipped / total) * 100 if total > 0 else 0
-        if error_rate > 50:  # More than 50% failed
+        if error_rate > Cfg.ERROR_RATE_WARN_THRESHOLD:
             LOG.w(f"High error rate: {error_rate:.1f}% of vulnerabilities failed to process")
             LOG.w(f"First 5 errors: {errors[:5]}")
-            if error_rate > 90:  # More than 90% failed - likely a structural issue
+            if error_rate > Cfg.ERROR_RATE_FAIL_THRESHOLD:
                 raise ParseError(
-                    f"Critical: {error_rate:.1f}% of vulnerabilities failed to process. "
+                    f"Critical: {error_rate:.1f}% of vulnerabilities failed to process "
+                    f"(threshold: {Cfg.ERROR_RATE_FAIL_THRESHOLD}%). "
                     f"This likely indicates a structural XCCDF parsing issue. "
                     f"Sample errors: {'; '.join(errors[:3])}"
                 )
@@ -3633,8 +3713,8 @@ class FixExt:
             if len(cmd) > 2000:  # Too long, probably not a command
                 continue
 
-            # Deduplicate
-            cmd_hash = hashlib.md5(cmd.encode()).hexdigest()
+            # Deduplicate using SHA256 instead of MD5 for security
+            cmd_hash = hashlib.sha256(cmd.encode()).hexdigest()[:16]
             if cmd_hash in seen:
                 continue
             seen.add(cmd_hash)
