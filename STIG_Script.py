@@ -74,12 +74,14 @@ BUILD_DATE = "2025-10-28"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
 
-LARGE_FILE_THRESHOLD = 50 * 1024 * 1024
-CHUNK_SIZE = 8192
-MAX_RETRIES = 3
-RETRY_DELAY = 0.5
-MAX_XML_SIZE = 500 * 1024 * 1024
+# File processing limits
+LARGE_FILE_THRESHOLD = 50 * 1024 * 1024  # 50 MB - warn for files larger than this
+CHUNK_SIZE = 8192  # 8 KB - buffer size for chunked file operations
+MAX_RETRIES = 3  # Maximum retry attempts for failed operations
+RETRY_DELAY = 0.5  # Initial retry delay in seconds (doubles with each retry)
+MAX_XML_SIZE = 500 * 1024 * 1024  # 500 MB - maximum XML file size to prevent memory issues
 
+# Encoding detection order (most common first)
 ENCODINGS = [
     "utf-8",
     "utf-8-sig",
@@ -367,6 +369,7 @@ class Cfg:
                     cls.HOME = candidate
                     break
                 except Exception:
+                    # Try next candidate if this directory is not writable
                     continue
 
             if not cls.HOME:
@@ -413,11 +416,13 @@ class Cfg:
             try:
                 __import__(module)
             except Exception:
+                # Standard library module check - collect errors for reporting
                 errs.append(f"Missing stdlib module: {module}")
 
         try:
             ET.Element("test")
         except Exception:
+            # Verify XML parser is functional
             errs.append("XML parser failed")
 
         if cls.APP_DIR and not os.access(cls.APP_DIR, os.W_OK):
@@ -739,6 +744,17 @@ class San:
 
     @staticmethod
     def asset(value: str) -> str:
+        """Validate and sanitize asset name.
+
+        Args:
+            value: Asset name to validate
+
+        Returns:
+            Validated asset name (max 255 chars)
+
+        Raises:
+            ValidationError: If asset name is empty or contains invalid characters
+        """
         if not value or not str(value).strip():
             raise ValidationError("Empty asset")
         value = str(value).strip()[:255]
@@ -748,6 +764,18 @@ class San:
 
     @staticmethod
     def ip(value: str) -> str:
+        """Validate and sanitize IPv4 address.
+
+        Args:
+            value: IP address to validate
+
+        Returns:
+            Validated IP address string, or empty string if input is empty
+
+        Raises:
+            ValidationError: If IP format is invalid, has wrong number of octets,
+                           contains leading zeros, or octets are out of range
+        """
         if not value:
             return ""
         value = str(value).strip()
@@ -1003,6 +1031,34 @@ class FO:
                 with suppress(Exception):
                     tmp_zip.unlink()
 
+    @staticmethod
+    def safe_json_loads(path: Union[str, Path], max_size: int = 50 * 1024 * 1024) -> Any:
+        """Safely load JSON from file with size validation.
+
+        Args:
+            path: Path to JSON file
+            max_size: Maximum allowed file size in bytes (default: 50MB)
+
+        Returns:
+            Parsed JSON data
+
+        Raises:
+            FileError: If file is too large
+            ParseError: If JSON is invalid
+        """
+        path = San.path(path, exist=True, file=True)
+        file_size = path.stat().st_size
+        if file_size > max_size:
+            raise FileError(
+                f"JSON file too large: {file_size} bytes "
+                f"(max: {max_size} bytes = {max_size // 1024 // 1024}MB)"
+            )
+        try:
+            content = FO.read(path)
+            return json.loads(content)
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise ParseError(f"Invalid JSON in {path}: {exc}")
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # HISTORY
@@ -1250,10 +1306,7 @@ class HistMgr:
 
     def imp(self, path: Union[str, Path]) -> int:
         path = San.path(path, exist=True, file=True)
-        try:
-            payload = json.loads(FO.read(path))
-        except Exception:
-            raise ParseError("Invalid history JSON")
+        payload = FO.safe_json_loads(path)
 
         imported = 0
         with self._lock:
@@ -1261,13 +1314,17 @@ class HistMgr:
             for vid, entries in history_data.items():
                 try:
                     vid = San.vuln(vid)
-                except Exception:
+                except (ValidationError, ValueError):
+                    # Skip invalid vulnerability ID
+                    LOG.w(f"Skipping invalid vulnerability ID in history import: {vid}")
                     continue
                 slot = self._h[vid]
                 for entry_data in entries:
                     try:
                         entry = Hist.from_dict(entry_data)
-                    except Exception:
+                    except (KeyError, ValueError, TypeError) as exc:
+                        # Skip malformed history entry
+                        LOG.w(f"Skipping invalid history entry for {vid}: {exc}")
                         continue
                     if any(existing.chk == entry.chk for existing in slot):
                         continue
@@ -1368,7 +1425,7 @@ class BP:
                 self._load(San.path(custom, exist=True, file=True))
 
     def _load(self, path: Path) -> None:
-        data = json.loads(FO.read(path))
+        data = FO.safe_json_loads(path)
         for status, tpl in data.items():
             if status not in Sch.STAT_VALS:
                 continue
@@ -2234,18 +2291,45 @@ class Fix:
 class FixExt:
     """Fix extractor with enhanced command parsing."""
 
+    # Regex patterns for extracting remediation commands from XCCDF fix text
+
+    # Matches markdown code blocks with shell/script language markers
     CODE_BLOCK = re.compile(r"```(?:bash|sh|shell|zsh|powershell|ps1|ps|cmd|bat)\s*(.*?)```", re.DOTALL | re.IGNORECASE)
+
+    # Matches generic markdown code blocks (triple backticks)
     TRIPLE_TICK = re.compile(r"```(.*?)```", re.DOTALL)
+
+    # Matches shell prompts: $ # > followed by command
     SHELL_PROMPT = re.compile(r"(?m)^(?:\$|#|>)\s*(.+)")
+
+    # Matches PowerShell prompts: PS C:\> or similar
     POWERSHELL_PROMPT = re.compile(r"(?m)^(?:PS [^>]+>|\w:\\[^>]*>)\s*(.+)")
+
+    # Matches bulleted command instructions: "- Run: command" or "1. Execute: command"
     BULLET_CMD = re.compile(r"(?m)^(?:[-*+]|\d+\.)\s*(?:Run|Execute)\s*[:\-]?\s*(.+)")
+
+    # Matches inline code markers: `command`
     INLINE_CMD = re.compile(r"`([^`]+)`")
+
+    # Matches command lines starting with # or sudo
     COMMAND_LINE = re.compile(r"(?m)^\s*(?:#|sudo)\s+(.+)$")
+
+    # Matches plain English command instructions: "run the following command: xyz"
     PLAIN_COMMAND = re.compile(r"(?:run|execute|use)\s+(?:the\s+)?(?:following\s+)?(?:command|commands?)[\s:]+(.+?)(?:\n|$)", re.IGNORECASE)
+
+    # Matches file path references in edit/modify instructions
     CONFIG_FILE = re.compile(r"(?:edit|modify|update)\s+(?:the\s+)?(?:file\s+)?([/\w.-]+(?:/[\w.-]+)*)", re.IGNORECASE)
+
+    # Matches embedded shell scripts (with shebang or batch marker)
     SCRIPT_BLOCK = re.compile(r"(?:#!/bin/(?:bash|sh)|@echo off)(.*?)(?=\n\n|\Z)", re.DOTALL)
+
+    # Matches systemd/service management commands
     SERVICE_CMD = re.compile(r"^\s*(?:systemctl|service)\s+(?:start|stop|restart|enable|disable|status)\s+\S+", re.MULTILINE)
+
+    # Matches Linux audit subsystem commands
     AUDIT_CMD = re.compile(r"^\s*(?:auditctl|ausearch|aureport)\s+.+", re.MULTILINE)
+
+    # Matches SELinux configuration commands
     SELINUX_CMD = re.compile(r"^\s*(?:semanage|setsebool|restorecon|chcon|getenforce|setenforce)\s+.+", re.MULTILINE)
 
 
@@ -2939,12 +3023,9 @@ class FixResPro:
         LOG.i("Loading remediation results JSON")
 
         try:
-            content = FO.read(path)
-            payload = json.loads(content)
-        except json.JSONDecodeError as exc:
-            raise ParseError(f"Invalid JSON in {path.name}: {exc}") from exc
-        except Exception as exc:
-            raise ParseError(f"Cannot read {path.name}: {exc}") from exc
+            payload = FO.safe_json_loads(path)
+        except (FileError, ParseError) as exc:
+            raise ParseError(f"Cannot load {path.name}: {exc}") from exc
 
         imported = 0
         skipped = 0
@@ -3276,7 +3357,7 @@ class EvidenceMgr:
         if not self.meta_file.exists():
             return
         with suppress(Exception):
-            data = json.loads(FO.read(self.meta_file))
+            data = FO.safe_json_loads(self.meta_file)
             for vid, entries in data.items():
                 try:
                     vid = San.vuln(vid)
@@ -3439,7 +3520,8 @@ class EvidenceMgr:
                 meta_file = tmp_path / "meta.json"
 
             if meta_file.exists():
-                meta_data = json.loads(meta_file.read_text(encoding="utf-8"))
+                with suppress(Exception):
+                    meta_data = FO.safe_json_loads(meta_file)
             else:
                 meta_data = {}
 
@@ -3500,7 +3582,7 @@ class PresetMgr:
             return
         for file in self.base.glob("*.json"):
             with suppress(Exception):
-                data = json.loads(FO.read(file))
+                data = FO.safe_json_loads(file)
                 if isinstance(data, dict):
                     self.presets[file.stem] = data
 
