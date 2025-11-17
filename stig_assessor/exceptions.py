@@ -1,12 +1,13 @@
-"""STIG Assessor Exception Classes.
+"""STIG Assessor exceptions module.
 
-All custom exceptions for the STIG Assessor application.
-Provides structured error handling with context support.
+This module defines all custom exception classes for the STIG Assessor application.
+
+All exceptions inherit from STIGError, which provides context tracking for
+better error diagnostics and debugging.
 """
 
 from __future__ import annotations
-
-from typing import Any, Dict, Optional
+from typing import Optional, Dict, Any
 
 
 class STIGError(Exception):
@@ -46,5 +47,3 @@ class FileError(STIGError):
 
 class ParseError(STIGError):
     """Raised when XML parsing fails."""
-
-    pass

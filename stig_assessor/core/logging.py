@@ -1,16 +1,12 @@
-"""
-STIG Assessor Logging System.
-
-Thread-safe logging with contextual metadata support.
-"""
+"""Thread-safe logging with contextual metadata."""
 
 from __future__ import annotations
+from typing import Dict
+from contextlib import suppress
+import threading
 import logging
 import logging.handlers
 import sys
-import threading
-from contextlib import suppress
-from typing import Any, Dict, Optional
 
 
 class Log:
@@ -53,12 +49,17 @@ class Log:
 
     def _setup(self) -> None:
         """Set up console and file handlers."""
+        # Import here to avoid circular dependency
+        from stig_assessor.core.config import Cfg
+
+        # Console handler
         with suppress(Exception):
             console = logging.StreamHandler(sys.stderr)
             console.setLevel(logging.WARNING)
             console.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
             self.log.addHandler(console)
 
+        # File handler
         with suppress(Exception):
             # Import here to avoid circular dependency
             from stig_assessor.core.config import Cfg
@@ -97,6 +98,7 @@ class Log:
             if data:
                 return "[" + ", ".join(f"{k}={v}" for k, v in data.items()) + "] "
         except Exception:
+            # Silently ignore context extraction failures in logging helper
             pass
         return ""
 
@@ -105,47 +107,49 @@ class Log:
         try:
             getattr(self.log, level)(self._context_str() + str(message), exc_info=exc)
         except Exception:
+            # Fallback to stderr if logging system fails
             print(f"[{level.upper()}] {message}", file=sys.stderr)
 
-    def debug(self, msg: str) -> None:
+    def d(self, msg: str) -> None:
         """Log debug message."""
         self._log("debug", msg)
 
-    def info(self, msg: str) -> None:
+    def i(self, msg: str) -> None:
         """Log info message."""
         self._log("info", msg)
 
-    def warning(self, msg: str) -> None:
+    def w(self, msg: str) -> None:
         """Log warning message."""
         self._log("warning", msg)
 
+    def e(self, msg: str, exc: bool = False) -> None:
+        """Log error message."""
+        self._log("error", msg, exc)
+
+    def c(self, msg: str, exc: bool = False) -> None:
+        """Log critical message."""
+        self._log("critical", msg, exc)
+
+    # Full method names for compatibility
+    def debug(self, msg: str) -> None:
+        """Log debug message."""
+        self.d(msg)
+
+    def info(self, msg: str) -> None:
+        """Log info message."""
+        self.i(msg)
+
+    def warning(self, msg: str) -> None:
+        """Log warning message."""
+        self.w(msg)
+
     def error(self, msg: str, exc_info: bool = False) -> None:
         """Log error message."""
-        self._log("error", msg, exc_info)
+        self.e(msg, exc_info)
 
     def critical(self, msg: str, exc_info: bool = False) -> None:
         """Log critical message."""
-        self._log("critical", msg, exc_info)
-
-    def d(self, msg: str) -> None:
-        """Debug (short form)."""
-        self.debug(msg)
-
-    def i(self, msg: str) -> None:
-        """Info (short form)."""
-        self.info(msg)
-
-    def w(self, msg: str) -> None:
-        """Warning (short form)."""
-        self.warning(msg)
-
-    def e(self, msg: str, exc: bool = False) -> None:
-        """Error (short form)."""
-        self.error(msg, exc_info=exc)
-
-    def c(self, msg: str, exc: bool = False) -> None:
-        """Critical (short form)."""
-        self.critical(msg, exc_info=exc)
+        self.c(msg, exc_info)
 
 
 # Module-level logger instance

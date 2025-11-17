@@ -1,11 +1,6 @@
-"""Application configuration and directory management.
-
-Provides platform detection, directory management, and configuration constants
-for the STIG Assessor application.
-"""
+"""Application configuration and directory management."""
 
 from __future__ import annotations
-
 from typing import Optional, List, Tuple
 from pathlib import Path
 from contextlib import suppress
@@ -72,15 +67,12 @@ class Cfg:
 
     @classmethod
     def init(cls) -> None:
-        """Initialize application directories.
-
-        Finds a writable home directory and creates the application directory
-        structure. Thread-safe with double-checked locking.
-        """
+        """Initialize application directories."""
         with cls._lock:
             if cls._done:
                 return
 
+            # Find writable home directory
             candidates: List[Path] = []
 
             with suppress(Exception):
@@ -116,6 +108,7 @@ class Cfg:
                     f"Please ensure write permissions on one of these directories or set $HOME/$USERPROFILE."
                 )
 
+            # Set up application directories
             cls.APP_DIR = cls.HOME / ".stig_assessor"
             cls.LOG_DIR = cls.APP_DIR / "logs"
             cls.BACKUP_DIR = cls.APP_DIR / "backups"
@@ -126,6 +119,7 @@ class Cfg:
             cls.EXPORT_DIR = cls.APP_DIR / "exports"
             cls.BOILERPLATE_FILE = cls.TEMPLATE_DIR / "boilerplate.json"
 
+            # Create required directories
             required = [cls.APP_DIR, cls.LOG_DIR, cls.BACKUP_DIR]
             optional = [
                 cls.EVIDENCE_DIR,
@@ -204,5 +198,8 @@ class Cfg:
         return backups, logs
 
 
-# Module-level singleton instance (initialized on first import)
+# Initialize configuration on module import
+Cfg.init()
+
+# Module-level reference to class (for compatibility)
 CFG = Cfg

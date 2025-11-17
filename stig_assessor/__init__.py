@@ -17,6 +17,10 @@ Package Structure:
     evidence/       - Evidence lifecycle management
     processor/      - Main XCCDF→CKL conversion engine
     ui/             - User interfaces (CLI and GUI)
+
+Version: 8.0.0
+Build Date: 2025-11-16
+STIG Viewer Compatibility: 2.18
 """
 
 from __future__ import annotations
