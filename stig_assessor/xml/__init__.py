@@ -1,6 +1,9 @@
 """XML processing modules."""
 """XML processing modules.
 
+NOTE: These are minimal stubs for Team 7 testing.
+Full implementations will be provided by TEAM 2 and TEAM 4.
+"""
 Provides XML schema definitions, sanitization, and utilities.
 """
 
