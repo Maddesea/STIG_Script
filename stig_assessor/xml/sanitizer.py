@@ -1,8 +1,3 @@
-"""
-STIG Assessor Input Sanitization and Validation.
-
-Provides validation and sanitization for all user inputs including
-file paths, network addresses, XML content, and STIG-specific identifiers.
 """Input sanitization and validation utilities.
 
 This module provides comprehensive validation and sanitization for all user inputs,
@@ -29,21 +24,6 @@ import re
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from stig_assessor.exceptions import ValidationError
-from stig_assessor.xml.schema import Sch
-from stig_assessor.core.logging import LOG
-from stig_assessor.core.config import Cfg
-
-
-class San:
-    """
-    Input sanitization and validation utilities.
-
-    Philosophy:
-    - Fail fast: Raise ValidationError on invalid input, never silently accept bad data
-    - No silent coercion: Don't "fix" or modify invalid input, reject it explicitly
-    - Defense in depth: Multiple validation layers for critical security boundaries
-    - Explicit over implicit: Clear validation rules with informative error messages
 from stig_assessor.core.constants import IS_WINDOWS, MAX_FILE_SIZE
 from stig_assessor.exceptions import ValidationError
 from stig_assessor.xml.schema import Sch
@@ -61,24 +41,6 @@ class San:
     - Identifiers: Vulnerability IDs (V-NNNNNN), UUIDs (RFC 4122)
     - XML: Entity escaping, control character removal, length limits
     - STIG values: Status/severity enumeration validation against STIG Viewer schema
-
-    Security Features:
-    - Path traversal prevention (../ sequences)
-    - Symlink attack detection
-    - Control character filtering (prevents XML injection)
-    - XML entity escaping (&, <, >, ", ')
-    - File size limits (prevents resource exhaustion)
-    - Input length limits (prevents buffer issues)
-
-    All methods raise ValidationError on invalid input. Never returns None or
-    silently fails - caller must handle ValidationError explicitly.
-
-    Thread-safe: Yes (stateless utility class)
-    """
-
-    # Validation patterns
-    ASSET = re.compile(r"^[a-zA-Z0-9._-]{1,255}$")
-    IP = re.compile(r"^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$")
     """
 
     # Validation regex patterns
@@ -92,11 +54,6 @@ class San:
     VULN = re.compile(r"^V-\d{1,10}$")
     UUID = re.compile(r"^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$", re.I)
 
-    # Security patterns
-    CTRL = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
-    TRAV = re.compile(r"\.\.([/\\])")
-
-    MAX_PATH = 260 if Cfg.IS_WIN else 4096
     # Control characters and path traversal patterns
     CTRL = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
     TRAV = re.compile(r"\.\.([/\\])")
@@ -113,8 +70,6 @@ class San:
         dir: bool = False,
         mkpar: bool = False,
     ) -> Path:
-        """
-        Validate and sanitize file system paths.
         """Validate and sanitize file system paths.
 
         Security features:
@@ -126,8 +81,6 @@ class San:
         Args:
             value: Path string or Path object to validate
             exist: If True, path must exist
-            file: If True, path must be a file (when it exists)
-            dir: If True, path must be a directory (when it exists)
             file: If True, path must be a file (if it exists)
             dir: If True, path must be a directory (if it exists)
             mkpar: If True, create parent directories
@@ -136,7 +89,6 @@ class San:
             Validated and resolved Path object
 
         Raises:
-            ValidationError: If path is invalid or fails security checks
             ValidationError: If path is invalid, contains dangerous patterns,
                            or doesn't meet the specified requirements
         """
@@ -149,9 +101,6 @@ class San:
                 raise ValidationError("Null byte in path")
 
             if San.TRAV.search(as_str):
-                LOG.w(f"Potential traversal sequence in path: {as_str}")
-
-            path = Path(as_str)
                 # Note: This is logged as a warning in the original code
                 # For now, we'll allow it but could be stricter
                 pass
@@ -230,7 +179,6 @@ class San:
 
             if path.exists() and path.is_file():
                 size = path.stat().st_size
-                if size > Cfg.MAX_FILE:
                 if size > MAX_FILE_SIZE:
                     raise ValidationError(f"File too large: {size}")
                 if not os.access(path, os.R_OK):
@@ -244,7 +192,6 @@ class San:
 
     @staticmethod
     def asset(value: str) -> str:
-        """Validate asset name."""
         """Validate asset name.
 
         Args:
@@ -265,10 +212,6 @@ class San:
 
     @staticmethod
     def ip(value: str) -> str:
-        """
-        Validate IP address format.
-
-        Rejects leading zeros and validates octets are in range 0-255.
         """Validate IP address format.
 
         Validates IPv4 addresses with proper octet range checking (0-255).
@@ -290,11 +233,6 @@ class San:
             return ""
         if not San.IP.match(value):
             raise ValidationError(f"Invalid IP format: {value}")
-
-        octets = value.split(".")
-        if len(octets) != 4:
-            raise ValidationError(f"IP must have exactly 4 octets, got {len(octets)}: {value}")
-
         octets = value.split(".")
         if len(octets) != 4:
             raise ValidationError(f"IP must have exactly 4 octets, got {len(octets)}: {value}")
@@ -308,12 +246,10 @@ class San:
                 raise ValidationError(f"IP octet {idx + 1} is not numeric: {octet}")
             if not (0 <= oct_val <= 255):
                 raise ValidationError(f"IP octet {idx + 1} out of range (0-255): {oct_val}")
-
         return value
 
     @staticmethod
     def mac(value: str) -> str:
-        """Validate MAC address format."""
         """Validate MAC address format.
 
         Accepts both colon and hyphen separators, normalizes to colon-separated
@@ -340,11 +276,6 @@ class San:
 
     @staticmethod
     def vuln(value: str) -> str:
-        """
-        Validate vulnerability ID format.
-
-        Args:
-            value: Vulnerability ID (e.g., "V-12345")
         """Validate vulnerability ID format.
 
         Expects format: V-NNNNNN (where N is a digit, 1-10 digits allowed).
@@ -356,7 +287,6 @@ class San:
             Validated vulnerability ID
 
         Raises:
-            ValidationError: If format is invalid
             ValidationError: If vulnerability ID is empty or invalid format
         """
         if not value or not str(value).strip():
@@ -368,7 +298,6 @@ class San:
 
     @staticmethod
     def status(value: str) -> str:
-        """Validate STIG status value."""
         """Validate STIG status value.
 
         Args:
@@ -389,8 +318,6 @@ class San:
 
     @staticmethod
     def sev(value: str, strict: bool = False) -> str:
-        """
-        Validate and normalize severity value.
         """Validate and normalize severity value.
 
         Args:
@@ -410,8 +337,6 @@ class San:
         value = str(value).strip().lower()
         if value not in Sch.SEV_VALS:
             if strict:
-                raise ValidationError(f"Invalid severity: {value} (must be one of: {', '.join(Sch.SEV_VALS)})")
-            LOG.w(f"Invalid severity '{value}', defaulting to 'medium'")
                 raise ValidationError(
                     f"Invalid severity: {value} (must be one of: {', '.join(Sch.SEV_VALS)})"
                 )
@@ -421,17 +346,6 @@ class San:
 
     @staticmethod
     def xml(value: Any, mx: Optional[int] = None) -> str:
-        """
-        Sanitize value for XML output.
-
-        Escapes XML entities and removes control characters.
-
-        Args:
-            value: Value to sanitize
-            mx: Maximum length (truncates if exceeded)
-
-        Returns:
-            Sanitized string safe for XML
         """Sanitize value for XML output.
 
         Removes control characters and escapes XML entities (&, <, >, ", ').
@@ -449,13 +363,6 @@ class San:
         if not isinstance(value, str):
             try:
                 value = str(value)
-            except Exception as exc:
-                LOG.w(f"Failed to convert value to string for XML sanitization: {type(value)} - {exc}")
-                return ""
-
-        # Remove control characters
-        value = San.CTRL.sub("", value)
-
             except Exception:
                 # Cannot convert to string, return empty (logged in original)
                 return ""
@@ -469,11 +376,6 @@ class San:
             .replace('"', "&quot;")
             .replace("'", "&apos;")
         )
-
-        # Truncate if needed
-        if mx is not None and len(value) > mx:
-            value = value[: mx - 15] + "\n[TRUNCATED]"
-
         # Truncate if needed
         if mx is not None and len(value) > mx:
             value = value[: mx - 15] + "\n[TRUNCATED]"

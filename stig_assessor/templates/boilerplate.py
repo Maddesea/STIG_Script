@@ -40,9 +40,9 @@ class BP:
             return
 
         # Import here to avoid circular dependencies during module load
-        from stig_assessor.core.config import CFG
+        from stig_assessor.core.config import Cfg
 
-        self.template_file: Path = CFG.template_dir / "boilerplate.json"
+        self.template_file: Path = Cfg.TEMPLATE_DIR / "boilerplate.json"
         self.templates: Dict[str, Dict[str, str]] = {}
         self.load()
         self._initialized = True
@@ -73,7 +73,8 @@ class BP:
 
         try:
             content = json.dumps(self.templates, indent=2, ensure_ascii=False)
-            FO.atomic_write(self.template_file, content, backup=False)
+            with FO.atomic(self.template_file, mode="w", enc="utf-8", bak=False) as f:
+                f.write(content)
         except Exception as e:
             raise FileError(f"Failed to save boilerplate: {e}")
 

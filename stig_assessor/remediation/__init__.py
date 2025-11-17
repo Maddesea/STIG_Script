@@ -1,11 +1,5 @@
-"""Remediation modules."""
-
-from __future__ import annotations
-
-# Placeholder for Teams 8 and 10 deliverables
-# Will contain models.py, extractor.py, and processor.py modules
 """
-Remediation module for STIG fix extraction and processing.
+Remediation modules.
 
 This module handles extraction of remediation commands from XCCDF benchmarks
 and provides multi-format export capabilities (JSON, CSV, Bash, PowerShell).
@@ -13,9 +7,11 @@ and provides multi-format export capabilities (JSON, CSV, Bash, PowerShell).
 Key Components:
     - Fix: Dataclass representing a single remediation fix
     - FixExt: Extractor for parsing XCCDF and generating remediation scripts
+    - FixResult: Dataclass representing a remediation execution result
+    - FixResPro: Processor for remediation results import
 
 Usage:
-    from stig_assessor.remediation import Fix, FixExt
+    from stig_assessor.remediation import Fix, FixExt, FixResult, FixResPro
 
     # Extract fixes from XCCDF
     extractor = FixExt("/path/to/benchmark.xml")
@@ -26,39 +22,22 @@ Usage:
     extractor.to_csv("fixes.csv")
     extractor.to_bash("remediate.sh", dry_run=True)
     extractor.to_powershell("Remediate.ps1", dry_run=True)
+
+    # Process remediation results
+    processor = FixResPro()
+    processor.load("results.json")
+    processor.update_ckl("checklist.ckl", "output.ckl")
 """
 
-from .models import Fix
-from .extractor import FixExt
+from __future__ import annotations
+
+from stig_assessor.remediation.models import Fix, FixResult
+from stig_assessor.remediation.extractor import FixExt
+from stig_assessor.remediation.processor import FixResPro
 
 __all__ = [
     "Fix",
     "FixExt",
-"""Remediation processing module.
-
-This module provides functionality for processing remediation results and
-applying them to STIG checklists.
-"""
-
-from stig_assessor.remediation.models import FixResult
-from stig_assessor.remediation.processor import FixResPro
-
-__all__ = [
     "FixResult",
     "FixResPro",
 ]
-"""Remediation module.
-
-Provides fix extraction and remediation results processing.
-"""
-
-# Exports will be added when remediation modules are created
-"""Remediation modules.
-
-This package contains remediation fix extraction, processing, and results import.
-"""
-"""Remediation and fix management modules."""
-
-from __future__ import annotations
-
-__all__ = []
