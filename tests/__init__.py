@@ -41,3 +41,5 @@ Coverage Target:
 
 __version__ = "1.0.0"
 __all__ = []
+"""Test suite for STIG Assessor modular package."""
+"""Test suite for STIG Assessor."""
