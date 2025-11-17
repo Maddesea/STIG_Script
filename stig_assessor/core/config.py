@@ -1,40 +1,8 @@
+"""Application configuration and directory management.
+
+This module provides the Cfg class for managing application configuration,
+directory paths, and runtime settings.
 """
-STIG Assessor Configuration.
-
-Application configuration and runtime settings.
-This is a minimal version for modularization Phase 0-2.
-"""
-
-from __future__ import annotations
-import platform
-import sys
-from pathlib import Path
-from typing import Optional
-import threading
-
-
-class Cfg:
-    """
-    Application configuration and directory management.
-
-    Provides:
-    - Platform detection (Windows/Linux/macOS)
-    - Directory management for application data
-    - File size and processing limits
-    - Configuration constants
-
-    Thread-safe: Yes (uses RLock for initialization)
-    """
-
-    # Platform detection
-Configuration management.
-
-NOTE: This is a minimal stub for Team 7 testing.
-Full implementation will be provided by TEAM 1.
-"""
-
-from pathlib import Path
-"""Application configuration and directory management."""
 
 from __future__ import annotations
 from typing import Optional, List, Tuple
@@ -48,29 +16,18 @@ import tempfile
 
 
 class Cfg:
-    """Configuration singleton stub."""
+    """Application configuration singleton.
 
-    _instance = None
+    Provides:
+        - Platform detection (Windows/Linux/macOS)
+        - Directory management for application data
+        - File size and processing limits
+        - Configuration constants
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+    Thread-safe: Yes (uses RLock for initialization)
+    """
 
-    def __init__(self):
-        if hasattr(self, '_initialized'):
-            return
-        # Use temp directory for testing
-        self.base_dir = Path(tempfile.gettempdir()) / ".stig_assessor_test"
-        self.template_dir = self.base_dir / "templates"
-        self.template_dir.mkdir(parents=True, exist_ok=True)
-        self._initialized = True
-
-
-# Module-level singleton
-CFG = Cfg()
-    """Application configuration."""
-
+    # Platform detection
     IS_WIN = platform.system() == "Windows"
     IS_LIN = platform.system() == "Linux"
     IS_MAC = platform.system() == "Darwin"
@@ -92,7 +49,6 @@ CFG = Cfg()
 
     # Limits and thresholds
     MAX_FILE = 500 * 1024 * 1024  # 500 MB
-    MAX_FILE = 500 * 1024 * 1024
     MAX_HIST = 200
     MAX_FIND = 65000
     MAX_COMM = 32000
@@ -102,9 +58,6 @@ CFG = Cfg()
     KEEP_LOGS = 15
 
     # History deduplication and compression constants
-    DEDUP_CHECK_WINDOW = 20
-    HIST_COMPRESS_HEAD = 15
-    HIST_COMPRESS_TAIL = 100
     DEDUP_CHECK_WINDOW = 20  # Check last N entries for duplicate prevention
     HIST_COMPRESS_HEAD = 15  # Keep first N entries when compressing history
     HIST_COMPRESS_TAIL = 100  # Keep last N entries when compressing history
@@ -118,19 +71,20 @@ CFG = Cfg()
 
     @classmethod
     def init(cls) -> None:
-        """
-        Initialize configuration directories.
+        """Initialize application directories.
 
-        This is a minimal stub for Phase 0-2 modularization.
-        Full implementation will be provided by Team 1.
+        Creates the directory structure for the application and verifies
+        write permissions. Tries multiple candidate locations in order of
+        preference.
+
+        Raises:
+            RuntimeError: If no writable home directory can be found
         """
-        """Initialize application directories."""
         with cls._lock:
             if cls._done:
                 return
 
-            # For now, just set HOME to avoid errors
-            cls.HOME = Path.home()
+            # Find writable home directory
             candidates: List[Path] = []
 
             with suppress(Exception):
@@ -156,12 +110,8 @@ CFG = Cfg()
                     cls.HOME = candidate
                     break
                 except (OSError, PermissionError, IOError):
-                    # LOG not initialized yet during Cfg.init()
-                    # Use stderr for debugging if needed
                     continue
                 except Exception:
-                    # LOG not initialized yet during Cfg.init()
-                    # Use stderr for debugging if needed
                     continue
 
             if not cls.HOME:
@@ -170,6 +120,7 @@ CFG = Cfg()
                     f"Please ensure write permissions on one of these directories or set $HOME/$USERPROFILE."
                 )
 
+            # Set up directory structure
             cls.APP_DIR = cls.HOME / ".stig_assessor"
             cls.LOG_DIR = cls.APP_DIR / "logs"
             cls.BACKUP_DIR = cls.APP_DIR / "backups"
@@ -180,11 +131,7 @@ CFG = Cfg()
             cls.EXPORT_DIR = cls.APP_DIR / "exports"
             cls.BOILERPLATE_FILE = cls.TEMPLATE_DIR / "boilerplate.json"
 
-            cls._done = True
-
-
-# Initialize configuration on module import
-Cfg.init()
+            # Create required directories
             required = [cls.APP_DIR, cls.LOG_DIR, cls.BACKUP_DIR]
             optional = [
                 cls.EVIDENCE_DIR,
@@ -207,7 +154,13 @@ Cfg.init()
 
     @classmethod
     def check(cls) -> Tuple[bool, List[str]]:
-        """Check if all required dependencies and permissions are available."""
+        """Check if all required dependencies and permissions are available.
+
+        Returns:
+            Tuple of (success, error_list):
+                - success: True if all checks pass
+                - error_list: List of error messages (empty if success)
+        """
         from stig_assessor.core.deps import Deps
 
         ET, _ = Deps.get_xml()
@@ -234,7 +187,13 @@ Cfg.init()
 
     @classmethod
     def cleanup_old(cls) -> Tuple[int, int]:
-        """Clean up old backup and log files."""
+        """Clean up old backup and log files.
+
+        Removes old backup and log files beyond the retention limits.
+
+        Returns:
+            Tuple of (backups_removed, logs_removed)
+        """
         def clean(directory: Path, keep: int, pattern: str) -> int:
             if not directory or not directory.exists():
                 return 0
