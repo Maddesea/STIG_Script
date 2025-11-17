@@ -17,6 +17,10 @@ Package Structure:
     evidence/       - Evidence lifecycle management
     processor/      - Main XCCDF→CKL conversion engine
     ui/             - User interfaces (CLI and GUI)
+
+Version: 8.0.0
+Build Date: 2025-11-16
+STIG Viewer Compatibility: 2.18
 """
 
 from __future__ import annotations
@@ -28,6 +32,8 @@ __version__ = VERSION
 __build_date__ = BUILD_DATE
 __app_name__ = APP_NAME
 __stig_viewer_version__ = STIG_VIEWER_VERSION
+__author__ = "STIG Assessor Development Team"
+__license__ = "MIT"
 
 __all__ = [
     "VERSION",

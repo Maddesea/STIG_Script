@@ -3,6 +3,10 @@
 This package contains fundamental infrastructure components used throughout
 the STIG Assessor application, including configuration, logging, state management,
 and dependency detection.
+the STIG Assessor application.
+
+Provides foundational components including configuration, logging,
+state management, and dependency detection.
 """
 
 from __future__ import annotations
@@ -31,6 +35,9 @@ from stig_assessor.core.constants import (
     MAX_RETRIES,
     RETRY_DELAY,
     MAX_XML_SIZE,
+    ERROR_THRESHOLD,
+    DEDUP_WINDOW,
+    COMPRESSION_THRESHOLD,
 )
 from stig_assessor.core.state import GlobalState, GLOBAL_STATE
 from stig_assessor.core.deps import Deps
@@ -72,6 +79,9 @@ __all__ = [
     "MAX_RETRIES",
     "RETRY_DELAY",
     "MAX_XML_SIZE",
+    "ERROR_THRESHOLD",
+    "DEDUP_WINDOW",
+    "COMPRESSION_THRESHOLD",
     "GlobalState",
     "GLOBAL_STATE",
     "Deps",
