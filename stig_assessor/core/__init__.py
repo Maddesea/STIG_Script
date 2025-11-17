@@ -1,5 +1,8 @@
 """Core infrastructure modules.
 
+NOTE: These are minimal stubs for Team 7 testing.
+Full implementations will be provided by TEAM 1.
+"""
 Provides foundational components including configuration, logging,
 state management, and dependency detection.
 """
