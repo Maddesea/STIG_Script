@@ -1,90 +1,52 @@
-"""Remediation models and data structures.
-
-This module contains dataclasses for remediation results processing.
-"""
+"""Remediation models for STIG fix tracking and processing."""
 
 from __future__ import annotations
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Dict, Any
-from contextlib import suppress
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
-class FixResult:
+class Fix:
     """
-    Remediation execution result for a single vulnerability.
+    Represents a single STIG remediation fix extracted from XCCDF.
 
-    Attributes:
-        vid: Vulnerability ID (e.g., "V-123456")
-        ts: Timestamp of remediation execution
-        ok: Whether remediation was successful
-        message: Human-readable status message
-        output: Command output/logs
-        error: Error message if failed
+    Contains both metadata (VID, severity, title) and actionable commands
+    for remediating security findings.
+
+    Thread-safe: Yes (immutable after creation)
     """
     vid: str
-    ts: datetime
-    ok: bool
-    message: str = ""
-    output: str = ""
-    error: str = ""
+    rule_id: str
+    severity: str
+    title: str
+    group_title: str
+    fix_text: str
+    fix_command: Optional[str] = None
+    check_command: Optional[str] = None
+    platform: str = "generic"
+    rule_version: str = ""
+    cci: List[str] = field(default_factory=list)
+    legacy: List[str] = field(default_factory=list)
 
     def as_dict(self) -> Dict[str, Any]:
         """
-        Convert to dictionary for JSON serialization.
+        Convert Fix to dictionary for JSON serialization.
 
         Returns:
-            Dictionary representation
+            Dictionary representation with truncated fields for size limits
         """
         return {
             "vid": self.vid,
-            "ts": self.ts.isoformat(),
-            "ok": self.ok,
-            "msg": self.message,
-            "out": self.output,
-            "err": self.error,
+            "rule_id": self.rule_id,
+            "severity": self.severity,
+            "title": self.title[:200],
+            "group_title": self.group_title,
+            "fix_text": self.fix_text,
+            "fix_command": self.fix_command,
+            "check_command": self.check_command,
+            "platform": self.platform,
+            "rule_version": self.rule_version,
+            "cci": self.cci[:10],
+            "legacy": self.legacy[:10],
         }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "FixResult":
-        """
-        Create FixResult from dictionary.
-
-        Args:
-            data: Dictionary with result data
-
-        Returns:
-            FixResult instance
-
-        Raises:
-            ValidationError: If data is invalid
-        """
-        # Import here to avoid circular dependency
-        from STIG_Script import ValidationError, San
-
-        if not isinstance(data, dict):
-            raise ValidationError("Result entry must be object")
-
-        vid = San.vuln(data.get("vid", ""))
-        ts = datetime.now(timezone.utc)
-        ts_str = data.get("ts")
-
-        if ts_str:
-            with suppress(Exception):
-                ts = datetime.fromisoformat(ts_str.rstrip("Z"))
-
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-
-        return cls(
-            vid=vid,
-            ts=ts,
-            ok=bool(data.get("ok", False)),
-            message=str(data.get("msg", "") or ""),
-            output=str(data.get("out", "") or ""),
-            error=str(data.get("err", "") or ""),
-        )
-
-
-__all__ = ["FixResult"]
