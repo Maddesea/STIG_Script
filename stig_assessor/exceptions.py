@@ -36,9 +36,13 @@ class STIGError(Exception):
 class ValidationError(STIGError):
     """Raised when validation fails (STIG Viewer compatibility)."""
 
+    pass
+
 
 class FileError(STIGError):
     """Raised when file operations fail."""
+
+    pass
 
 
 class ParseError(STIGError):

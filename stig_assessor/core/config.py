@@ -12,8 +12,7 @@ import tempfile
 
 
 class Cfg:
-    """
-    Application configuration and directory management.
+    """Application configuration.
 
     Provides:
     - Platform detection (Windows/Linux/macOS)
@@ -143,7 +142,11 @@ class Cfg:
 
     @classmethod
     def check(cls) -> Tuple[bool, List[str]]:
-        """Check if all required dependencies and permissions are available."""
+        """Check if all required dependencies and permissions are available.
+
+        Returns:
+            Tuple of (success: bool, errors: List[str])
+        """
         from stig_assessor.core.deps import Deps
 
         ET, _ = Deps.get_xml()
@@ -170,7 +173,11 @@ class Cfg:
 
     @classmethod
     def cleanup_old(cls) -> Tuple[int, int]:
-        """Clean up old backup and log files."""
+        """Clean up old backup and log files.
+
+        Returns:
+            Tuple of (backups_removed: int, logs_removed: int)
+        """
         def clean(directory: Path, keep: int, pattern: str) -> int:
             if not directory or not directory.exists():
                 return 0

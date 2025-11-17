@@ -5,6 +5,7 @@ These values control file handling, validation thresholds, and STIG Viewer compa
 """
 
 from __future__ import annotations
+
 import platform
 import sys
 from enum import Enum
