@@ -27,6 +27,22 @@ class Cfg:
     """
 
     # Platform detection
+"""Application configuration and directory management."""
+
+from __future__ import annotations
+from typing import Optional, List, Tuple
+from pathlib import Path
+from contextlib import suppress
+import threading
+import platform
+import sys
+import os
+import tempfile
+
+
+class Cfg:
+    """Application configuration."""
+
     IS_WIN = platform.system() == "Windows"
     IS_LIN = platform.system() == "Linux"
     IS_MAC = platform.system() == "Darwin"
@@ -48,6 +64,7 @@ class Cfg:
 
     # Limits and thresholds
     MAX_FILE = 500 * 1024 * 1024  # 500 MB
+    MAX_FILE = 500 * 1024 * 1024
     MAX_HIST = 200
     MAX_FIND = 65000
     MAX_COMM = 32000
@@ -60,6 +77,9 @@ class Cfg:
     DEDUP_CHECK_WINDOW = 20
     HIST_COMPRESS_HEAD = 15
     HIST_COMPRESS_TAIL = 100
+    DEDUP_CHECK_WINDOW = 20  # Check last N entries for duplicate prevention
+    HIST_COMPRESS_HEAD = 15  # Keep first N entries when compressing history
+    HIST_COMPRESS_TAIL = 100  # Keep last N entries when compressing history
 
     # Error rate thresholds for validation
     ERROR_RATE_WARN_THRESHOLD = 10.0  # Warn at 10% error rate
@@ -76,12 +96,52 @@ class Cfg:
         This is a minimal stub for Phase 0-2 modularization.
         Full implementation will be provided by Team 1.
         """
+        """Initialize application directories."""
         with cls._lock:
             if cls._done:
                 return
 
             # For now, just set HOME to avoid errors
             cls.HOME = Path.home()
+            candidates: List[Path] = []
+
+            with suppress(Exception):
+                candidates.append(Path.home())
+
+            for env_var in ("USERPROFILE", "HOME"):
+                val = os.environ.get(env_var)
+                if val and os.path.exists(val):
+                    candidates.append(Path(val))
+
+            candidates.append(Path(tempfile.gettempdir()) / "stig_user")
+            with suppress(Exception):
+                candidates.append(Path.cwd() / ".stig_home")
+
+            attempted_paths: List[str] = []
+            for candidate in candidates:
+                attempted_paths.append(str(candidate))
+                try:
+                    candidate.mkdir(parents=True, exist_ok=True)
+                    tmp = candidate / f".stig_test_{os.getpid()}"
+                    tmp.write_text("ok", encoding="utf-8")
+                    tmp.unlink()
+                    cls.HOME = candidate
+                    break
+                except (OSError, PermissionError, IOError):
+                    # LOG not initialized yet during Cfg.init()
+                    # Use stderr for debugging if needed
+                    continue
+                except Exception:
+                    # LOG not initialized yet during Cfg.init()
+                    # Use stderr for debugging if needed
+                    continue
+
+            if not cls.HOME:
+                raise RuntimeError(
+                    f"Cannot find writable home directory. Tried: {', '.join(attempted_paths[:5])}. "
+                    f"Please ensure write permissions on one of these directories or set $HOME/$USERPROFILE."
+                )
+
             cls.APP_DIR = cls.HOME / ".stig_assessor"
             cls.LOG_DIR = cls.APP_DIR / "logs"
             cls.BACKUP_DIR = cls.APP_DIR / "backups"
@@ -97,3 +157,75 @@ class Cfg:
 
 # Initialize configuration on module import
 Cfg.init()
+            required = [cls.APP_DIR, cls.LOG_DIR, cls.BACKUP_DIR]
+            optional = [
+                cls.EVIDENCE_DIR,
+                cls.TEMPLATE_DIR,
+                cls.PRESET_DIR,
+                cls.FIX_DIR,
+                cls.EXPORT_DIR,
+            ]
+
+            for directory in required:
+                directory.mkdir(parents=True, exist_ok=True)
+                tmp = directory / f".write_test_{os.getpid()}"
+                tmp.write_text("ok", encoding="utf-8")
+                tmp.unlink()
+
+            for directory in optional:
+                directory.mkdir(parents=True, exist_ok=True)
+
+            cls._done = True
+
+    @classmethod
+    def check(cls) -> Tuple[bool, List[str]]:
+        """Check if all required dependencies and permissions are available."""
+        from stig_assessor.core.deps import Deps
+
+        ET, _ = Deps.get_xml()
+        errs: List[str] = []
+
+        if cls.PY_VER < cls.MIN_PY:
+            errs.append(f"Python {cls.MIN_PY[0]}.{cls.MIN_PY[1]}+ required")
+
+        for module in ("json", "hashlib", "pathlib", "logging", "zipfile", "csv", "uuid"):
+            try:
+                __import__(module)
+            except Exception:
+                errs.append(f"Missing stdlib module: {module}")
+
+        try:
+            ET.Element("test")
+        except Exception:
+            errs.append("XML parser failed")
+
+        if cls.APP_DIR and not os.access(cls.APP_DIR, os.W_OK):
+            errs.append(f"No write permission: {cls.APP_DIR}")
+
+        return len(errs) == 0, errs
+
+    @classmethod
+    def cleanup_old(cls) -> Tuple[int, int]:
+        """Clean up old backup and log files."""
+        def clean(directory: Path, keep: int, pattern: str) -> int:
+            if not directory or not directory.exists():
+                return 0
+            removed = 0
+            files = sorted(
+                directory.glob(pattern),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            for old in files[keep:]:
+                with suppress(Exception):
+                    old.unlink()
+                    removed += 1
+            return removed
+
+        backups = clean(cls.BACKUP_DIR, cls.KEEP_BACKUPS, "*.bak")
+        logs = clean(cls.LOG_DIR, cls.KEEP_LOGS, "*.log")
+        return backups, logs
+
+
+# Module-level singleton instance (initialized on first import)
+CFG = Cfg

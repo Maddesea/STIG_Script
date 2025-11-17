@@ -1,4 +1,13 @@
 """XML processing modules."""
+"""XML processing modules.
+
+Provides XML schema definitions, sanitization, and utilities.
+"""
+
+# Exports will be added when xml modules are created
+This package contains XML schema definitions, sanitization, and utility functions
+for processing STIG XCCDF and CKL files.
+"""
 
 from __future__ import annotations
 
@@ -11,3 +20,9 @@ __all__ = [
     "San",
     "XmlUtils",
 ]
+]
+"""XML processing modules."""
+
+from __future__ import annotations
+
+__all__ = []
