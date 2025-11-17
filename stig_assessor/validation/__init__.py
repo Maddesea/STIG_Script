@@ -1,21 +1,12 @@
-"""STIG validation modules."""
-
-from __future__ import annotations
-
-# Placeholder for Team 5 deliverables
-# Will contain validator.py module
-"""Validation module.
-
-Provides STIG Viewer 2.18 compliance validation.
-"""
-
-# Exports will be added when validator module is created
-"""Validation modules.
+"""STIG Viewer validation modules.
 
 This package contains STIG Viewer 2.18 compatibility validation logic.
+
+NOTE: This is a placeholder for Team 5 deliverables.
+Full implementation of validator.py will be provided by TEAM 5.
 """
-"""STIG Viewer validation modules."""
 
 from __future__ import annotations
 
+# Placeholder - exports will be added when validator module is created
 __all__ = []

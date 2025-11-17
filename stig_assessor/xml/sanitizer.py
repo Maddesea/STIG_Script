@@ -3,24 +3,6 @@ STIG Assessor Input Sanitization and Validation.
 
 Provides validation and sanitization for all user inputs including
 file paths, network addresses, XML content, and STIG-specific identifiers.
-"""Input sanitization and validation utilities.
-
-This module provides comprehensive validation and sanitization for all user inputs,
-file paths, network addresses, XML content, and STIG-specific values.
-
-Philosophy:
-- Fail fast: Raise ValidationError on invalid input, never silently accept bad data
-- No silent coercion: Don't "fix" or modify invalid input, reject it explicitly
-- Defense in depth: Multiple validation layers for critical security boundaries
-- Explicit over implicit: Clear validation rules with informative error messages
-
-Security Features:
-- Path traversal prevention (../ sequences)
-- Symlink attack detection
-- Control character filtering (prevents XML injection)
-- XML entity escaping (&, <, >, ", ')
-- File size limits (prevents resource exhaustion)
-- Input length limits (prevents buffer issues)
 """
 
 from __future__ import annotations
@@ -41,19 +23,9 @@ class San:
 
     Philosophy:
     - Fail fast: Raise ValidationError on invalid input, never silently accept bad data
-    - No silent coercion: Don't "fix" or modify invalid input, reject it explicitly
+    - No silent coercion: Do not fix or modify invalid input, reject it explicitly
     - Defense in depth: Multiple validation layers for critical security boundaries
     - Explicit over implicit: Clear validation rules with informative error messages
-from stig_assessor.core.constants import IS_WINDOWS, MAX_FILE_SIZE
-from stig_assessor.exceptions import ValidationError
-from stig_assessor.xml.schema import Sch
-
-
-class San:
-    """Input sanitization and validation utilities.
-
-    All methods raise ValidationError on invalid input. Never returns None or
-    silently fails - caller must handle ValidationError explicitly.
 
     Validation Categories:
     - File paths: Traversal detection, symlink validation, size limits, permission checks
@@ -76,11 +48,6 @@ class San:
     Thread-safe: Yes (stateless utility class)
     """
 
-    # Validation patterns
-    ASSET = re.compile(r"^[a-zA-Z0-9._-]{1,255}$")
-    IP = re.compile(r"^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$")
-    """
-
     # Validation regex patterns
     ASSET = re.compile(r"^[a-zA-Z0-9._-]{1,255}$")
     # IP regex rejects leading zeros (e.g., 192.001.001.001)
@@ -92,17 +59,12 @@ class San:
     VULN = re.compile(r"^V-\d{1,10}$")
     UUID = re.compile(r"^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$", re.I)
 
-    # Security patterns
-    CTRL = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
-    TRAV = re.compile(r"\.\.([/\\])")
-
-    MAX_PATH = 260 if Cfg.IS_WIN else 4096
     # Control characters and path traversal patterns
     CTRL = re.compile(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]")
     TRAV = re.compile(r"\.\.([/\\])")
 
     # Platform-specific path length limits
-    MAX_PATH = 260 if IS_WINDOWS else 4096
+    MAX_PATH = 260 if Cfg.IS_WIN else 4096
 
     @staticmethod
     def path(
@@ -115,7 +77,6 @@ class San:
     ) -> Path:
         """
         Validate and sanitize file system paths.
-        """Validate and sanitize file system paths.
 
         Security features:
         - Detects symlink attacks and path traversal
@@ -126,8 +87,6 @@ class San:
         Args:
             value: Path string or Path object to validate
             exist: If True, path must exist
-            file: If True, path must be a file (when it exists)
-            dir: If True, path must be a directory (when it exists)
             file: If True, path must be a file (if it exists)
             dir: If True, path must be a directory (if it exists)
             mkpar: If True, create parent directories
@@ -136,7 +95,6 @@ class San:
             Validated and resolved Path object
 
         Raises:
-            ValidationError: If path is invalid or fails security checks
             ValidationError: If path is invalid, contains dangerous patterns,
                            or doesn't meet the specified requirements
         """
@@ -152,11 +110,6 @@ class San:
                 LOG.w(f"Potential traversal sequence in path: {as_str}")
 
             path = Path(as_str)
-                # Note: This is logged as a warning in the original code
-                # For now, we'll allow it but could be stricter
-                pass
-
-            path = Path(as_str)
             original = path.absolute()
 
             # Expand user home and resolve
@@ -169,6 +122,7 @@ class San:
             if path.exists():
                 # Check for symlinks
                 if original.is_symlink():
+                    LOG.w(f"Symlink detected: {original} -> {path}")
                     # Verify symlink target is not trying to escape
                     try:
                         # Check if any parent is a symlink pointing outside
@@ -209,9 +163,8 @@ class San:
                                     raise ValidationError(f"Symlink validation failed: {parent}: {ve}")
                     except ValidationError:
                         raise
-                    except Exception:
-                        # Symlink validation warning - logged in original
-                        pass
+                    except Exception as symlink_err:
+                        LOG.w(f"Symlink validation warning: {symlink_err}")
 
             if len(str(path)) > San.MAX_PATH:
                 raise ValidationError(f"Path too long: {len(str(path))}")
@@ -231,7 +184,6 @@ class San:
             if path.exists() and path.is_file():
                 size = path.stat().st_size
                 if size > Cfg.MAX_FILE:
-                if size > MAX_FILE_SIZE:
                     raise ValidationError(f"File too large: {size}")
                 if not os.access(path, os.R_OK):
                     raise ValidationError(f"File not readable: {path}")
@@ -244,8 +196,8 @@ class San:
 
     @staticmethod
     def asset(value: str) -> str:
-        """Validate asset name."""
-        """Validate asset name.
+        """
+        Validate asset name.
 
         Args:
             value: Asset name to validate
@@ -267,9 +219,6 @@ class San:
     def ip(value: str) -> str:
         """
         Validate IP address format.
-
-        Rejects leading zeros and validates octets are in range 0-255.
-        """Validate IP address format.
 
         Validates IPv4 addresses with proper octet range checking (0-255).
         Rejects leading zeros in octets (e.g., 192.001.001.001).
@@ -295,9 +244,6 @@ class San:
         if len(octets) != 4:
             raise ValidationError(f"IP must have exactly 4 octets, got {len(octets)}: {value}")
 
-        octets = value.split(".")
-        if len(octets) != 4:
-            raise ValidationError(f"IP must have exactly 4 octets, got {len(octets)}: {value}")
         for idx, octet in enumerate(octets):
             # Check for leading zeros (except "0" itself)
             if len(octet) > 1 and octet[0] == "0":
@@ -313,8 +259,8 @@ class San:
 
     @staticmethod
     def mac(value: str) -> str:
-        """Validate MAC address format."""
-        """Validate MAC address format.
+        """
+        Validate MAC address format.
 
         Accepts both colon and hyphen separators, normalizes to colon-separated
         uppercase format.
@@ -343,10 +289,6 @@ class San:
         """
         Validate vulnerability ID format.
 
-        Args:
-            value: Vulnerability ID (e.g., "V-12345")
-        """Validate vulnerability ID format.
-
         Expects format: V-NNNNNN (where N is a digit, 1-10 digits allowed).
 
         Args:
@@ -356,7 +298,6 @@ class San:
             Validated vulnerability ID
 
         Raises:
-            ValidationError: If format is invalid
             ValidationError: If vulnerability ID is empty or invalid format
         """
         if not value or not str(value).strip():
@@ -368,8 +309,8 @@ class San:
 
     @staticmethod
     def status(value: str) -> str:
-        """Validate STIG status value."""
-        """Validate STIG status value.
+        """
+        Validate STIG status value.
 
         Args:
             value: Status value to validate
@@ -391,7 +332,6 @@ class San:
     def sev(value: str, strict: bool = False) -> str:
         """
         Validate and normalize severity value.
-        """Validate and normalize severity value.
 
         Args:
             value: Severity value to validate
@@ -410,12 +350,10 @@ class San:
         value = str(value).strip().lower()
         if value not in Sch.SEV_VALS:
             if strict:
-                raise ValidationError(f"Invalid severity: {value} (must be one of: {', '.join(Sch.SEV_VALS)})")
-            LOG.w(f"Invalid severity '{value}', defaulting to 'medium'")
                 raise ValidationError(
                     f"Invalid severity: {value} (must be one of: {', '.join(Sch.SEV_VALS)})"
                 )
-            # In non-strict mode, default to medium (logged as warning in original)
+            LOG.w(f"Invalid severity '{value}', defaulting to 'medium'")
             return "medium"
         return value
 
@@ -423,16 +361,6 @@ class San:
     def xml(value: Any, mx: Optional[int] = None) -> str:
         """
         Sanitize value for XML output.
-
-        Escapes XML entities and removes control characters.
-
-        Args:
-            value: Value to sanitize
-            mx: Maximum length (truncates if exceeded)
-
-        Returns:
-            Sanitized string safe for XML
-        """Sanitize value for XML output.
 
         Removes control characters and escapes XML entities (&, <, >, ", ').
         Optionally truncates to maximum length.
@@ -456,11 +384,6 @@ class San:
         # Remove control characters
         value = San.CTRL.sub("", value)
 
-            except Exception:
-                # Cannot convert to string, return empty (logged in original)
-                return ""
-        # Remove control characters
-        value = San.CTRL.sub("", value)
         # Escape XML entities
         value = (
             value.replace("&", "&amp;")
@@ -474,7 +397,4 @@ class San:
         if mx is not None and len(value) > mx:
             value = value[: mx - 15] + "\n[TRUNCATED]"
 
-        # Truncate if needed
-        if mx is not None and len(value) > mx:
-            value = value[: mx - 15] + "\n[TRUNCATED]"
         return value

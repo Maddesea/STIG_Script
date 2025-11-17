@@ -1,76 +1,32 @@
 """
-STIG Assessor Configuration.
+Application configuration and directory management.
 
-Application configuration and runtime settings.
-This is a minimal version for modularization Phase 0-2.
+Provides:
+- Platform detection (Windows/Linux/macOS)
+- Directory management for application data
+- File size and processing limits
+- Configuration constants
+- System validation
+
+Thread-safe: Yes (uses RLock for initialization)
 """
 
 from __future__ import annotations
-import platform
-import sys
-from pathlib import Path
-from typing import Optional
-import threading
 
-
-class Cfg:
-    """
-    Application configuration and directory management.
-
-    Provides:
-    - Platform detection (Windows/Linux/macOS)
-    - Directory management for application data
-    - File size and processing limits
-    - Configuration constants
-
-    Thread-safe: Yes (uses RLock for initialization)
-    """
-
-    # Platform detection
-Configuration management.
-
-NOTE: This is a minimal stub for Team 7 testing.
-Full implementation will be provided by TEAM 1.
-"""
-
-from pathlib import Path
-"""Application configuration and directory management."""
-
-from __future__ import annotations
-from typing import Optional, List, Tuple
-from pathlib import Path
-from contextlib import suppress
-import threading
-import platform
-import sys
 import os
+import platform
+import sys
 import tempfile
+import threading
+from contextlib import suppress
+from pathlib import Path
+from typing import List, Optional, Tuple
 
 
 class Cfg:
-    """Configuration singleton stub."""
-
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __init__(self):
-        if hasattr(self, '_initialized'):
-            return
-        # Use temp directory for testing
-        self.base_dir = Path(tempfile.gettempdir()) / ".stig_assessor_test"
-        self.template_dir = self.base_dir / "templates"
-        self.template_dir.mkdir(parents=True, exist_ok=True)
-        self._initialized = True
-
-
-# Module-level singleton
-CFG = Cfg()
     """Application configuration."""
 
+    # Platform detection
     IS_WIN = platform.system() == "Windows"
     IS_LIN = platform.system() == "Linux"
     IS_MAC = platform.system() == "Darwin"
@@ -92,7 +48,6 @@ CFG = Cfg()
 
     # Limits and thresholds
     MAX_FILE = 500 * 1024 * 1024  # 500 MB
-    MAX_FILE = 500 * 1024 * 1024
     MAX_HIST = 200
     MAX_FIND = 65000
     MAX_COMM = 32000
@@ -102,9 +57,6 @@ CFG = Cfg()
     KEEP_LOGS = 15
 
     # History deduplication and compression constants
-    DEDUP_CHECK_WINDOW = 20
-    HIST_COMPRESS_HEAD = 15
-    HIST_COMPRESS_TAIL = 100
     DEDUP_CHECK_WINDOW = 20  # Check last N entries for duplicate prevention
     HIST_COMPRESS_HEAD = 15  # Keep first N entries when compressing history
     HIST_COMPRESS_TAIL = 100  # Keep last N entries when compressing history
@@ -118,19 +70,11 @@ CFG = Cfg()
 
     @classmethod
     def init(cls) -> None:
-        """
-        Initialize configuration directories.
-
-        This is a minimal stub for Phase 0-2 modularization.
-        Full implementation will be provided by Team 1.
-        """
         """Initialize application directories."""
         with cls._lock:
             if cls._done:
                 return
 
-            # For now, just set HOME to avoid errors
-            cls.HOME = Path.home()
             candidates: List[Path] = []
 
             with suppress(Exception):
@@ -180,11 +124,6 @@ CFG = Cfg()
             cls.EXPORT_DIR = cls.APP_DIR / "exports"
             cls.BOILERPLATE_FILE = cls.TEMPLATE_DIR / "boilerplate.json"
 
-            cls._done = True
-
-
-# Initialize configuration on module import
-Cfg.init()
             required = [cls.APP_DIR, cls.LOG_DIR, cls.BACKUP_DIR]
             optional = [
                 cls.EVIDENCE_DIR,
@@ -255,5 +194,12 @@ Cfg.init()
         return backups, logs
 
 
-# Module-level singleton instance (initialized on first import)
+# Initialize configuration on module import
+try:
+    Cfg.init()
+except Exception as exc:
+    print(f"FATAL: Config initialisation failed: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+# Module-level singleton instance (for backward compatibility)
 CFG = Cfg
