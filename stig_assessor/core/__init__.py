@@ -1,15 +1,11 @@
 """Core infrastructure modules.
 
-NOTE: These are minimal stubs for Team 7 testing.
-Full implementations will be provided by TEAM 1.
-"""
 Provides foundational components including configuration, logging,
 state management, and dependency detection.
-"""
+
 This package contains fundamental infrastructure components used throughout
 the STIG Assessor application.
 """
-"""Core infrastructure modules."""
 
 from __future__ import annotations
 
@@ -35,21 +31,9 @@ from stig_assessor.core.constants import (
     RETRY_DELAY,
     MAX_XML_SIZE,
 )
-from stig_assessor.core.config import Cfg
-from stig_assessor.core.logging import Log, LOG
-
-    ENCODINGS,
-    Status,
-    Severity,
-)
-    ERROR_THRESHOLD,
-    DEDUP_WINDOW,
-    COMPRESSION_THRESHOLD,
-)
-)
 from stig_assessor.core.state import GlobalState, GLOBAL_STATE
 from stig_assessor.core.deps import Deps
-from stig_assessor.core.config import Cfg, CFG
+from stig_assessor.core.config import Cfg
 from stig_assessor.core.logging import Log, LOG
 
 # Initialize configuration and dependencies
@@ -84,18 +68,10 @@ __all__ = [
     "MAX_RETRIES",
     "RETRY_DELAY",
     "MAX_XML_SIZE",
-    "Cfg",
-    "ENCODINGS",
-    "Status",
-    "Severity",
-    "ERROR_THRESHOLD",
-    "DEDUP_WINDOW",
-    "COMPRESSION_THRESHOLD",
     "GlobalState",
     "GLOBAL_STATE",
     "Deps",
     "Cfg",
-    "CFG",
     "Log",
     "LOG",
 ]

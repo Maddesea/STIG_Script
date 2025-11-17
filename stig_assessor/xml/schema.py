@@ -1,39 +1,20 @@
-"""
-STIG Assessor XML Schema Definitions.
+"""XML schema definitions for STIG Viewer CKL format.
 
-Defines XML namespaces, element names, and schema constants
-for STIG/CKL file processing.
-"""
+This class defines the structure and valid values for CKL (Checklist) files
+as used by STIG Viewer. All element names and values are defined here to
+ensure consistency across the application.
 
-from __future__ import annotations
-from typing import FrozenSet, Dict
-XML schema definitions.
-
-NOTE: This is a minimal stub for Team 7 testing.
-Full implementation will be provided by TEAM 2.
-"""
-
-
-class Sch:
-    """XML schema stub."""
-
-    # Element names
-    FINDING_DETAILS = "FINDING_DETAILS"
-    COMMENTS = "COMMENTS"
-    STATUS = "STATUS"
-
-    # Status values
-    STAT_VALS = ["NotAFinding", "Open", "Not_Reviewed", "Not_Applicable"]
-"""XML schema definitions and namespace handling.
-
-This module defines XML element names, default values, and valid value sets
-for STIG Viewer CKL format and XCCDF processing.
-
-The Sch class provides:
-- Element name constants for CHECKLIST, ASSET, STIG_INFO, VULN sections
-- Default values for mandatory fields
-- Valid value sets for status and severity enumerations
-- Marking/classification constants
+Attributes:
+    ROOT: Root element name for CKL files
+    COMMENT: XML comment identifying STIG Viewer version
+    ASSET: Asset metadata element names
+    STIG: STIG metadata element names
+    VULN: Vulnerability element names
+    STATUS: Status tracking element names
+    STAT_VALS: Valid status values (frozen set)
+    SEV_VALS: Valid severity values (frozen set)
+    MARKS: Valid security marking values (frozen set)
+    DEFS: Default values for optional elements
 """
 
 from __future__ import annotations
@@ -53,30 +34,6 @@ class Sch:
     - STIG Viewer 2.18 compatibility
 
     Thread-safe: Yes (immutable class constants)
-    """
-
-    ROOT = "CHECKLIST"
-    COMMENT = f"DISA STIG Viewer :: {STIG_VIEWER_VERSION}"
-
-    # Asset-level elements
-    ASSET = (
-    """XML schema definitions for STIG Viewer CKL format.
-
-    This class defines the structure and valid values for CKL (Checklist) files
-    as used by STIG Viewer. All element names and values are defined here to
-    ensure consistency across the application.
-
-    Attributes:
-        ROOT: Root element name for CKL files
-        COMMENT: XML comment identifying STIG Viewer version
-        ASSET: Asset metadata element names
-        STIG: STIG metadata element names
-        VULN: Vulnerability element names
-        STATUS: Status tracking element names
-        STAT_VALS: Valid status values (frozen set)
-        SEV_VALS: Valid severity values (frozen set)
-        MARKS: Valid security marking values (frozen set)
-        DEFS: Default values for optional elements
     """
 
     # Root element and version comment
@@ -100,8 +57,6 @@ class Sch:
         "WEB_DB_INSTANCE",
     )
 
-    # STIG information elements
-    STIG = (
     # STIG metadata elements (in STIG_INFO section)
     STIG: Tuple[str, ...] = (
         "version",
@@ -117,8 +72,6 @@ class Sch:
         "source",
     )
 
-    # Vulnerability (STIG_DATA) elements
-    VULN = (
     # Vulnerability metadata elements (in STIG_DATA within VULN)
     VULN: Tuple[str, ...] = (
         "Vuln_Num",
@@ -148,8 +101,6 @@ class Sch:
         "STIG_UUID",
     )
 
-    # Assessment status elements
-    STATUS = (
     # Status tracking elements (in VULN section)
     STATUS: Tuple[str, ...] = (
         "STATUS",
@@ -159,13 +110,6 @@ class Sch:
         "SEVERITY_JUSTIFICATION",
     )
 
-    # Valid values
-    STAT_VALS: FrozenSet[str] = frozenset(["NotAFinding", "Open", "Not_Reviewed", "Not_Applicable"])
-    SEV_VALS: FrozenSet[str] = frozenset(["high", "medium", "low"])
-    MARKS: FrozenSet[str] = frozenset(["CUI", "UNCLASSIFIED", "SECRET", "TOP SECRET", "TS", "S", "U"])
-
-    # Default values for various fields
-    DEFS: Dict[str, str] = {
     # Valid values for status (STIG Viewer compatible)
     STAT_VALS: FrozenSet[str] = frozenset([
         "NotAFinding",
