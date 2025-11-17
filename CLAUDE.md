@@ -389,11 +389,147 @@ class GUI:
 
 ---
 
+## Modularization & Testing Infrastructure
+
+### Modularization Status
+
+The STIG Assessor codebase is transitioning from a monolithic single-file architecture to a modular package structure to enable parallel development by multiple teams.
+
+**Current Status:** ✅ Specification Complete - Implementation Ready
+
+**Key Documents:**
+- **`MODULARIZATION_SPEC.md`** (4,379 lines) - Complete technical specification for modular architecture
+- **`MODULARIZATION_SUMMARY.md`** - Executive summary and project overview
+- **`DEV_QUICK_START.md`** - Developer onboarding guide with team assignments
+- **`MIGRATION_GUIDE.md`** - User migration guide from monolithic to modular
+- **`API_DOCUMENTATION.md`** - Comprehensive API reference for all modules
+
+### Target Modular Structure
+
+```
+stig_assessor/                    # Main package
+├── core/                         # Foundation (state, config, logging, deps)
+├── exceptions.py                 # All error classes
+├── xml/                          # XML processing (schema, sanitizer, utils)
+├── io/                           # File operations (atomic writes, backups)
+├── validation/                   # STIG Viewer compliance validation
+├── history/                      # History tracking and management
+├── templates/                    # Boilerplate template management
+├── processor/                    # Main XCCDF→CKL processor
+├── remediation/                  # Remediation extraction and import
+├── evidence/                     # Evidence file management
+└── ui/                           # User interfaces (CLI, GUI)
+```
+
+**Total:** 25+ focused modules, ~240 lines per file average
+
+### Development Team Assignments
+
+- **TEAM 0**: Foundation (constants, exceptions) - 2 days
+- **TEAM 1**: Core infrastructure - 3 days
+- **TEAM 2**: XML foundation - 2 days
+- **TEAM 3**: File operations - 4 days
+- **TEAM 4**: XML utilities - 2 days
+- **TEAM 5**: Validation - 3 days
+- **TEAM 6**: History management - 3 days
+- **TEAM 7**: Boilerplate templates - 2 days
+- **TEAM 8**: Remediation extractor - 5 days
+- **TEAM 9**: Evidence management - 3 days
+- **TEAM 10**: Remediation processor - 4 days
+- **TEAM 11**: Core processor - 7 days
+- **TEAM 12**: User interfaces - 5 days
+- **TEAM 13**: Testing & documentation - Ongoing
+
+**Timeline:** ~23 days elapsed time with full parallelization (vs. ~70 days sequential)
+
+### Testing Infrastructure (Team 13 Deliverables)
+
+**Comprehensive Test Suite:** `tests/` directory
+
+```
+tests/
+├── conftest.py                  # Shared fixtures and utilities
+├── test_core/                   # Core infrastructure tests
+├── test_xml/                    # XML processing tests
+├── test_io/                     # File operations tests
+├── test_validation/             # Validation tests
+├── test_history/                # History management tests
+├── test_templates/              # Boilerplate tests
+├── test_processor/              # Main processor tests
+├── test_remediation/            # Remediation tests
+├── test_evidence/               # Evidence management tests
+├── test_ui/                     # User interface tests
+├── test_integration/            # End-to-end workflow tests
+└── test_performance/            # Performance benchmarks
+```
+
+**Test Coverage Target:** Minimum 80% line coverage per module
+
+**Running Tests:**
+```bash
+# All tests with coverage
+python -m pytest tests/ -v --cov=stig_assessor --cov-report=html
+
+# Specific module
+python -m pytest tests/test_core/ -v
+
+# Integration tests
+python -m pytest tests/test_integration/ -v -m integration
+
+# Performance benchmarks
+python -m pytest tests/test_performance/ -v --benchmark-only
+```
+
+**Performance Benchmarks:**
+- Load 15K VULNs: < 30 seconds
+- Process 15K VULNs: < 60 seconds
+- Merge 100 files: < 5 minutes
+- Import 1000 remediation results: < 30 seconds
+- Peak memory usage: < 500MB
+
+### Backward Compatibility
+
+**100% Backward Compatible** - All existing scripts continue to work:
+
+```bash
+# Old way (still works)
+python STIG_Script.py --create --xccdf benchmark.xml --out output.ckl
+
+# New way (when modular version is deployed)
+python -m stig_assessor.cli --create --xccdf benchmark.xml --out output.ckl
+```
+
+### Migration Resources
+
+- **`MIGRATION_GUIDE.md`** - Step-by-step migration instructions
+- **`API_DOCUMENTATION.md`** - Complete API reference
+- **`tests/README.md`** - Test suite documentation
+
+### Benefits of Modularization
+
+1. **Parallel Development** - 13 teams can work independently (70% faster)
+2. **Better Testability** - Isolated unit tests for each component
+3. **Easier Maintenance** - Smaller files (~240 lines vs. 6000)
+4. **Code Reusability** - Modules can be imported independently
+5. **Clear Responsibilities** - Each module has one focused purpose
+
+### Air-Gap Compatibility
+
+**Maintained** - The modular version will support:
+- Single-file distribution option (via build script)
+- Zero external dependencies (stdlib only)
+- Full offline operation
+
+---
+
 ## Git Workflow
 
 ### Branch Strategy
-- **Development Branch:** `claude/claude-md-mi10q1bblig17kze-01JwjQkipWiaNFzRzEYubSgs`
-- All changes MUST be committed to this branch
+- **Current Branch:** `claude/team-13-tasks-01RcfGasxbQcR5LpvYK68XeX` (Team 13 - Testing & Documentation)
+- **Previous Branches:**
+  - `claude/claude-md-mi10q1bblig17kze-01JwjQkipWiaNFzRzEYubSgs`
+  - `claude/modularize-for-parallel-dev-012hrduZvrxxwWsWvgZ7VimR`
+- All changes MUST be committed to the assigned branch
 - Push with: `git push -u origin <branch-name>`
 
 ### Commit Message Style
