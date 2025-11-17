@@ -1,3 +1,13 @@
+"""Constants and enumerations for STIG Assessor.
+
+Contains all application-wide constants, limits, and enumeration types.
+"""
+
+from __future__ import annotations
+from enum import Enum
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 """STIG Assessor constants module.
 
 This module defines all application constants, enumerations, and configuration values.
@@ -32,6 +42,7 @@ STIG_VIEWER_VERSION = "2.18"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# FILE PROCESSING LIMITS
 # PLATFORM DETECTION
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -66,6 +77,9 @@ MAX_RETRIES = 3
 RETRY_DELAY = 0.5
 MAX_XML_SIZE = 500 * 1024 * 1024  # 500MB
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ENCODING DETECTION
 # ──────────────────────────────────────────────────────────────────────────────
 # CHARACTER ENCODINGS
 # ──────────────────────────────────────────────────────────────────────────────

@@ -1,5 +1,8 @@
 """Core infrastructure modules.
 
+Provides foundational components including configuration, logging,
+state management, and dependency detection.
+"""
 This package contains fundamental infrastructure components used throughout
 the STIG Assessor application.
 """
@@ -28,6 +31,10 @@ from stig_assessor.core.constants import (
     MAX_RETRIES,
     RETRY_DELAY,
     MAX_XML_SIZE,
+    ENCODINGS,
+    Status,
+    Severity,
+)
     ERROR_THRESHOLD,
     DEDUP_WINDOW,
     COMPRESSION_THRESHOLD,
@@ -70,6 +77,9 @@ __all__ = [
     "MAX_RETRIES",
     "RETRY_DELAY",
     "MAX_XML_SIZE",
+    "ENCODINGS",
+    "Status",
+    "Severity",
     "ERROR_THRESHOLD",
     "DEDUP_WINDOW",
     "COMPRESSION_THRESHOLD",

@@ -1,3 +1,7 @@
+"""Custom exceptions for STIG Assessor.
+
+All exceptions in the application inherit from STIGError base class
+to provide consistent error handling and context propagation.
 """STIG Assessor exceptions module.
 
 This module defines all custom exception classes for the STIG Assessor application.
