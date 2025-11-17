@@ -1,6 +1,8 @@
 """Core infrastructure modules.
 
 This package contains fundamental infrastructure components used throughout
+the STIG Assessor application, including configuration, logging, state management,
+and dependency detection.
 the STIG Assessor application.
 
 Provides foundational components including configuration, logging,
@@ -17,6 +19,9 @@ from stig_assessor.core.constants import (
     Status,
     Severity,
     ENCODINGS,
+    IS_WINDOWS,
+    IS_LINUX,
+    IS_MACOS,
     MAX_FILE_SIZE,
     MAX_HISTORY_ENTRIES,
     MAX_FINDING_LENGTH,
@@ -58,6 +63,9 @@ __all__ = [
     "Status",
     "Severity",
     "ENCODINGS",
+    "IS_WINDOWS",
+    "IS_LINUX",
+    "IS_MACOS",
     "MAX_FILE_SIZE",
     "MAX_HISTORY_ENTRIES",
     "MAX_FINDING_LENGTH",
