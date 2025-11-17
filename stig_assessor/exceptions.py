@@ -3,41 +3,6 @@ STIG Assessor Exception Classes.
 
 All custom exceptions for the STIG Assessor application.
 Provides structured error handling with context support.
-Exception classes for STIG Assessor.
-
-NOTE: This is a minimal stub for Team 7 testing.
-Full implementation will be provided by TEAM 0.
-"""
-
-
-class STIGError(Exception):
-    """Base exception for STIG operations."""
-    pass
-
-
-class ValidationError(STIGError):
-    """Validation error."""
-    pass
-
-
-class FileError(STIGError):
-    """File operation error."""
-    pass
-
-
-class ParseError(STIGError):
-    """XML parsing error."""
-    pass
-"""Custom exceptions for STIG Assessor.
-
-All exceptions in the application inherit from STIGError base class
-to provide consistent error handling and context propagation.
-"""STIG Assessor exceptions module.
-
-This module defines all custom exception classes for the STIG Assessor application.
-
-All exceptions inherit from STIGError, which provides context tracking for
-better error diagnostics and debugging.
 """
 
 from __future__ import annotations
@@ -54,14 +19,6 @@ class STIGError(Exception):
         msg: The error message
         ctx: Optional dictionary of contextual information (e.g., file paths, VIDs)
     """
-"""Custom exception classes for STIG Assessor."""
-
-from __future__ import annotations
-from typing import Optional, Dict, Any
-
-
-class STIGError(Exception):
-    """Base exception with context."""
 
     def __init__(self, msg: str, ctx: Optional[Dict[str, Any]] = None):
         super().__init__(msg)
@@ -77,20 +34,14 @@ class STIGError(Exception):
 
 class ValidationError(STIGError):
     """Raised when validation fails (STIG Viewer compatibility)."""
+    pass
 
 
 class FileError(STIGError):
     """Raised when file operations fail."""
+    pass
 
 
 class ParseError(STIGError):
     """Raised when XML parsing fails."""
-    """Validation failure."""
-
-
-class FileError(STIGError):
-    """File operation failure."""
-
-
-class ParseError(STIGError):
-    """Parsing failure."""
+    pass

@@ -33,7 +33,7 @@ from .models import Hist
 # Temporary imports from monolithic file
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from STIG_Script import Cfg, LOG, San, FO, ParseError, ValidationError
+from STIG_Script import Cfg, LOG, San, FO, ParseError, ValidationError, VERSION
 
 
 class HistMgr:
@@ -313,7 +313,7 @@ class HistMgr:
             payload = {
                 "meta": {
                     "generated": datetime.now(timezone.utc).isoformat(),
-                    "version": "7.3.0",  # TODO: Import from constants
+                    "version": VERSION,
                     "nvulns": len(self._h),
                     "nentries": sum(len(vals) for vals in self._h.values()),
                 },
