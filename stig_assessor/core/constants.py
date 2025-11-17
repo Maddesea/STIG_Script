@@ -1,3 +1,18 @@
+"""
+STIG Assessor Constants and Enumerations.
+
+Application-wide constants, configuration values, and enumerations.
+"""
+
+from __future__ import annotations
+from enum import Enum
+from typing import FrozenSet
+
+# ──────────────────────────────────────────────────────────────────────────────
+# VERSION INFORMATION
+# ──────────────────────────────────────────────────────────────────────────────
+
+VERSION = "8.0.0"
 """Constants and enumerations for STIG Assessor.
 
 Contains all application-wide constants, limits, and enumeration types.
@@ -40,6 +55,15 @@ BUILD_DATE = "2025-11-16"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
 
+# ──────────────────────────────────────────────────────────────────────────────
+# FILE OPERATION LIMITS
+# ──────────────────────────────────────────────────────────────────────────────
+
+LARGE_FILE_THRESHOLD = 50 * 1024 * 1024  # 50 MB
+CHUNK_SIZE = 8192  # 8 KB chunks for streaming
+MAX_RETRIES = 3  # Retry attempts for I/O operations
+RETRY_DELAY = 0.5  # Initial retry delay in seconds
+MAX_XML_SIZE = 500 * 1024 * 1024  # 500 MB maximum XML file size
 
 # ──────────────────────────────────────────────────────────────────────────────
 # FILE PROCESSING LIMITS
@@ -140,6 +164,7 @@ class Status(str, Enum):
 
     @classmethod
     def is_valid(cls, value: str) -> bool:
+        """Check if a status value is valid."""
         """Check if a status value is valid.
 
         Args:
@@ -182,6 +207,7 @@ class Severity(str, Enum):
 
     @classmethod
     def is_valid(cls, value: str) -> bool:
+        """Check if a severity value is valid."""
         """Check if a severity value is valid.
 
         Args:

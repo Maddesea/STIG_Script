@@ -1,4 +1,32 @@
 """
+STIG Assessor Configuration.
+
+Application configuration and runtime settings.
+This is a minimal version for modularization Phase 0-2.
+"""
+
+from __future__ import annotations
+import platform
+import sys
+from pathlib import Path
+from typing import Optional
+import threading
+
+
+class Cfg:
+    """
+    Application configuration and directory management.
+
+    Provides:
+    - Platform detection (Windows/Linux/macOS)
+    - Directory management for application data
+    - File size and processing limits
+    - Configuration constants
+
+    Thread-safe: Yes (uses RLock for initialization)
+    """
+
+    # Platform detection
 Configuration management.
 
 NOTE: This is a minimal stub for Team 7 testing.
@@ -50,6 +78,7 @@ CFG = Cfg()
     MIN_PY = (3, 9)
     PLATFORM = platform.system()
 
+    # Directory paths (initialized on first use)
     HOME: Optional[Path] = None
     APP_DIR: Optional[Path] = None
     LOG_DIR: Optional[Path] = None
@@ -61,6 +90,8 @@ CFG = Cfg()
     EXPORT_DIR: Optional[Path] = None
     BOILERPLATE_FILE: Optional[Path] = None
 
+    # Limits and thresholds
+    MAX_FILE = 500 * 1024 * 1024  # 500 MB
     MAX_FILE = 500 * 1024 * 1024
     MAX_HIST = 200
     MAX_FIND = 65000
@@ -71,6 +102,9 @@ CFG = Cfg()
     KEEP_LOGS = 15
 
     # History deduplication and compression constants
+    DEDUP_CHECK_WINDOW = 20
+    HIST_COMPRESS_HEAD = 15
+    HIST_COMPRESS_TAIL = 100
     DEDUP_CHECK_WINDOW = 20  # Check last N entries for duplicate prevention
     HIST_COMPRESS_HEAD = 15  # Keep first N entries when compressing history
     HIST_COMPRESS_TAIL = 100  # Keep last N entries when compressing history
@@ -84,11 +118,19 @@ CFG = Cfg()
 
     @classmethod
     def init(cls) -> None:
+        """
+        Initialize configuration directories.
+
+        This is a minimal stub for Phase 0-2 modularization.
+        Full implementation will be provided by Team 1.
+        """
         """Initialize application directories."""
         with cls._lock:
             if cls._done:
                 return
 
+            # For now, just set HOME to avoid errors
+            cls.HOME = Path.home()
             candidates: List[Path] = []
 
             with suppress(Exception):
@@ -138,6 +180,11 @@ CFG = Cfg()
             cls.EXPORT_DIR = cls.APP_DIR / "exports"
             cls.BOILERPLATE_FILE = cls.TEMPLATE_DIR / "boilerplate.json"
 
+            cls._done = True
+
+
+# Initialize configuration on module import
+Cfg.init()
             required = [cls.APP_DIR, cls.LOG_DIR, cls.BACKUP_DIR]
             optional = [
                 cls.EVIDENCE_DIR,

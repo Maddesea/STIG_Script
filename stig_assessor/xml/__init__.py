@@ -1,3 +1,4 @@
+"""XML processing modules."""
 """XML processing modules.
 
 NOTE: These are minimal stubs for Team 7 testing.
@@ -15,10 +16,13 @@ from __future__ import annotations
 
 from stig_assessor.xml.schema import Sch
 from stig_assessor.xml.sanitizer import San
+from stig_assessor.xml.utils import XmlUtils
 
 __all__ = [
     "Sch",
     "San",
+    "XmlUtils",
+]
 ]
 """XML processing modules."""
 

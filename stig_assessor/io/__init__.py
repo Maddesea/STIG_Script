@@ -1,3 +1,9 @@
+"""File I/O operations modules."""
+
+from __future__ import annotations
+
+# Placeholder for Team 3 deliverables
+# Will contain file_ops.py module
 """I/O modules.
 
 NOTE: These are minimal stubs for Team 7 testing.

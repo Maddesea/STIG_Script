@@ -1,3 +1,9 @@
+"""Remediation modules."""
+
+from __future__ import annotations
+
+# Placeholder for Teams 8 and 10 deliverables
+# Will contain models.py, extractor.py, and processor.py modules
 """
 Remediation module for STIG fix extraction and processing.
 

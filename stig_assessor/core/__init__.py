@@ -34,6 +34,10 @@ from stig_assessor.core.constants import (
     MAX_RETRIES,
     RETRY_DELAY,
     MAX_XML_SIZE,
+)
+from stig_assessor.core.config import Cfg
+from stig_assessor.core.logging import Log, LOG
+
     ENCODINGS,
     Status,
     Severity,
@@ -80,6 +84,7 @@ __all__ = [
     "MAX_RETRIES",
     "RETRY_DELAY",
     "MAX_XML_SIZE",
+    "Cfg",
     "ENCODINGS",
     "Status",
     "Severity",

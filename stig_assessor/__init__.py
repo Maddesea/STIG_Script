@@ -1,4 +1,8 @@
 """
+STIG Assessor Complete - Modular Package.
+
+A production-ready, zero-dependency, air-gap certified security compliance tool
+for Department of Defense (DoD) Security Technical Implementation Guide (STIG) assessments.
 STIG Assessor - Modular Package
 
 A production-ready, zero-dependency, air-gap certified security compliance

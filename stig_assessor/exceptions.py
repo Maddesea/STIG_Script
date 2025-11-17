@@ -1,4 +1,8 @@
 """
+STIG Assessor Exception Classes.
+
+All custom exceptions for the STIG Assessor application.
+Provides structured error handling with context support.
 Exception classes for STIG Assessor.
 
 NOTE: This is a minimal stub for Team 7 testing.
