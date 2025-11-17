@@ -3,37 +3,13 @@ STIG Assessor XML Schema Definitions.
 
 Defines XML namespaces, element names, and schema constants
 for STIG/CKL file processing.
-"""
 
-from __future__ import annotations
-from typing import FrozenSet, Dict
-XML schema definitions.
-
-NOTE: This is a minimal stub for Team 7 testing.
-Full implementation will be provided by TEAM 2.
-"""
-
-
-class Sch:
-    """XML schema stub."""
-
-    # Element names
-    FINDING_DETAILS = "FINDING_DETAILS"
-    COMMENTS = "COMMENTS"
-    STATUS = "STATUS"
-
-    # Status values
-    STAT_VALS = ["NotAFinding", "Open", "Not_Reviewed", "Not_Applicable"]
-"""XML schema definitions and namespace handling.
-
-This module defines XML element names, default values, and valid value sets
-for STIG Viewer CKL format and XCCDF processing.
-
-The Sch class provides:
+This module provides:
+- XML namespace constants for XCCDF and related standards
 - Element name constants for CHECKLIST, ASSET, STIG_INFO, VULN sections
 - Default values for mandatory fields
 - Valid value sets for status and severity enumerations
-- Marking/classification constants
+- Namespace resolution and tag manipulation utilities
 """
 
 from __future__ import annotations
@@ -50,38 +26,22 @@ class Sch:
     - Element names and structure constants
     - Default values for required fields
     - Valid value sets for status, severity, and markings
+    - Namespace handling for XCCDF processing
     - STIG Viewer 2.18 compatibility
 
     Thread-safe: Yes (immutable class constants)
     """
 
-    ROOT = "CHECKLIST"
-    COMMENT = f"DISA STIG Viewer :: {STIG_VIEWER_VERSION}"
-
-    # Asset-level elements
-    ASSET = (
-    """XML schema definitions for STIG Viewer CKL format.
-
-    This class defines the structure and valid values for CKL (Checklist) files
-    as used by STIG Viewer. All element names and values are defined here to
-    ensure consistency across the application.
-
-    Attributes:
-        ROOT: Root element name for CKL files
-        COMMENT: XML comment identifying STIG Viewer version
-        ASSET: Asset metadata element names
-        STIG: STIG metadata element names
-        VULN: Vulnerability element names
-        STATUS: Status tracking element names
-        STAT_VALS: Valid status values (frozen set)
-        SEV_VALS: Valid severity values (frozen set)
-        MARKS: Valid security marking values (frozen set)
-        DEFS: Default values for optional elements
-    """
-
     # Root element and version comment
     ROOT = "CHECKLIST"
     COMMENT = f"DISA STIG Viewer :: {STIG_VIEWER_VERSION}"
+
+    # XML Namespaces
+    NS: Dict[str, str] = {
+        "xccdf": "http://checklists.nist.gov/xccdf/1.2",
+        "dc": "http://purl.org/dc/elements/1.1/",
+        "cdf": "http://checklists.nist.gov/xccdf/1.1",
+    }
 
     # Asset metadata elements (in ASSET section)
     ASSET: Tuple[str, ...] = (
@@ -100,8 +60,6 @@ class Sch:
         "WEB_DB_INSTANCE",
     )
 
-    # STIG information elements
-    STIG = (
     # STIG metadata elements (in STIG_INFO section)
     STIG: Tuple[str, ...] = (
         "version",
@@ -117,8 +75,6 @@ class Sch:
         "source",
     )
 
-    # Vulnerability (STIG_DATA) elements
-    VULN = (
     # Vulnerability metadata elements (in STIG_DATA within VULN)
     VULN: Tuple[str, ...] = (
         "Vuln_Num",
@@ -146,10 +102,9 @@ class Sch:
         "STIGRef",
         "TargetKey",
         "STIG_UUID",
+        "CCI_REF",
     )
 
-    # Assessment status elements
-    STATUS = (
     # Status tracking elements (in VULN section)
     STATUS: Tuple[str, ...] = (
         "STATUS",
@@ -159,13 +114,33 @@ class Sch:
         "SEVERITY_JUSTIFICATION",
     )
 
-    # Valid values
-    STAT_VALS: FrozenSet[str] = frozenset(["NotAFinding", "Open", "Not_Reviewed", "Not_Applicable"])
-    SEV_VALS: FrozenSet[str] = frozenset(["high", "medium", "low"])
-    MARKS: FrozenSet[str] = frozenset(["CUI", "UNCLASSIFIED", "SECRET", "TOP SECRET", "TS", "S", "U"])
+    # CKL Element names (direct access without tuple lookup)
+    FINDING_DETAILS = "FINDING_DETAILS"
+    COMMENTS = "COMMENTS"
+    STIG_DATA = "STIG_DATA"
+    VULN_ATTRIBUTE = "VULN_ATTRIBUTE"
+    ATTRIBUTE_DATA = "ATTRIBUTE_DATA"
+    SI_DATA = "SI_DATA"
+    SID_NAME = "SID_NAME"
+    SID_DATA = "SID_DATA"
 
-    # Default values for various fields
-    DEFS: Dict[str, str] = {
+    # XCCDF element names (used with namespace)
+    XCCDF_BENCHMARK = "Benchmark"
+    XCCDF_GROUP = "Group"
+    XCCDF_RULE = "Rule"
+    XCCDF_VERSION = "version"
+    XCCDF_TITLE = "title"
+    XCCDF_DESCRIPTION = "description"
+    XCCDF_REFERENCE = "reference"
+    XCCDF_FIXTEXT = "fixtext"
+    XCCDF_FIX = "fix"
+    XCCDF_CHECK = "check"
+    XCCDF_CHECK_CONTENT = "check-content"
+    XCCDF_CHECK_CONTENT_REF = "check-content-ref"
+    XCCDF_IDENT = "ident"
+    XCCDF_PROFILE = "Profile"
+    XCCDF_SELECT = "select"
+
     # Valid values for status (STIG Viewer compatible)
     STAT_VALS: FrozenSet[str] = frozenset([
         "NotAFinding",
@@ -220,3 +195,50 @@ class Sch:
         "source": "STIG.DOD.MIL",
         "classification": "UNCLASSIFIED",
     }
+
+    @staticmethod
+    def ns(tag: str, namespace: str = "xccdf") -> str:
+        """
+        Get namespaced tag for XML element.
+
+        Converts a tag name to its fully qualified namespace form
+        for use with ElementTree find/findall operations.
+
+        Args:
+            tag: Element tag name (e.g., "Benchmark", "Rule")
+            namespace: Namespace prefix (default: "xccdf")
+
+        Returns:
+            Fully qualified tag name (e.g., "{http://...}Benchmark")
+
+        Example:
+            >>> Sch.ns("Benchmark")
+            '{http://checklists.nist.gov/xccdf/1.2}Benchmark'
+            >>> root.find(Sch.ns("Benchmark"))
+        """
+        if namespace in Sch.NS:
+            return f"{{{Sch.NS[namespace]}}}{tag}"
+        return tag
+
+    @staticmethod
+    def strip_ns(tag: str) -> str:
+        """
+        Remove namespace prefix from tag.
+
+        Extracts the tag name from a fully qualified namespace tag.
+
+        Args:
+            tag: Potentially namespaced tag (e.g., "{http://...}Rule")
+
+        Returns:
+            Tag without namespace (e.g., "Rule")
+
+        Example:
+            >>> Sch.strip_ns("{http://checklists.nist.gov/xccdf/1.2}Rule")
+            'Rule'
+            >>> Sch.strip_ns("VULN")
+            'VULN'
+        """
+        if '}' in tag:
+            return tag.split('}', 1)[1]
+        return tag

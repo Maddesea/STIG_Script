@@ -1,28 +1,3 @@
-"""
-STIG Assessor Constants and Enumerations.
-
-Application-wide constants, configuration values, and enumerations.
-"""
-
-from __future__ import annotations
-from enum import Enum
-from typing import FrozenSet
-
-# ──────────────────────────────────────────────────────────────────────────────
-# VERSION INFORMATION
-# ──────────────────────────────────────────────────────────────────────────────
-
-VERSION = "8.0.0"
-"""Constants and enumerations for STIG Assessor.
-
-Contains all application-wide constants, limits, and enumeration types.
-"""
-
-from __future__ import annotations
-from enum import Enum
-
-
-# ──────────────────────────────────────────────────────────────────────────────
 """STIG Assessor constants module.
 
 This module defines all application constants, enumerations, and configuration values.
@@ -41,32 +16,12 @@ from typing import FrozenSet
 # ──────────────────────────────────────────────────────────────────────────────
 
 VERSION = "8.0.0"
-"""Constants and enumerations for STIG Assessor."""
-
-from __future__ import annotations
-from enum import Enum
-
-# ──────────────────────────────────────────────────────────────────────────────
-# APPLICATION METADATA
-# ──────────────────────────────────────────────────────────────────────────────
-
-VERSION = "7.3.0"
 BUILD_DATE = "2025-11-16"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
 
-# ──────────────────────────────────────────────────────────────────────────────
-# FILE OPERATION LIMITS
-# ──────────────────────────────────────────────────────────────────────────────
-
-LARGE_FILE_THRESHOLD = 50 * 1024 * 1024  # 50 MB
-CHUNK_SIZE = 8192  # 8 KB chunks for streaming
-MAX_RETRIES = 3  # Retry attempts for I/O operations
-RETRY_DELAY = 0.5  # Initial retry delay in seconds
-MAX_XML_SIZE = 500 * 1024 * 1024  # 500 MB maximum XML file size
 
 # ──────────────────────────────────────────────────────────────────────────────
-# FILE PROCESSING LIMITS
 # PLATFORM DETECTION
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -91,21 +46,6 @@ MAX_XML_SIZE = 500 * 1024 * 1024  # 500MB - maximum XML file size
 
 # ──────────────────────────────────────────────────────────────────────────────
 # ENCODINGS
-# ──────────────────────────────────────────────────────────────────────────────
-# FILE OPERATION CONSTANTS
-# ──────────────────────────────────────────────────────────────────────────────
-
-LARGE_FILE_THRESHOLD = 50 * 1024 * 1024  # 50MB
-CHUNK_SIZE = 8192
-MAX_RETRIES = 3
-RETRY_DELAY = 0.5
-MAX_XML_SIZE = 500 * 1024 * 1024  # 500MB
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# ENCODING DETECTION
-# ──────────────────────────────────────────────────────────────────────────────
-# CHARACTER ENCODINGS
 # ──────────────────────────────────────────────────────────────────────────────
 
 ENCODINGS = [
@@ -156,7 +96,6 @@ class Status(str, Enum):
     for compatibility. Status values are case-sensitive.
     """
 
-    """STIG finding status values (STIG Viewer compatible)."""
     NOT_A_FINDING = "NotAFinding"
     OPEN = "Open"
     NOT_REVIEWED = "Not_Reviewed"
@@ -164,7 +103,6 @@ class Status(str, Enum):
 
     @classmethod
     def is_valid(cls, value: str) -> bool:
-        """Check if a status value is valid."""
         """Check if a status value is valid.
 
         Args:
@@ -182,12 +120,6 @@ class Status(str, Enum):
         Returns:
             Frozen set of all valid status strings
         """
-        """Check if a status value is valid."""
-        return value in cls._value2member_map_
-
-    @classmethod
-    def all_values(cls) -> frozenset:
-        """Return all valid status values."""
         return frozenset(m.value for m in cls)
 
 
@@ -200,14 +132,12 @@ class Severity(str, Enum):
     - LOW = CAT III (minor findings)
     """
 
-    """STIG severity levels (CAT I/II/III)."""
     HIGH = "high"      # CAT I
     MEDIUM = "medium"  # CAT II
     LOW = "low"        # CAT III
 
     @classmethod
     def is_valid(cls, value: str) -> bool:
-        """Check if a severity value is valid."""
         """Check if a severity value is valid.
 
         Args:
@@ -225,10 +155,4 @@ class Severity(str, Enum):
         Returns:
             Frozen set of all valid severity strings
         """
-        """Check if a severity value is valid."""
-        return value in cls._value2member_map_
-
-    @classmethod
-    def all_values(cls) -> frozenset:
-        """Return all valid severity values."""
         return frozenset(m.value for m in cls)
