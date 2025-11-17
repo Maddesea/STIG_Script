@@ -116,7 +116,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     extract_group.add_argument("--script-dry-run", action="store_true", help="Generate scripts in dry-run mode")
 
     result_group = parser.add_argument_group("Apply Remediation Results")
-    result_group.add_argument("--apply-results", help="Results JSON file to import")
+    result_group.add_argument("--apply-results", nargs="+", help="Results JSON file(s) to import (supports multiple files)")
     result_group.add_argument("--checklist", help="Checklist to update")
     result_group.add_argument("--results-out", help="Updated checklist output path")
     result_group.add_argument("--no-auto-status", action="store_true", help="Do not auto-mark successes as NotAFinding")
@@ -236,8 +236,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             if not (args.checklist and args.results_out):
                 parser.error("--apply-results requires --checklist and --results-out")
 
-            # ═══ ENHANCED: Support multiple result files ═══
-            result_files = args.apply_results if isinstance(args.apply_results, list) else [args.apply_results]
+            # Support multiple result files (args.apply_results is always a list due to nargs="+")
+            result_files = args.apply_results
 
             processor = FixResPro()
             total_loaded = 0
@@ -346,7 +346,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 args.batch_convert,
                 args.batch_out,
                 asset_prefix=args.batch_asset_prefix,
-                apply_boilerplate=args.apply_boilerplate if hasattr(args, 'apply_boilerplate') else False
+                apply_boilerplate=getattr(args, 'apply_boilerplate', False)
             )
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if result.get('failures', 0) == 0 else 2

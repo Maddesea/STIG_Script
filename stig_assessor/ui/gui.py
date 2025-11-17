@@ -508,6 +508,9 @@ if Deps.HAS_TKINTER:
             self.validate_text = ScrolledText(frame, width=120, height=25, font=("Courier New", 10))
             self.validate_text.pack(fill="both", expand=True, pady=5)
 
+            self.validate_status = tk.StringVar()
+            ttk.Label(frame, textvariable=self.validate_status, wraplength=860, foreground="blue").pack(pady=5)
+
         # --------------------------------------------------------- action helpers
         def _async(self, work_func, callback):
             def worker():
@@ -866,7 +869,7 @@ if Deps.HAS_TKINTER:
                 else:
                     self.validate_text.insert("end", "✘ Checklist has errors that must be resolved.\n", "error")
 
-            self.validate_status = "Validating…"
+            self.validate_status.set("Validating…")
             self._async(work, done)
 
         # ------------------------------------------------------------ menu actions
