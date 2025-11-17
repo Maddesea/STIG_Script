@@ -14,11 +14,16 @@ __build_date__ = "2025-10-28"
 __stig_viewer_compat__ = "2.18"
 
 __all__ = []
+"""STIG Assessor - Modular STIG compliance assessment tool.
 """STIG Assessor - Modular security compliance assessment tool.
 
 A production-ready, zero-dependency, air-gap certified security compliance tool
 for Department of Defense (DoD) Security Technical Implementation Guide (STIG)
 assessments.
+"""
+
+__version__ = "7.0.0"
+__all__ = []
 
 Version: 7.3.0
 Build Date: 2025-11-16
