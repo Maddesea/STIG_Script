@@ -500,11 +500,13 @@ class Cfg:
                     break
                 except (OSError, PermissionError, IOError) as exc:
                     # LOG not initialized yet during Cfg.init()
-                    # Use stderr for debugging if needed
+                    # Output to stderr for debugging
+                    print(f"Warning: Cannot write to {candidate}: {exc}", file=sys.stderr)
                     continue
                 except Exception as exc:
                     # LOG not initialized yet during Cfg.init()
-                    # Use stderr for debugging if needed
+                    # Output to stderr for unexpected errors
+                    print(f"Error: Unexpected exception accessing {candidate}: {exc}", file=sys.stderr)
                     continue
 
             if not cls.HOME:
@@ -1733,25 +1735,37 @@ class HistMgr:
             raise ParseError("Invalid history JSON")
 
         imported = 0
+        skipped_vids = 0
+        skipped_entries = 0
+        duplicate_entries = 0
         with self._lock:
             history_data = payload.get("history", {})
             for vid, entries in history_data.items():
                 try:
                     vid = San.vuln(vid)
                 except Exception:
+                    skipped_vids += 1
                     continue
                 slot = self._h[vid]
                 for entry_data in entries:
                     try:
                         entry = Hist.from_dict(entry_data)
                     except Exception:
+                        skipped_entries += 1
                         continue
                     if any(existing.chk == entry.chk for existing in slot):
+                        duplicate_entries += 1
                         continue
                     slot.append(entry)
                     imported += 1
                 slot.sort(key=lambda e: e.ts)
         LOG.i(f"Imported {imported} history entries")
+        if skipped_vids > 0:
+            LOG.w(f"Skipped {skipped_vids} invalid VIDs")
+        if skipped_entries > 0:
+            LOG.w(f"Skipped {skipped_entries} malformed entries")
+        if duplicate_entries > 0:
+            LOG.d(f"Skipped {duplicate_entries} duplicate entries")
         return imported
 
 
@@ -3378,8 +3392,9 @@ class FixExt:
             raise ParseError("No vulnerability groups found in XCCDF")
 
         self.stats["total_groups"] = len(groups)
+        failed_groups: List[Tuple[str, str]] = []
         for idx, group in enumerate(groups, 1):
-            with suppress(Exception):
+            try:
                 fix = self._parse_group(group)
                 if fix:
                     self.fixes.append(fix)
@@ -3387,11 +3402,18 @@ class FixExt:
                     if fix.fix_command:
                         self.stats["with_command"] += 1
                     self.stats["platforms"][fix.platform] += 1
+            except Exception as exc:
+                # Track failed groups for logging
+                vid = group.get("id", f"index-{idx}")
+                failed_groups.append((vid, str(exc)))
+                LOG.w(f"Failed to parse group {vid}: {exc}")
 
         LOG.i(
             f"Extracted {len(self.fixes)} fixes "
             f"({self.stats['with_command']} with actionable commands)"
         )
+        if failed_groups:
+            LOG.w(f"Failed to parse {len(failed_groups)} groups (see warnings above)")
         LOG.clear()
         return self.fixes
 
@@ -4385,13 +4407,27 @@ class EvidenceMgr:
 
         dest_dir = self.base / vid
 
-        # Compute hash BEFORE checking for duplicates to avoid unnecessary I/O
+        # Quick duplicate check by filename and size (cheap operations)
         file_size = file_path.stat().st_size
+        filename = file_path.name
+
+        with self._lock:
+            # First pass: check filename and size (fast)
+            for entry in self._meta[vid]:
+                if entry.filename == filename and entry.file_size == file_size:
+                    LOG.d(f"Potential duplicate detected (same name/size): {filename}")
+                    # Found potential duplicate, need to compute hash to confirm
+                    break
+            else:
+                # No potential duplicates by name/size, still need hash for tracking
+                pass
+
+        # Compute hash for deduplication and tracking
         file_hash = hashlib.sha256()
 
         # Add progress indication for large files
         if file_size > 10 * 1024 * 1024:  # 10MB+
-            LOG.i(f"Computing hash for large file ({file_size} bytes)...")
+            LOG.i(f"Computing hash for file ({file_size} bytes)...")
 
         with open(file_path, "rb") as handle:
             for chunk in iter(lambda: handle.read(CHUNK_SIZE), b""):
@@ -4399,7 +4435,7 @@ class EvidenceMgr:
 
         digest = file_hash.hexdigest()
 
-        # Check for duplicates BEFORE copying (saves I/O)
+        # Check for hash-based duplicates (definitive)
         with self._lock:
             for entry in self._meta[vid]:
                 if entry.file_hash == digest:
@@ -4519,8 +4555,11 @@ class EvidenceMgr:
             tmp_path = Path(tmp_dir)
             with zipfile.ZipFile(package, "r") as archive:
                 # Security: Validate all archive members before extraction
-                # to prevent path traversal attacks (CVE-2007-4559)
-                for member in archive.namelist():
+                # to prevent path traversal attacks (CVE-2007-4559) and ZIP bombs
+                total_uncompressed = 0
+                for member_info in archive.infolist():
+                    member = member_info.filename
+
                     # Normalize the path and check for traversal attempts
                     member_path = Path(member)
                     if member_path.is_absolute():
@@ -4536,6 +4575,27 @@ class EvidenceMgr:
                         target_path.relative_to(tmp_path.resolve())
                     except ValueError:
                         raise ValidationError(f"Archive path escapes extraction directory: {member}")
+
+                    # ZIP bomb protection: Check individual file size
+                    if member_info.file_size > Cfg.MAX_FILE:
+                        raise ValidationError(
+                            f"Archive member too large ({member_info.file_size} bytes): {member}"
+                        )
+
+                    # ZIP bomb protection: Check compression ratio (100:1 threshold)
+                    if member_info.compress_size > 0:
+                        ratio = member_info.file_size / member_info.compress_size
+                        if ratio > 100:
+                            raise ValidationError(
+                                f"Suspicious compression ratio ({ratio:.1f}:1) in {member}"
+                            )
+
+                    # ZIP bomb protection: Track total uncompressed size
+                    total_uncompressed += member_info.file_size
+                    if total_uncompressed > Cfg.MAX_FILE * 2:  # Allow 2x max file size for package
+                        raise ValidationError(
+                            f"Archive total uncompressed size too large ({total_uncompressed} bytes)"
+                        )
 
                 # Safe to extract after validation
                 archive.extractall(tmp_path)
@@ -5698,6 +5758,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     batch_group.add_argument("--batch-convert", help="Directory containing XCCDF files to convert")
     batch_group.add_argument("--batch-out", help="Output directory for batch conversion")
     batch_group.add_argument("--batch-asset-prefix", default="ASSET", help="Asset name prefix for batch conversion")
+    batch_group.add_argument("--batch-apply-boilerplate", action="store_true",
+                            help="Apply boilerplate templates during batch conversion")
 
     integrity_group = parser.add_argument_group("Integrity Verification")
     integrity_group.add_argument("--verify-integrity", help="Verify checklist integrity with checksums")
@@ -5899,7 +5961,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 args.batch_convert,
                 args.batch_out,
                 asset_prefix=args.batch_asset_prefix,
-                apply_boilerplate=args.apply_boilerplate if hasattr(args, 'apply_boilerplate') else False
+                apply_boilerplate=args.batch_apply_boilerplate
             )
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if result.get('failures', 0) == 0 else 2
