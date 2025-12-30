@@ -1,10 +1,7 @@
-"""User interface modules."""
+"""User interface modules (CLI and GUI).
 
-from __future__ import annotations
-
-# Placeholder for Team 12 deliverables
-# Will contain cli.py, gui.py, and presets.py modules
-"""User interface modules (CLI and GUI)."""
+Provides CLI and GUI interfaces for STIG assessment operations.
+"""
 
 from __future__ import annotations
 
@@ -26,18 +23,3 @@ try:
 except ImportError:
     # GUI not available (tkinter not installed)
     GUI = None
-"""User interface module.
-
-Provides CLI and GUI interfaces.
-"""
-
-# Exports will be added when UI modules are created
-"""User interface modules.
-
-This package contains CLI and GUI interfaces.
-"""
-"""User interface modules (CLI and GUI)."""
-
-from __future__ import annotations
-
-__all__ = []
