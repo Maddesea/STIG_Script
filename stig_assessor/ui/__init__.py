@@ -2,6 +2,12 @@
 
 This package contains the command-line interface and graphical user interface
 for the STIG Assessor application.
+
+Public API:
+    - main: CLI entry point function
+    - ensure_default_boilerplates: Initialize default templates
+    - PresetMgr: GUI preset management class
+    - GUI: Graphical user interface (only available if tkinter is installed)
 """
 
 from __future__ import annotations

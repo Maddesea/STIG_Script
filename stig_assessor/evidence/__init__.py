@@ -1,9 +1,7 @@
-"""Evidence management module.
+"""Evidence management modules.
 
-This module provides functionality for managing evidence files
-associated with STIG vulnerabilities.
-
-Team: 9 - Evidence Management
+This package provides functionality for managing evidence files
+associated with STIG vulnerabilities, including import, export, and packaging.
 
 Public API:
     - EvidenceMeta: Evidence metadata dataclass
