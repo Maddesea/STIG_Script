@@ -778,8 +778,10 @@ class Log:
             data = getattr(self._ctx, "data", {})
             if data:
                 return "[" + ", ".join(f"{k}={v}" for k, v in data.items()) + "] "
-        except Exception:
-            pass
+        except (AttributeError, TypeError, RuntimeError) as exc:
+            # Gracefully handle context failures - logging should not fail
+            # RuntimeError can occur with dict changed size during iteration
+            print(f"[DEBUG] Context string build failed: {exc}", file=sys.stderr)
         return ""
 
     def _log(self, level: str, message: str, exc: bool = False) -> None:
@@ -948,7 +950,7 @@ class XmlUtils:
     """Shared XML processing utilities to eliminate code duplication."""
 
     @staticmethod
-    def indent_xml(elem, level: int = 0) -> None:
+    def indent_xml(elem: ET.Element, level: int = 0) -> None:
         """
         Recursively indent XML element tree for pretty printing.
 
@@ -992,7 +994,7 @@ class XmlUtils:
         return None
 
     @staticmethod
-    def collect_text(elem, xpath: str, default: str = "", join_with: str = "\n") -> str:
+    def collect_text(elem: ET.Element, xpath: str, default: str = "", join_with: str = "\n") -> str:
         """
         Collect and join text content from multiple XML elements.
 
@@ -1086,7 +1088,7 @@ class XmlUtils:
         return default
 
     @staticmethod
-    def extract_text_content(elem) -> str:
+    def extract_text_content(elem: Optional[ET.Element]) -> str:
         """
         Enhanced text extraction with proper mixed content handling.
 
@@ -1159,6 +1161,25 @@ class XmlUtils:
             return elem.text.strip()
 
         return ""
+
+    @staticmethod
+    def extract_namespace(root: ET.Element) -> Dict[str, str]:
+        """
+        Extract namespace dictionary from root element tag.
+
+        Parses the namespace URI from Clark notation ({uri}localname) and returns
+        a dictionary suitable for use with ElementTree find/findall methods.
+
+        Args:
+            root: Root XML element to extract namespace from
+
+        Returns:
+            Dictionary mapping 'ns' to namespace URI, or empty dict if no namespace
+        """
+        if root is not None and "}" in root.tag:
+            uri = root.tag.split("}")[0][1:]
+            return {"ns": uri}
+        return {}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1720,7 +1741,8 @@ class FO:
         raise FileError(f"Unable to decode file with any known encoding: {path}")
 
     @staticmethod
-    def parse_xml(path: Union[str, Path]):
+    def parse_xml(path: Union[str, Path]) -> ET.ElementTree:
+        """Parse XML file with security validation and encoding handling."""
         path = San.path(path, exist=True, file=True)
 
         # Security: validate file size before parsing to prevent resource exhaustion
@@ -1987,19 +2009,29 @@ class HistMgr:
         if len(entries) <= Cfg.MAX_HIST:
             return
 
+        # Bounds check: ensure compression parameters are valid
+        # HIST_COMPRESS_HEAD + HIST_COMPRESS_TAIL must be less than MAX_HIST
+        # and less than current entry count to leave room for middle entries
+        min_entries_for_compression = Cfg.HIST_COMPRESS_HEAD + Cfg.HIST_COMPRESS_TAIL + 1
+        if len(entries) < min_entries_for_compression:
+            LOG.d(f"Skipping compression for {vid}: not enough entries ({len(entries)} < {min_entries_for_compression})")
+            return
+
         head = entries[:Cfg.HIST_COMPRESS_HEAD]
         tail = entries[-Cfg.HIST_COMPRESS_TAIL:]
         middle = entries[Cfg.HIST_COMPRESS_HEAD:-Cfg.HIST_COMPRESS_TAIL]
 
         if middle:
+            # Use "Not_Reviewed" as placeholder status since "compressed" is not a valid
+            # STIG Viewer status value. Valid values are: NotAFinding, Open, Not_Applicable, Not_Reviewed
             compressed = Hist(
                 ts=middle[0].ts,
-                stat="compressed",
-                find=f"[{len(middle)} historical entries compressed]",
-                comm="",
+                stat="Not_Reviewed",
+                find=f"[COMPRESSED] {len(middle)} historical entries compressed to preserve storage limits",
+                comm=f"System compression at {datetime.now(timezone.utc).isoformat()}",
                 src="system",
-                chk="compressed",
-                sev="medium",  # Fixed: "info" is not a valid severity; use "medium" for system entries
+                chk="history_compression",
+                sev="medium",
                 who="system",
             )
             self._h[vid] = head + [compressed] + tail
@@ -2324,7 +2356,7 @@ class BP:
         """
         try:
             status = San.status(status)
-        except Exception:
+        except (ValidationError, ValueError, TypeError):
             status = "Not_Reviewed"
         template = self._templates.get(status, {}).get("find", "")
         if not template:
@@ -2354,9 +2386,11 @@ class BP:
             "approval_date": "[Approval Date]",
         }
         defaults.update(kwargs)
-        with suppress(Exception):
+        try:
             return template.format(**defaults)
-        return template
+        except (KeyError, ValueError, IndexError) as exc:
+            LOG.d(f"Template formatting failed: {exc}")
+            return template
 
     def comm(self, status: str, **kwargs) -> str:
         """
@@ -2371,7 +2405,7 @@ class BP:
         """
         try:
             status = San.status(status)
-        except Exception:
+        except (ValidationError, ValueError, TypeError):
             status = "Not_Reviewed"
         template = self._templates.get(status, {}).get("comm", "")
         if not template:
@@ -2383,9 +2417,11 @@ class BP:
             "poam": "[POA&M]",
         }
         defaults.update(kwargs)
-        with suppress(Exception):
+        try:
             return template.format(**defaults)
-        return template
+        except (KeyError, ValueError, IndexError) as exc:
+            LOG.d(f"Template formatting failed: {exc}")
+            return template
 
     def export(self, path: Union[str, Path]) -> None:
         """
@@ -2750,13 +2786,11 @@ class Proc:
         return {"ok": True, "output": str(out), "processed": processed, "skipped": skipped, "errors": errors}
 
     # ------------------------------------------------------------------- helpers
-    def _namespace(self, root: Any) -> Dict[str, str]:
-        if "}" in root.tag:
-            uri = root.tag.split("}")[0][1:]
-            return {"ns": uri}
-        return {}
+    def _namespace(self, root: ET.Element) -> Dict[str, str]:
+        """Extract namespace dictionary from root element tag."""
+        return XmlUtils.extract_namespace(root)
 
-    def _extract_meta(self, root, ns: Dict[str, str]) -> Dict[str, str]:
+    def _extract_meta(self, root: ET.Element, ns: Dict[str, str]) -> Dict[str, str]:
         meta = {
             "title": "Unknown STIG",
             "description": "",
@@ -3017,7 +3051,7 @@ class Proc:
 
         return vuln_node
 
-    def _collect_fix_text(self, elem) -> str:
+    def _collect_fix_text(self, elem: Optional[ET.Element]) -> str:
         """
         Enhanced fix text extraction with proper handling of XCCDF mixed content.
 
@@ -3981,13 +4015,11 @@ class FixExt:
         return self.fixes
 
     # ---------------------------------------------------------------- helpers
-    def _namespace(self, root: Any) -> Dict[str, str]:
-        if "}" in root.tag:
-            uri = root.tag.split("}")[0][1:]
-            return {"ns": uri}
-        return {}
+    def _namespace(self, root: ET.Element) -> Dict[str, str]:
+        """Extract namespace dictionary from root element tag."""
+        return XmlUtils.extract_namespace(root)
 
-    def _groups(self, root: Any) -> List[Any]:
+    def _groups(self, root: ET.Element) -> List[ET.Element]:
         search = ".//ns:Group" if self.ns else ".//Group"
         groups = root.findall(search, self.ns)
         valid: List[Any] = []
