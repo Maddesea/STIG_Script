@@ -17,8 +17,8 @@ import threading
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Dict, List, Union
+from pathlib import Path
 from contextlib import suppress
 
 # Import from local models module
@@ -27,16 +27,12 @@ from .models import Hist
 # Import VERSION constant
 from stig_assessor.core.constants import VERSION
 
-# TODO: Replace with modular imports once other teams complete their work
-# from stig_assessor.core.config import Cfg
-# from stig_assessor.core.logging import LOG
-# from stig_assessor.xml.sanitizer import San
-# from stig_assessor.io.file_ops import FO
-# from stig_assessor.exceptions import ParseError, ValidationError
-# Temporary imports from monolithic file
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from STIG_Script import Cfg, LOG, San, FO, ParseError, ValidationError
+# Import from modular package
+from stig_assessor.core.config import Cfg
+from stig_assessor.core.logging import LOG
+from stig_assessor.xml.sanitizer import San
+from stig_assessor.io.file_ops import FO
+from stig_assessor.exceptions import ParseError, ValidationError
 
 
 class HistMgr:

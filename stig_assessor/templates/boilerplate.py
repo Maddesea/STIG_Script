@@ -40,9 +40,9 @@ class BP:
             return
 
         # Import here to avoid circular dependencies during module load
-        from stig_assessor.core.config import CFG
+        from stig_assessor.core.config import Cfg
 
-        self.template_file: Path = CFG.template_dir / "boilerplate.json"
+        self.template_file: Path = Cfg.TEMPLATE_DIR / "boilerplate.json"
         self.templates: Dict[str, Dict[str, str]] = {}
         self.load()
         self._initialized = True
@@ -53,17 +53,17 @@ class BP:
         from stig_assessor.core.logging import LOG
 
         if not self.template_file.exists():
-            LOG.info("No boilerplate file found, using defaults")
+            LOG.i("No boilerplate file found, using defaults")
             self._load_defaults()
             self.save()
             return
 
         try:
-            content = FO.read_with_fallback(self.template_file)
+            content = FO.read(self.template_file)
             self.templates = json.loads(content)
-            LOG.info(f"Loaded {len(self.templates)} boilerplate templates")
+            LOG.i(f"Loaded {len(self.templates)} boilerplate templates")
         except Exception as e:
-            LOG.error(f"Failed to load boilerplate: {e}")
+            LOG.e(f"Failed to load boilerplate: {e}")
             self._load_defaults()
 
     def save(self) -> None:
@@ -72,8 +72,8 @@ class BP:
         from stig_assessor.exceptions import FileError
 
         try:
-            content = json.dumps(self.templates, indent=2, ensure_ascii=False)
-            FO.atomic_write(self.template_file, content, backup=False)
+            with FO.atomic(self.template_file, bak=False) as handle:
+                json.dump(self.templates, handle, indent=2, ensure_ascii=False)
         except Exception as e:
             raise FileError(f"Failed to save boilerplate: {e}")
 
