@@ -15,16 +15,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-# TODO: Replace with modular imports once Team 0 and Team 2 complete their work
-# from stig_assessor.exceptions import ValidationError
-# from stig_assessor.xml.sanitizer import San
-# Temporary imports from monolithic file
-import sys
-from pathlib import Path
-
-# Add parent directory to path to import from STIG_Script.py
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from STIG_Script import San, ValidationError
+# Import from modular package
+from stig_assessor.exceptions import ValidationError
+from stig_assessor.xml.sanitizer import San
 
 
 @dataclass(order=True)

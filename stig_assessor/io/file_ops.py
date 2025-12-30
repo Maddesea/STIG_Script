@@ -39,81 +39,14 @@ from stig_assessor.core.constants import (
     RETRY_DELAY,
 )
 
-# TODO: These will be provided by Team 1 (core infrastructure)
-# For now, create placeholder references to document the interface
-# When Team 1 completes their work, these imports will be:
-# from stig_assessor.core.config import Cfg
-# from stig_assessor.core.state import GLOBAL
-# from stig_assessor.core.logging import LOG
-# from stig_assessor.core.deps import Deps
+# Import from core infrastructure (Team 1)
+from stig_assessor.core.config import Cfg
+from stig_assessor.core.state import GLOBAL_STATE as GLOBAL
+from stig_assessor.core.logging import LOG
+from stig_assessor.core.deps import Deps
 
-# TODO: This will be provided by Team 2 (XML foundation)
-# When Team 2 completes their work, this import will be:
-# from stig_assessor.xml.sanitizer import San
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# PLACEHOLDER IMPORTS (to be replaced when Teams 1 & 2 complete)
-# ──────────────────────────────────────────────────────────────────────────────
-
-class _PlaceholderCfg:
-    """Placeholder for Cfg class from Team 1."""
-    BACKUP_DIR = Path.home() / ".stig_assessor" / "backups"
-    IS_WIN = os.name == "nt"
-    KEEP_BACKUPS = 30
-
-    def __init__(self):
-        self.BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-
-class _PlaceholderGlobal:
-    """Placeholder for GlobalState from Team 1."""
-    def __init__(self):
-        import threading
-        self.shutdown = threading.Event()
-        self._temps = set()
-        self._lock = threading.Lock()
-
-    def add_temp(self, path: Path):
-        with self._lock:
-            self._temps.add(path)
-
-class _PlaceholderLog:
-    """Placeholder for Log class from Team 1."""
-    def i(self, msg: str, **kwargs): print(f"INFO: {msg}")
-    def w(self, msg: str, **kwargs): print(f"WARN: {msg}")
-    def e(self, msg: str, **kwargs): print(f"ERROR: {msg}")
-    def d(self, msg: str, **kwargs): print(f"DEBUG: {msg}")
-    def c(self, msg: str, **kwargs): print(f"CRITICAL: {msg}")
-
-class _PlaceholderDeps:
-    """Placeholder for Deps class from Team 1."""
-    HAS_DEFUSEDXML = False
-
-class _PlaceholderSan:
-    """Placeholder for San class from Team 2."""
-    @staticmethod
-    def path(p: Union[str, Path], mkpar: bool = False, exist: bool = False,
-             file: bool = False) -> Path:
-        """Placeholder path sanitizer."""
-        path = Path(p) if isinstance(p, str) else p
-
-        if mkpar and not path.parent.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-
-        if exist and not path.exists():
-            raise FileError(f"Path does not exist: {path}")
-
-        if file and not path.is_file():
-            raise FileError(f"Path is not a file: {path}")
-
-        return path
-
-# Use placeholders until Teams 1 & 2 provide real implementations
-Cfg = _PlaceholderCfg()
-GLOBAL = _PlaceholderGlobal()
-LOG = _PlaceholderLog()
-Deps = _PlaceholderDeps()
-San = _PlaceholderSan()
+# Import from XML foundation (Team 2)
+from stig_assessor.xml.sanitizer import San
 
 
 # ──────────────────────────────────────────────────────────────────────────────
