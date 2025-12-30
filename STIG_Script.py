@@ -1319,6 +1319,21 @@ class San:
 
     @staticmethod
     def asset(value: str) -> str:
+        """
+        Validate and sanitize asset name/hostname.
+
+        Asset names must be 1-255 alphanumeric characters, dots, underscores,
+        or hyphens. Used for HOST_NAME field in CKL files.
+
+        Args:
+            value: Asset name to validate
+
+        Returns:
+            Validated asset name (stripped, max 255 chars)
+
+        Raises:
+            ValidationError: If empty or contains invalid characters
+        """
         if not value or not str(value).strip():
             raise ValidationError("Empty asset")
         value = str(value).strip()[:255]
@@ -1328,6 +1343,23 @@ class San:
 
     @staticmethod
     def ip(value: str) -> str:
+        """
+        Validate IPv4 address format.
+
+        Validates proper IPv4 dotted-decimal notation with strict checks:
+        - Exactly 4 octets separated by dots
+        - Each octet 0-255 with no leading zeros (except "0" itself)
+        - No whitespace or extra characters
+
+        Args:
+            value: IP address string to validate
+
+        Returns:
+            Validated IP address, or empty string if input is empty
+
+        Raises:
+            ValidationError: If format is invalid or octets out of range
+        """
         if not value:
             return ""
         value = str(value).strip()
@@ -1352,6 +1384,21 @@ class San:
 
     @staticmethod
     def mac(value: str) -> str:
+        """
+        Validate and normalize MAC address format.
+
+        Accepts colon or hyphen separators, normalizes to uppercase with colons.
+        Validates 6 hexadecimal segments of 2 characters each.
+
+        Args:
+            value: MAC address string to validate
+
+        Returns:
+            Normalized MAC address (XX:XX:XX:XX:XX:XX), or empty if input empty
+
+        Raises:
+            ValidationError: If format is invalid
+        """
         if not value:
             return ""
         value = str(value).strip().upper().replace("-", ":")
@@ -1363,6 +1410,21 @@ class San:
 
     @staticmethod
     def vuln(value: str) -> str:
+        """
+        Validate STIG vulnerability ID format.
+
+        Vulnerability IDs must match pattern V-NNNNNN where N is 1-10 digits.
+        Examples: V-123456, V-1, V-9999999999
+
+        Args:
+            value: Vulnerability ID to validate
+
+        Returns:
+            Validated vulnerability ID
+
+        Raises:
+            ValidationError: If empty or format invalid
+        """
         if not value or not str(value).strip():
             raise ValidationError("Empty vulnerability ID")
         value = str(value).strip()
@@ -1372,6 +1434,24 @@ class San:
 
     @staticmethod
     def status(value: str) -> str:
+        """
+        Validate STIG compliance status value.
+
+        Valid values are defined by STIG Viewer schema (Sch.STAT_VALS):
+        - NotAFinding: Control is satisfied
+        - Open: Control is not satisfied
+        - Not_Applicable: Control does not apply
+        - Not_Reviewed: Not yet assessed (default if empty)
+
+        Args:
+            value: Status value to validate
+
+        Returns:
+            Validated status, or "Not_Reviewed" if input is empty
+
+        Raises:
+            ValidationError: If value is not a valid status
+        """
         if not value:
             return "Not_Reviewed"
         value = str(value).strip()
@@ -1408,6 +1488,21 @@ class San:
 
     @staticmethod
     def xml(value: Any, mx: Optional[int] = None) -> str:
+        """
+        Sanitize value for safe XML embedding.
+
+        Performs security-critical sanitization:
+        1. Removes control characters (0x00-0x08, 0x0B, 0x0C, 0x0E-0x1F, 0x7F)
+        2. Escapes XML entities: & < > " '
+        3. Optionally truncates to maximum length with "[TRUNCATED]" marker
+
+        Args:
+            value: Value to sanitize (will be converted to string)
+            mx: Maximum length (optional). If exceeded, truncates with marker.
+
+        Returns:
+            XML-safe string, or empty string if input is None/unconvertible
+        """
         if value is None:
             return ""
         if not isinstance(value, str):
@@ -1784,7 +1879,18 @@ class Hist:
 
 
 class HistMgr:
-    """In-memory history manager."""
+    """
+    Thread-safe in-memory history manager for STIG vulnerability assessments.
+
+    Tracks assessment history with microsecond precision, supporting:
+    - Deduplication via SHA-256 content hashing
+    - Automatic compression when history exceeds MAX_HIST
+    - Merge formatting for human-readable history display
+    - Import/export for history persistence
+
+    Thread Safety:
+        All operations are protected by RLock for concurrent access.
+    """
 
     def __init__(self):
         self._h: Dict[str, List[Hist]] = defaultdict(list)
@@ -1800,6 +1906,24 @@ class HistMgr:
         sev: str = "medium",
         who: str = "",
     ) -> bool:
+        """
+        Add a history entry for a vulnerability.
+
+        Creates a new history entry with timestamp and deduplication check.
+        Entries are stored sorted by timestamp using bisect for efficiency.
+
+        Args:
+            vid: Vulnerability ID (V-NNNNNN format)
+            stat: Status (NotAFinding, Open, Not_Applicable, Not_Reviewed)
+            find: Finding details text
+            comm: Comments text
+            src: Source identifier (e.g., checklist filename)
+            sev: Severity level (high, medium, low)
+            who: Assessor name (defaults to system username)
+
+        Returns:
+            True if entry was added, False if duplicate or invalid
+        """
         with self._lock:
             try:
                 vid = San.vuln(vid)
@@ -1852,6 +1976,13 @@ class HistMgr:
             return True
 
     def _compress(self, vid: str) -> None:
+        """
+        Compress history entries when exceeding MAX_HIST limit.
+
+        Preserves oldest (head) and newest (tail) entries while compressing
+        middle entries into a single summary placeholder. Called automatically
+        when add() would exceed the limit.
+        """
         entries = self._h[vid]
         if len(entries) <= Cfg.MAX_HIST:
             return
@@ -1876,6 +2007,20 @@ class HistMgr:
             self._h[vid] = head + tail
 
     def merge_find(self, vid: str, current: str = "") -> str:
+        """
+        Generate merged finding details with formatted history.
+
+        Creates a human-readable document combining current assessment
+        with historical entries, using box-drawing characters for structure.
+
+        Args:
+            vid: Vulnerability ID
+            current: Current finding details to prepend
+
+        Returns:
+            Formatted string with current assessment and history timeline,
+            truncated to MAX_FIND if necessary
+        """
         with self._lock:
             history = self._h.get(vid)
             if not history:
@@ -1925,6 +2070,20 @@ class HistMgr:
             return result
 
     def merge_comm(self, vid: str, current: str = "") -> str:
+        """
+        Generate merged comments with formatted history.
+
+        Creates a formatted document combining current comment with
+        historical comments, showing timestamp and source for each entry.
+
+        Args:
+            vid: Vulnerability ID
+            current: Current comment to prepend
+
+        Returns:
+            Formatted string with current and historical comments,
+            truncated to MAX_COMM if necessary
+        """
         with self._lock:
             history = self._h.get(vid)
             if not history:
@@ -1952,6 +2111,15 @@ class HistMgr:
             return result
 
     def export(self, path: Union[str, Path]) -> None:
+        """
+        Export all history to a JSON file.
+
+        Creates a structured JSON document with metadata header and
+        all history entries organized by vulnerability ID.
+
+        Args:
+            path: Destination file path (parent dirs created if needed)
+        """
         path = San.path(path, mkpar=True)
         with self._lock:
             payload = {
@@ -1973,6 +2141,21 @@ class HistMgr:
         LOG.i(f"Exported history for {len(payload['history'])} vulnerabilities")
 
     def imp(self, path: Union[str, Path]) -> int:
+        """
+        Import history entries from a JSON file.
+
+        Merges entries from the file into current history, skipping duplicates
+        based on content hash. Invalid entries are silently skipped.
+
+        Args:
+            path: Source JSON file path
+
+        Returns:
+            Number of entries successfully imported
+
+        Raises:
+            ParseError: If file is not valid JSON
+        """
         path = San.path(path, exist=True, file=True)
         try:
             payload = json.loads(FO.read(path))
@@ -2008,7 +2191,22 @@ class HistMgr:
 
 
 class BP:
-    """Status-aware boilerplate manager."""
+    """
+    Status-aware boilerplate template manager.
+
+    Provides pre-formatted templates for STIG assessment documentation,
+    with separate templates for each compliance status. Templates support
+    variable substitution using Python format strings.
+
+    Template Variables:
+        Common: {date}, {who}, {asset}
+        NotAFinding: {verify}, {evid}, {statement}, {notes}
+        Open: {severity}, {deficiency}, {impact}, {remediation}, {poam}, {target}, {owner}
+        Not_Reviewed: {scheduled}, {assigned}, {priority}, {plan}
+        Not_Applicable: {justification}, {approver}, {approval_date}
+
+    Custom templates can be loaded from JSON files to override defaults.
+    """
 
     DEFAULTS: Dict[str, Dict[str, str]] = {
         "NotAFinding": {
@@ -2084,6 +2282,13 @@ class BP:
     }
 
     def __init__(self, custom: Optional[Union[str, Path]] = None) -> None:
+        """
+        Initialize boilerplate manager with optional custom templates.
+
+        Args:
+            custom: Path to custom templates JSON file. If None, uses
+                    default file at Cfg.BOILERPLATE_FILE if it exists.
+        """
         self._templates = {k: v.copy() for k, v in self.DEFAULTS.items()}
         if not custom and Cfg.BOILERPLATE_FILE and Cfg.BOILERPLATE_FILE.exists():
             custom = Cfg.BOILERPLATE_FILE
@@ -2092,6 +2297,7 @@ class BP:
                 self._load(San.path(custom, exist=True, file=True))
 
     def _load(self, path: Path) -> None:
+        """Load and merge templates from a JSON file."""
         data = json.loads(FO.read(path))
         for status, tpl in data.items():
             if status not in Sch.STAT_VALS:
@@ -2106,6 +2312,16 @@ class BP:
         LOG.i(f"Boilerplate templates loaded from {path}")
 
     def find(self, status: str, **kwargs) -> str:
+        """
+        Generate finding details text from template.
+
+        Args:
+            status: Compliance status for template selection
+            **kwargs: Variable values to substitute in template
+
+        Returns:
+            Formatted finding details string
+        """
         try:
             status = San.status(status)
         except Exception:
@@ -2143,6 +2359,16 @@ class BP:
         return template
 
     def comm(self, status: str, **kwargs) -> str:
+        """
+        Generate comment text from template.
+
+        Args:
+            status: Compliance status for template selection
+            **kwargs: Variable values to substitute in template
+
+        Returns:
+            Formatted comment string
+        """
         try:
             status = San.status(status)
         except Exception:
@@ -2162,12 +2388,24 @@ class BP:
         return template
 
     def export(self, path: Union[str, Path]) -> None:
+        """
+        Export current templates to a JSON file.
+
+        Args:
+            path: Destination file path
+        """
         path = San.path(path, mkpar=True)
         with FO.atomic(path) as handle:
             json.dump(self._templates, handle, indent=2, ensure_ascii=False)
         LOG.i(f"Boilerplate templates exported to {path}")
 
     def imp(self, path: Union[str, Path]) -> None:
+        """
+        Import and merge templates from a JSON file.
+
+        Args:
+            path: Source JSON file path
+        """
         self._load(San.path(path, exist=True, file=True))
 
 
@@ -2177,9 +2415,33 @@ class BP:
 
 
 class Val:
-    """Checklist validator."""
+    """
+    STIG Viewer 2.18 compatibility validator for CKL files.
+
+    Validates checklist structure and content against STIG Viewer schema,
+    checking for required elements, valid status values, and proper formatting.
+    """
 
     def validate(self, path: Union[str, Path]) -> Tuple[bool, List[str], List[str], List[str]]:
+        """
+        Validate a CKL file for STIG Viewer compatibility.
+
+        Performs comprehensive validation including:
+        - XML structure and parsing
+        - Required elements (ASSET, STIGS, iSTIG, VULN)
+        - Status value validation
+        - Severity value validation
+
+        Args:
+            path: Path to CKL file to validate
+
+        Returns:
+            Tuple of (is_valid, errors, warnings, info):
+            - is_valid: True if no errors found
+            - errors: List of critical issues preventing use
+            - warnings: List of non-critical issues
+            - info: Summary statistics
+        """
         errors: List[str] = []
         warnings_: List[str] = []
         info: List[str] = []
@@ -2216,6 +2478,7 @@ class Val:
         return len(errors) == 0, errors, warnings_, info
 
     def _validate_asset(self, asset, errors: List[str], warnings_: List[str]) -> None:
+        """Validate ASSET element for required fields and valid values."""
         values = {child.tag: (child.text or "") for child in asset}
         required = ["ROLE", "ASSET_TYPE", "MARKING", "HOST_NAME", "TARGET_KEY", "WEB_OR_DATABASE"]
         for field in required:
@@ -2231,6 +2494,12 @@ class Val:
             errors.append("WEB_OR_DATABASE must be 'true' or 'false'")
 
     def _validate_stigs(self, stigs) -> Tuple[List[str], List[str], List[str]]:
+        """
+        Validate STIGS element and all contained vulnerabilities.
+
+        Checks each iSTIG and VULN element for proper structure,
+        valid status/severity values, and collects statistics.
+        """
         errors: List[str] = []
         warnings_: List[str] = []
         info: List[str] = []
@@ -2317,9 +2586,27 @@ class Val:
 
 
 class Proc:
-    """Checklist processor."""
+    """
+    Main STIG checklist processor for XCCDF to CKL conversion and merging.
+
+    Provides core functionality for:
+    - Converting XCCDF benchmark files to CKL checklist format
+    - Merging multiple checklists with history preservation
+    - Comparing checklists for differences
+    - Generating statistics and reports
+
+    Thread Safety:
+        Instance methods are thread-safe through use of HistMgr's locking.
+    """
 
     def __init__(self, history: Optional[HistMgr] = None, boiler: Optional[BP] = None):
+        """
+        Initialize processor with optional history and boilerplate managers.
+
+        Args:
+            history: History manager instance (creates new if None)
+            boiler: Boilerplate manager instance (creates new if None)
+        """
         self.history = history or HistMgr()
         self.boiler = boiler or BP()
         self.validator = Val()
@@ -2338,6 +2625,30 @@ class Proc:
         dry: bool = False,
         apply_boilerplate: bool = False,
     ) -> Dict[str, Any]:
+        """
+        Convert XCCDF benchmark to STIG Viewer CKL format.
+
+        Parses an XCCDF benchmark file and generates a compatible CKL checklist
+        with all vulnerabilities, metadata, and optional boilerplate text.
+
+        Args:
+            xccdf: Path to source XCCDF benchmark file
+            out: Path for output CKL file
+            asset: Asset hostname for checklist
+            ip: Asset IP address (optional)
+            mac: Asset MAC address (optional)
+            role: Asset role (default: "None")
+            marking: Classification marking (default: "CUI")
+            dry: If True, don't write output file
+            apply_boilerplate: If True, apply boilerplate templates
+
+        Returns:
+            Dict with keys: ok, output, processed, skipped, errors
+
+        Raises:
+            ValidationError: If input validation fails
+            ParseError: If XCCDF parsing fails or no vulnerabilities found
+        """
         try:
             xccdf = San.path(xccdf, exist=True, file=True)
             out = San.path(out, mkpar=True)
@@ -2806,6 +3117,27 @@ class Proc:
         apply_boilerplate: bool = True,
         dry: bool = False,
     ) -> Dict[str, Any]:
+        """
+        Merge multiple checklists into a single output with history preservation.
+
+        Ingests assessment history from multiple source checklists and merges
+        it into the base checklist's finding details and comments.
+
+        Args:
+            base: Base checklist to merge into
+            histories: Iterable of historical checklist paths to ingest
+            out: Output path for merged checklist
+            preserve_history: If True, include formatted history in output
+            apply_boilerplate: If True, apply boilerplate templates
+            dry: If True, don't write output file
+
+        Returns:
+            Dict with keys: updated, skipped, dry_run, output (if not dry)
+
+        Raises:
+            ValidationError: If path validation or limits exceeded
+            ParseError: If checklist parsing fails
+        """
         try:
             base = San.path(base, exist=True, file=True)
             out = San.path(out, mkpar=True)
