@@ -262,6 +262,7 @@ class GlobalState:
         return cls._instance
 
     def _init(self) -> None:
+        """Initialize instance state (called once by __new__)."""
         self.shutdown = threading.Event()
         self.temps: List[Path] = []
         self.cleanups: List[Callable[[], None]] = []
@@ -269,6 +270,7 @@ class GlobalState:
         self._setup_signals()
 
     def _setup_signals(self) -> None:
+        """Register signal handlers for graceful shutdown on SIGINT/SIGTERM."""
         def handler(sig, frame):
             print(f"\n[SIGNAL {sig}] Shutting down gracefully...", file=sys.stderr)
             self.shutdown.set()
@@ -280,15 +282,35 @@ class GlobalState:
                 signal.signal(sig, handler)
 
     def add_temp(self, path: Path) -> None:
+        """
+        Register a temporary file for cleanup on shutdown.
+
+        Args:
+            path: Path to temporary file to delete during cleanup
+        """
         with self._lock:
             self.temps.append(path)
 
     def add_cleanup(self, func: Callable[[], None]) -> None:
-        """Add a cleanup function to be called on shutdown."""
+        """
+        Register a cleanup callback to be called on shutdown.
+
+        Callbacks are executed in reverse order (LIFO) to allow proper
+        resource teardown. Exceptions in callbacks are suppressed.
+
+        Args:
+            func: Zero-argument callable to execute during cleanup
+        """
         with self._lock:
             self.cleanups.append(func)
 
     def cleanup(self) -> None:
+        """
+        Execute all cleanup operations and delete temporary files.
+
+        Thread-safe and idempotent - can be called multiple times safely.
+        Sets shutdown event to prevent duplicate cleanup runs.
+        """
         with self._lock:
             if self.shutdown.is_set():
                 return
@@ -351,10 +373,29 @@ def retry(
     attempts: int = MAX_RETRIES,
     delay: float = RETRY_DELAY,
     exceptions: Tuple[type, ...] = (IOError, OSError),
-):
-    """Retry decorator with exponential backoff."""
+) -> Callable:
+    """
+    Retry decorator with exponential backoff for transient failures.
 
-    def decorator(func):
+    Retries the decorated function up to `attempts` times if it raises
+    any of the specified exceptions. Delay doubles after each failure.
+    Respects global shutdown signal.
+
+    Args:
+        attempts: Maximum number of attempts (default: MAX_RETRIES)
+        delay: Initial delay between retries in seconds (default: RETRY_DELAY)
+        exceptions: Tuple of exception types to catch and retry
+
+    Returns:
+        Decorated function that retries on specified exceptions
+
+    Example:
+        @retry(attempts=3, delay=0.5)
+        def fetch_data():
+            return requests.get(url)
+    """
+
+    def decorator(func: Callable) -> Callable:
         def wrapper(*args, **kwargs):
             wait = delay
             last_err: Optional[BaseException] = None
@@ -384,15 +425,27 @@ def retry(
 
 
 class Deps:
-    """Optional dependency detection."""
+    """
+    Optional dependency detection for platform-specific and security features.
 
-    HAS_DEFUSEDXML = False
-    HAS_TKINTER = False
-    HAS_FCNTL = False
-    HAS_MSVCRT = False
+    Detects availability of:
+    - defusedxml: Secure XML parsing (prevents XXE attacks)
+    - tkinter: GUI support
+    - fcntl: Unix file locking
+    - msvcrt: Windows file locking
+
+    All checks are safe - failures are silently ignored and the corresponding
+    HAS_* flag remains False.
+    """
+
+    HAS_DEFUSEDXML: bool = False
+    HAS_TKINTER: bool = False
+    HAS_FCNTL: bool = False
+    HAS_MSVCRT: bool = False
 
     @classmethod
     def check(cls) -> None:
+        """Detect available optional dependencies and set HAS_* flags."""
         with suppress(Exception):
             from defusedxml import ElementTree as DET
             from io import StringIO
@@ -421,7 +474,7 @@ class Deps:
             cls.HAS_MSVCRT = True
 
     @classmethod
-    def get_xml(cls):
+    def get_xml(cls) -> Tuple[Any, type]:
         if cls.HAS_DEFUSEDXML:
             from defusedxml import ElementTree as ET
             from defusedxml.ElementTree import ParseError as XMLParseError
@@ -696,44 +749,83 @@ class Log:
             self.log.addHandler(file_handler)
 
     def ctx(self, **kw) -> None:
+        """
+        Set contextual metadata for subsequent log messages.
+
+        Context is stored in thread-local storage and prepended to all log
+        messages until cleared. Useful for tracking operations across
+        multiple log statements.
+
+        Args:
+            **kw: Key-value pairs to add to context (e.g., vid="V-123456")
+
+        Example:
+            LOG.ctx(vid="V-123456", file="checklist.ckl")
+            LOG.i("Processing")  # Logs: [vid=V-123456, file=checklist.ckl] Processing
+        """
         if not hasattr(self._ctx, "data"):
             self._ctx.data = {}
         self._ctx.data.update(kw)
 
     def clear(self) -> None:
+        """Clear all contextual metadata from thread-local storage."""
         if hasattr(self._ctx, "data"):
             self._ctx.data.clear()
 
     def _context_str(self) -> str:
+        """Build context prefix string from thread-local metadata."""
         try:
             data = getattr(self._ctx, "data", {})
             if data:
                 return "[" + ", ".join(f"{k}={v}" for k, v in data.items()) + "] "
         except Exception:
-            # Silently ignore context extraction failures in logging helper
             pass
         return ""
 
     def _log(self, level: str, message: str, exc: bool = False) -> None:
+        """
+        Internal logging method with context prefix and fallback.
+
+        Args:
+            level: Log level name (debug, info, warning, error, critical)
+            message: Message to log
+            exc: If True, include exception traceback
+        """
         try:
             getattr(self.log, level)(self._context_str() + str(message), exc_info=exc)
         except Exception:
-            # Fallback to stderr if logging system fails
             print(f"[{level.upper()}] {message}", file=sys.stderr)
 
     def d(self, msg: str) -> None:
+        """Log a DEBUG message. Use for detailed diagnostic information."""
         self._log("debug", msg)
 
     def i(self, msg: str) -> None:
+        """Log an INFO message. Use for general operational messages."""
         self._log("info", msg)
 
     def w(self, msg: str) -> None:
+        """Log a WARNING message. Use for potentially problematic situations."""
         self._log("warning", msg)
 
     def e(self, msg: str, exc: bool = False) -> None:
+        """
+        Log an ERROR message. Use for errors that may allow continued operation.
+
+        Args:
+            msg: Error message
+            exc: If True, include exception traceback in log
+        """
         self._log("error", msg, exc)
 
     def c(self, msg: str, exc: bool = False) -> None:
+        """
+        Log a CRITICAL message. Use for errors that require immediate attention.
+
+        Args:
+            msg: Critical error message
+            exc: If True, include exception traceback in log
+        """
         self._log("critical", msg, exc)
 
 
@@ -918,6 +1010,80 @@ class XmlUtils:
             if child.text and child.text.strip():
                 results.append(child.text.strip())
         return join_with.join(results) if results else default
+
+    @staticmethod
+    def find_ns(
+        parent: ET.Element,
+        tag: str,
+        ns: Optional[Dict[str, str]] = None,
+    ) -> Optional[ET.Element]:
+        """
+        Find child element with optional namespace support.
+
+        Simplifies the common pattern of conditional namespace handling:
+        `rule.find(f"ns:{tag}", ns) if ns else rule.find(tag)`
+
+        Args:
+            parent: Parent element to search within
+            tag: Tag name to find (without namespace prefix)
+            ns: Optional namespace dict (e.g., {"ns": "http://..."})
+
+        Returns:
+            First matching element or None
+        """
+        if ns:
+            # Try with namespace prefix first
+            elem = parent.find(f"ns:{tag}", ns)
+            if elem is not None:
+                return elem
+        return parent.find(tag)
+
+    @staticmethod
+    def findall_ns(
+        parent: ET.Element,
+        tag: str,
+        ns: Optional[Dict[str, str]] = None,
+    ) -> List[ET.Element]:
+        """
+        Find all child elements with optional namespace support.
+
+        Args:
+            parent: Parent element to search within
+            tag: Tag name to find (without namespace prefix)
+            ns: Optional namespace dict
+
+        Returns:
+            List of matching elements (empty if none found)
+        """
+        if ns:
+            elements = parent.findall(f"ns:{tag}", ns)
+            if elements:
+                return elements
+        return parent.findall(tag)
+
+    @staticmethod
+    def findtext_ns(
+        parent: ET.Element,
+        tag: str,
+        ns: Optional[Dict[str, str]] = None,
+        default: str = "",
+    ) -> str:
+        """
+        Find child element text with optional namespace support.
+
+        Args:
+            parent: Parent element to search within
+            tag: Tag name to find
+            ns: Optional namespace dict
+            default: Value to return if element not found
+
+        Returns:
+            Element text content or default
+        """
+        elem = XmlUtils.find_ns(parent, tag, ns)
+        if elem is not None and elem.text:
+            return elem.text.strip()
+        return default
 
     @staticmethod
     def extract_text_content(elem) -> str:
@@ -1270,12 +1436,51 @@ class San:
 
 
 class FO:
-    """Safe file operations."""
+    """
+    Safe file operations with atomic writes and automatic backups.
+
+    All write operations use atomic patterns:
+    1. Write to temporary file in same directory
+    2. Sync to disk (fsync)
+    3. Atomic rename to target path
+    4. Cleanup on failure with rollback from backup
+
+    This ensures no partial files are ever visible and data is never lost
+    even on power failure or crash.
+    """
 
     @staticmethod
     @contextmanager
     @retry()
-    def atomic(target: Union[str, Path], mode: str = "w", enc: str = "utf-8", bak: bool = True) -> Generator[IO, None, None]:
+    def atomic(
+        target: Union[str, Path],
+        mode: str = "w",
+        enc: str = "utf-8",
+        bak: bool = True,
+    ) -> Generator[IO, None, None]:
+        """
+        Context manager for atomic file writes with automatic backup.
+
+        Writes to a temporary file, then atomically replaces the target.
+        Creates backup of existing file before replacement. On failure,
+        restores from backup automatically.
+
+        Args:
+            target: Destination file path
+            mode: File mode ('w' for text, 'wb' for binary)
+            enc: Encoding for text mode (default: utf-8)
+            bak: Create backup before overwriting (default: True)
+
+        Yields:
+            File handle for writing
+
+        Raises:
+            FileError: If write fails and rollback also fails
+
+        Example:
+            with FO.atomic("output.ckl") as f:
+                f.write(xml_content)
+        """
         target = San.path(target, mkpar=True)
         tmp_path: Optional[Path] = None
         backup_path: Optional[Path] = None
@@ -2226,8 +2431,8 @@ class Proc:
                 raise ValidationError(f"Generated CKL failed validation: {errs[0] if errs else 'Unknown error'}")
         except ValidationError:
             raise
-        except Exception:
-            pass  # Do not block output if validator crashes
+        except Exception as exc:
+            LOG.w(f"Validator encountered an error (output may still be valid): {exc}")
 
         LOG.i(f"Checklist created: {out}")
         LOG.clear()
@@ -2355,7 +2560,8 @@ class Proc:
             return None
         try:
             vid = San.vuln(vid)
-        except Exception:
+        except ValidationError:
+            LOG.d(f"Invalid VID format in group: {vid}")
             return None
 
         rule = group.find("ns:Rule", ns) if ns else group.find("Rule")
@@ -2871,10 +3077,15 @@ class Proc:
 
     # ----------------------------------------------------------------- helpers
     def _ingest_history(self, path: Path) -> None:
+        """Ingest history entries from an existing CKL file."""
         try:
             tree = FO.parse_xml(path)
             root = tree.getroot()
-        except Exception:
+        except (FileError, ParseError, ValidationError) as exc:
+            LOG.d(f"Could not parse history from {path}: {exc}")
+            return
+        except Exception as exc:
+            LOG.w(f"Unexpected error parsing history from {path}: {exc}")
             return
 
         stigs = root.find("STIGS")
@@ -3456,12 +3667,14 @@ class FixExt:
 
 
     def _parse_group(self, group) -> Optional[Fix]:
+        """Parse a single XCCDF Group element into a Fix object."""
         vid = group.get("id", "")
         if not vid:
             return None
         try:
             vid = San.vuln(vid)
-        except Exception:
+        except ValidationError:
+            LOG.d(f"Invalid VID format in XCCDF group: {vid}")
             return None
 
         rule = group.find("ns:Rule", self.ns) if self.ns else group.find("Rule")
