@@ -3,10 +3,6 @@
 This package contains fundamental infrastructure components used throughout
 the STIG Assessor application, including configuration, logging, state management,
 and dependency detection.
-the STIG Assessor application.
-
-Provides foundational components including configuration, logging,
-state management, and dependency detection.
 """
 
 from __future__ import annotations
