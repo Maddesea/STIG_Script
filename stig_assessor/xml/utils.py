@@ -202,6 +202,10 @@ class XmlUtils:
 
     @staticmethod
     def get_text(elem: ET.Element) -> str:
+        """Get element text safely."""
+
+    @staticmethod
+    def get_text(elem: ET.Element) -> str:
 
     @staticmethod
     def get_text(elem: ET.Element) -> str:
@@ -230,6 +234,7 @@ class XmlUtils:
 
     @staticmethod
     def set_text(elem: ET.Element, text: str) -> None:
+        """Set element text safely."""
         """Set element text safely.
 
         Args:

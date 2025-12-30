@@ -9,6 +9,8 @@ and provides multi-format export capabilities (JSON, CSV, Bash, PowerShell).
 Key Components:
     - Fix: Dataclass representing a single remediation fix
     - FixExt: Extractor for parsing XCCDF and generating remediation scripts
+    - FixResult: Remediation execution result dataclass
+    - FixResPro: Remediation results processor for bulk import
     - FixResult: Dataclass representing a remediation result
     - FixResPro: Processor for applying remediation results to checklists
     - FixResPro: Processor for bulk remediation results import

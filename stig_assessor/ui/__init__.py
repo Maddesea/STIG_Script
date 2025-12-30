@@ -1,5 +1,6 @@
 """User interface modules (CLI and GUI).
 
+Provides CLI and GUI interfaces for STIG assessment operations.
 This package contains the command-line interface and graphical user interface
 for the STIG Assessor application.
 
