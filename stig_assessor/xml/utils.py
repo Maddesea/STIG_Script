@@ -201,6 +201,15 @@ class XmlUtils:
         return ""
 
     @staticmethod
+    def get_text(elem: ET.Element) -> str:
+        """Get element text safely.
+
+        Args:
+            elem: XML element to get text from
+
+        Returns:
+            Element text content or empty string if None
+        """
     def get_text(elem: Optional[ET.Element]) -> str:
         """Get element text safely.
 
@@ -219,6 +228,8 @@ class XmlUtils:
         """Set element text safely.
 
         Args:
+            elem: XML element to set text on
+            text: Text content to set
             elem: XML element
             text: Text to set
         """
