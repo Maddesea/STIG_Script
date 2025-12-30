@@ -1,7 +1,7 @@
 """Thread-safe logging with contextual metadata."""
 
 from __future__ import annotations
-from typing import Dict
+from typing import Any, Dict
 from contextlib import suppress
 import threading
 import logging

@@ -99,10 +99,12 @@ def sample_ckl_content() -> str:
     <ASSET>
         <ROLE>Member Server</ROLE>
         <ASSET_TYPE>Computing</ASSET_TYPE>
+        <MARKING>CUI</MARKING>
         <HOST_NAME>TEST-SERVER</HOST_NAME>
         <HOST_IP>192.168.1.100</HOST_IP>
         <HOST_MAC>00:11:22:33:44:55</HOST_MAC>
         <HOST_FQDN>test-server.example.com</HOST_FQDN>
+        <TARGET_COMMENT></TARGET_COMMENT>
         <TECH_AREA></TECH_AREA>
         <TARGET_KEY>1234</TARGET_KEY>
         <WEB_OR_DATABASE>false</WEB_OR_DATABASE>
@@ -262,13 +264,21 @@ def create_test_ckl(temp_dir: Path, num_vulns: int = 100) -> Path:
     """
     root = ET.Element("CHECKLIST")
 
-    # Add ASSET
+    # Add ASSET with all required fields
     asset = ET.SubElement(root, "ASSET")
     ET.SubElement(asset, "ROLE").text = "Member Server"
     ET.SubElement(asset, "ASSET_TYPE").text = "Computing"
+    ET.SubElement(asset, "MARKING").text = "CUI"
     ET.SubElement(asset, "HOST_NAME").text = "TEST-SERVER"
     ET.SubElement(asset, "HOST_IP").text = "192.168.1.100"
     ET.SubElement(asset, "HOST_MAC").text = "00:11:22:33:44:55"
+    ET.SubElement(asset, "HOST_FQDN").text = "test-server.example.com"
+    ET.SubElement(asset, "TARGET_COMMENT").text = ""
+    ET.SubElement(asset, "TECH_AREA").text = ""
+    ET.SubElement(asset, "TARGET_KEY").text = "1234"
+    ET.SubElement(asset, "WEB_OR_DATABASE").text = "false"
+    ET.SubElement(asset, "WEB_DB_SITE").text = ""
+    ET.SubElement(asset, "WEB_DB_INSTANCE").text = ""
 
     # Add STIGS
     stigs = ET.SubElement(root, "STIGS")

@@ -339,7 +339,7 @@ class FO:
         raise FileError(f"Unable to decode file with any known encoding: {path}")
 
     @staticmethod
-    def parse_xml(path: Union[str, Path]):
+    def parse_xml(path: Union[str, Path]) -> ET.ElementTree:
         """Parse XML file with security checks and error recovery.
 
         Validates file size to prevent resource exhaustion.
