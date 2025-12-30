@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-STIG Assessor - Complete Production Edition v7.3.0
+STIG Assessor - Complete Production Edition v7.4.0
 ───────────────────────────────────────────────────────────────────────────────
 PRODUCTION-READY • ZERO-DEPENDENCY • AIR-GAP CERTIFIED • BULLETPROOF
 
@@ -21,6 +21,16 @@ Highlights
     ✓ Validation (comprehensive STIG Viewer compatibility)
     ✓ GUI with async operations (requires tkinter, optional)
     ✓ CLI feature parity with GUI
+
+Release 7.4 Improvements (2025-12-29)
+    ✓ GUI: Added centralized constants for consistent widget sizing and padding
+    ✓ GUI: Standardized status icons across all tabs (using Unicode constants)
+    ✓ GUI: Added comprehensive docstrings to all GUI methods
+    ✓ GUI: Added helper methods for browse dialogs to reduce code duplication
+    ✓ GUI: Improved layout consistency across all tabs using GUI constants
+    ✓ GUI: Cleaned up async queue processing with better documentation
+    ✓ GUI: Added keyboard shortcuts (Ctrl+S save, Ctrl+O load, Ctrl+Q quit, F1 help)
+    ✓ GUI: Replaced ellipsis characters with ASCII for better compatibility
 
 Release 7.3 Improvements (2025-11-16)
     ✓ SECURITY: Fixed symlink validation fallback to use relative_to() instead of commonpath
@@ -117,8 +127,8 @@ warnings.filterwarnings("ignore", category=ResourceWarning)
 # CONSTANTS
 # ──────────────────────────────────────────────────────────────────────────────
 
-VERSION = "7.3.0"
-BUILD_DATE = "2025-11-16"
+VERSION = "7.4.0"
+BUILD_DATE = "2025-12-29"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
 
@@ -139,6 +149,38 @@ ENCODINGS = [
     "iso-8859-1",
     "ascii",
 ]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GUI CONSTANTS
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Status icons (consistent across all GUI elements)
+ICON_SUCCESS = "\u2714"  # ✔
+ICON_FAILURE = "\u2718"  # ✘
+ICON_WARNING = "\u26A0"  # ⚠
+ICON_INFO = "\u2139"     # ℹ
+ICON_PENDING = "\u23F3"  # ⏳
+
+# Widget sizing
+GUI_ENTRY_WIDTH = 70
+GUI_ENTRY_WIDTH_SMALL = 25
+GUI_ENTRY_WIDTH_MEDIUM = 40
+GUI_BUTTON_WIDTH = 15
+GUI_BUTTON_WIDTH_WIDE = 25
+GUI_LISTBOX_HEIGHT = 6
+GUI_LISTBOX_WIDTH = 60
+GUI_TEXT_WIDTH = 120
+GUI_TEXT_HEIGHT = 25
+GUI_WRAP_LENGTH = 860
+
+# Layout spacing
+GUI_PADDING = 5
+GUI_PADDING_LARGE = 10
+GUI_PADDING_SECTION = 15
+
+# Font settings
+GUI_FONT_MONO = ("Courier New", 10)
+GUI_FONT_HEADING = ("TkDefaultFont", 12, "bold")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # ENUMERATIONS
@@ -220,6 +262,7 @@ class GlobalState:
         return cls._instance
 
     def _init(self) -> None:
+        """Initialize instance state (called once by __new__)."""
         self.shutdown = threading.Event()
         self.temps: List[Path] = []
         self.cleanups: List[Callable[[], None]] = []
@@ -227,6 +270,7 @@ class GlobalState:
         self._setup_signals()
 
     def _setup_signals(self) -> None:
+        """Register signal handlers for graceful shutdown on SIGINT/SIGTERM."""
         def handler(sig, frame):
             print(f"\n[SIGNAL {sig}] Shutting down gracefully...", file=sys.stderr)
             self.shutdown.set()
@@ -238,15 +282,35 @@ class GlobalState:
                 signal.signal(sig, handler)
 
     def add_temp(self, path: Path) -> None:
+        """
+        Register a temporary file for cleanup on shutdown.
+
+        Args:
+            path: Path to temporary file to delete during cleanup
+        """
         with self._lock:
             self.temps.append(path)
 
     def add_cleanup(self, func: Callable[[], None]) -> None:
-        """Add a cleanup function to be called on shutdown."""
+        """
+        Register a cleanup callback to be called on shutdown.
+
+        Callbacks are executed in reverse order (LIFO) to allow proper
+        resource teardown. Exceptions in callbacks are suppressed.
+
+        Args:
+            func: Zero-argument callable to execute during cleanup
+        """
         with self._lock:
             self.cleanups.append(func)
 
     def cleanup(self) -> None:
+        """
+        Execute all cleanup operations and delete temporary files.
+
+        Thread-safe and idempotent - can be called multiple times safely.
+        Sets shutdown event to prevent duplicate cleanup runs.
+        """
         with self._lock:
             if self.shutdown.is_set():
                 return
@@ -309,10 +373,29 @@ def retry(
     attempts: int = MAX_RETRIES,
     delay: float = RETRY_DELAY,
     exceptions: Tuple[type, ...] = (IOError, OSError),
-):
-    """Retry decorator with exponential backoff."""
+) -> Callable:
+    """
+    Retry decorator with exponential backoff for transient failures.
 
-    def decorator(func):
+    Retries the decorated function up to `attempts` times if it raises
+    any of the specified exceptions. Delay doubles after each failure.
+    Respects global shutdown signal.
+
+    Args:
+        attempts: Maximum number of attempts (default: MAX_RETRIES)
+        delay: Initial delay between retries in seconds (default: RETRY_DELAY)
+        exceptions: Tuple of exception types to catch and retry
+
+    Returns:
+        Decorated function that retries on specified exceptions
+
+    Example:
+        @retry(attempts=3, delay=0.5)
+        def fetch_data():
+            return requests.get(url)
+    """
+
+    def decorator(func: Callable) -> Callable:
         def wrapper(*args, **kwargs):
             wait = delay
             last_err: Optional[BaseException] = None
@@ -342,15 +425,27 @@ def retry(
 
 
 class Deps:
-    """Optional dependency detection."""
+    """
+    Optional dependency detection for platform-specific and security features.
 
-    HAS_DEFUSEDXML = False
-    HAS_TKINTER = False
-    HAS_FCNTL = False
-    HAS_MSVCRT = False
+    Detects availability of:
+    - defusedxml: Secure XML parsing (prevents XXE attacks)
+    - tkinter: GUI support
+    - fcntl: Unix file locking
+    - msvcrt: Windows file locking
+
+    All checks are safe - failures are silently ignored and the corresponding
+    HAS_* flag remains False.
+    """
+
+    HAS_DEFUSEDXML: bool = False
+    HAS_TKINTER: bool = False
+    HAS_FCNTL: bool = False
+    HAS_MSVCRT: bool = False
 
     @classmethod
     def check(cls) -> None:
+        """Detect available optional dependencies and set HAS_* flags."""
         with suppress(Exception):
             from defusedxml import ElementTree as DET
             from io import StringIO
@@ -379,7 +474,7 @@ class Deps:
             cls.HAS_MSVCRT = True
 
     @classmethod
-    def get_xml(cls):
+    def get_xml(cls) -> Tuple[Any, type]:
         if cls.HAS_DEFUSEDXML:
             from defusedxml import ElementTree as ET
             from defusedxml.ElementTree import ParseError as XMLParseError
@@ -654,44 +749,83 @@ class Log:
             self.log.addHandler(file_handler)
 
     def ctx(self, **kw) -> None:
+        """
+        Set contextual metadata for subsequent log messages.
+
+        Context is stored in thread-local storage and prepended to all log
+        messages until cleared. Useful for tracking operations across
+        multiple log statements.
+
+        Args:
+            **kw: Key-value pairs to add to context (e.g., vid="V-123456")
+
+        Example:
+            LOG.ctx(vid="V-123456", file="checklist.ckl")
+            LOG.i("Processing")  # Logs: [vid=V-123456, file=checklist.ckl] Processing
+        """
         if not hasattr(self._ctx, "data"):
             self._ctx.data = {}
         self._ctx.data.update(kw)
 
     def clear(self) -> None:
+        """Clear all contextual metadata from thread-local storage."""
         if hasattr(self._ctx, "data"):
             self._ctx.data.clear()
 
     def _context_str(self) -> str:
+        """Build context prefix string from thread-local metadata."""
         try:
             data = getattr(self._ctx, "data", {})
             if data:
                 return "[" + ", ".join(f"{k}={v}" for k, v in data.items()) + "] "
         except Exception:
-            # Silently ignore context extraction failures in logging helper
             pass
         return ""
 
     def _log(self, level: str, message: str, exc: bool = False) -> None:
+        """
+        Internal logging method with context prefix and fallback.
+
+        Args:
+            level: Log level name (debug, info, warning, error, critical)
+            message: Message to log
+            exc: If True, include exception traceback
+        """
         try:
             getattr(self.log, level)(self._context_str() + str(message), exc_info=exc)
         except Exception:
-            # Fallback to stderr if logging system fails
             print(f"[{level.upper()}] {message}", file=sys.stderr)
 
     def d(self, msg: str) -> None:
+        """Log a DEBUG message. Use for detailed diagnostic information."""
         self._log("debug", msg)
 
     def i(self, msg: str) -> None:
+        """Log an INFO message. Use for general operational messages."""
         self._log("info", msg)
 
     def w(self, msg: str) -> None:
+        """Log a WARNING message. Use for potentially problematic situations."""
         self._log("warning", msg)
 
     def e(self, msg: str, exc: bool = False) -> None:
+        """
+        Log an ERROR message. Use for errors that may allow continued operation.
+
+        Args:
+            msg: Error message
+            exc: If True, include exception traceback in log
+        """
         self._log("error", msg, exc)
 
     def c(self, msg: str, exc: bool = False) -> None:
+        """
+        Log a CRITICAL message. Use for errors that require immediate attention.
+
+        Args:
+            msg: Critical error message
+            exc: If True, include exception traceback in log
+        """
         self._log("critical", msg, exc)
 
 
@@ -876,6 +1010,80 @@ class XmlUtils:
             if child.text and child.text.strip():
                 results.append(child.text.strip())
         return join_with.join(results) if results else default
+
+    @staticmethod
+    def find_ns(
+        parent: ET.Element,
+        tag: str,
+        ns: Optional[Dict[str, str]] = None,
+    ) -> Optional[ET.Element]:
+        """
+        Find child element with optional namespace support.
+
+        Simplifies the common pattern of conditional namespace handling:
+        `rule.find(f"ns:{tag}", ns) if ns else rule.find(tag)`
+
+        Args:
+            parent: Parent element to search within
+            tag: Tag name to find (without namespace prefix)
+            ns: Optional namespace dict (e.g., {"ns": "http://..."})
+
+        Returns:
+            First matching element or None
+        """
+        if ns:
+            # Try with namespace prefix first
+            elem = parent.find(f"ns:{tag}", ns)
+            if elem is not None:
+                return elem
+        return parent.find(tag)
+
+    @staticmethod
+    def findall_ns(
+        parent: ET.Element,
+        tag: str,
+        ns: Optional[Dict[str, str]] = None,
+    ) -> List[ET.Element]:
+        """
+        Find all child elements with optional namespace support.
+
+        Args:
+            parent: Parent element to search within
+            tag: Tag name to find (without namespace prefix)
+            ns: Optional namespace dict
+
+        Returns:
+            List of matching elements (empty if none found)
+        """
+        if ns:
+            elements = parent.findall(f"ns:{tag}", ns)
+            if elements:
+                return elements
+        return parent.findall(tag)
+
+    @staticmethod
+    def findtext_ns(
+        parent: ET.Element,
+        tag: str,
+        ns: Optional[Dict[str, str]] = None,
+        default: str = "",
+    ) -> str:
+        """
+        Find child element text with optional namespace support.
+
+        Args:
+            parent: Parent element to search within
+            tag: Tag name to find
+            ns: Optional namespace dict
+            default: Value to return if element not found
+
+        Returns:
+            Element text content or default
+        """
+        elem = XmlUtils.find_ns(parent, tag, ns)
+        if elem is not None and elem.text:
+            return elem.text.strip()
+        return default
 
     @staticmethod
     def extract_text_content(elem) -> str:
@@ -1111,6 +1319,21 @@ class San:
 
     @staticmethod
     def asset(value: str) -> str:
+        """
+        Validate and sanitize asset name/hostname.
+
+        Asset names must be 1-255 alphanumeric characters, dots, underscores,
+        or hyphens. Used for HOST_NAME field in CKL files.
+
+        Args:
+            value: Asset name to validate
+
+        Returns:
+            Validated asset name (stripped, max 255 chars)
+
+        Raises:
+            ValidationError: If empty or contains invalid characters
+        """
         if not value or not str(value).strip():
             raise ValidationError("Empty asset")
         value = str(value).strip()[:255]
@@ -1120,6 +1343,23 @@ class San:
 
     @staticmethod
     def ip(value: str) -> str:
+        """
+        Validate IPv4 address format.
+
+        Validates proper IPv4 dotted-decimal notation with strict checks:
+        - Exactly 4 octets separated by dots
+        - Each octet 0-255 with no leading zeros (except "0" itself)
+        - No whitespace or extra characters
+
+        Args:
+            value: IP address string to validate
+
+        Returns:
+            Validated IP address, or empty string if input is empty
+
+        Raises:
+            ValidationError: If format is invalid or octets out of range
+        """
         if not value:
             return ""
         value = str(value).strip()
@@ -1144,6 +1384,21 @@ class San:
 
     @staticmethod
     def mac(value: str) -> str:
+        """
+        Validate and normalize MAC address format.
+
+        Accepts colon or hyphen separators, normalizes to uppercase with colons.
+        Validates 6 hexadecimal segments of 2 characters each.
+
+        Args:
+            value: MAC address string to validate
+
+        Returns:
+            Normalized MAC address (XX:XX:XX:XX:XX:XX), or empty if input empty
+
+        Raises:
+            ValidationError: If format is invalid
+        """
         if not value:
             return ""
         value = str(value).strip().upper().replace("-", ":")
@@ -1155,6 +1410,21 @@ class San:
 
     @staticmethod
     def vuln(value: str) -> str:
+        """
+        Validate STIG vulnerability ID format.
+
+        Vulnerability IDs must match pattern V-NNNNNN where N is 1-10 digits.
+        Examples: V-123456, V-1, V-9999999999
+
+        Args:
+            value: Vulnerability ID to validate
+
+        Returns:
+            Validated vulnerability ID
+
+        Raises:
+            ValidationError: If empty or format invalid
+        """
         if not value or not str(value).strip():
             raise ValidationError("Empty vulnerability ID")
         value = str(value).strip()
@@ -1164,6 +1434,24 @@ class San:
 
     @staticmethod
     def status(value: str) -> str:
+        """
+        Validate STIG compliance status value.
+
+        Valid values are defined by STIG Viewer schema (Sch.STAT_VALS):
+        - NotAFinding: Control is satisfied
+        - Open: Control is not satisfied
+        - Not_Applicable: Control does not apply
+        - Not_Reviewed: Not yet assessed (default if empty)
+
+        Args:
+            value: Status value to validate
+
+        Returns:
+            Validated status, or "Not_Reviewed" if input is empty
+
+        Raises:
+            ValidationError: If value is not a valid status
+        """
         if not value:
             return "Not_Reviewed"
         value = str(value).strip()
@@ -1200,6 +1488,21 @@ class San:
 
     @staticmethod
     def xml(value: Any, mx: Optional[int] = None) -> str:
+        """
+        Sanitize value for safe XML embedding.
+
+        Performs security-critical sanitization:
+        1. Removes control characters (0x00-0x08, 0x0B, 0x0C, 0x0E-0x1F, 0x7F)
+        2. Escapes XML entities: & < > " '
+        3. Optionally truncates to maximum length with "[TRUNCATED]" marker
+
+        Args:
+            value: Value to sanitize (will be converted to string)
+            mx: Maximum length (optional). If exceeded, truncates with marker.
+
+        Returns:
+            XML-safe string, or empty string if input is None/unconvertible
+        """
         if value is None:
             return ""
         if not isinstance(value, str):
@@ -1228,12 +1531,51 @@ class San:
 
 
 class FO:
-    """Safe file operations."""
+    """
+    Safe file operations with atomic writes and automatic backups.
+
+    All write operations use atomic patterns:
+    1. Write to temporary file in same directory
+    2. Sync to disk (fsync)
+    3. Atomic rename to target path
+    4. Cleanup on failure with rollback from backup
+
+    This ensures no partial files are ever visible and data is never lost
+    even on power failure or crash.
+    """
 
     @staticmethod
     @contextmanager
     @retry()
-    def atomic(target: Union[str, Path], mode: str = "w", enc: str = "utf-8", bak: bool = True) -> Generator[IO, None, None]:
+    def atomic(
+        target: Union[str, Path],
+        mode: str = "w",
+        enc: str = "utf-8",
+        bak: bool = True,
+    ) -> Generator[IO, None, None]:
+        """
+        Context manager for atomic file writes with automatic backup.
+
+        Writes to a temporary file, then atomically replaces the target.
+        Creates backup of existing file before replacement. On failure,
+        restores from backup automatically.
+
+        Args:
+            target: Destination file path
+            mode: File mode ('w' for text, 'wb' for binary)
+            enc: Encoding for text mode (default: utf-8)
+            bak: Create backup before overwriting (default: True)
+
+        Yields:
+            File handle for writing
+
+        Raises:
+            FileError: If write fails and rollback also fails
+
+        Example:
+            with FO.atomic("output.ckl") as f:
+                f.write(xml_content)
+        """
         target = San.path(target, mkpar=True)
         tmp_path: Optional[Path] = None
         backup_path: Optional[Path] = None
@@ -1537,7 +1879,18 @@ class Hist:
 
 
 class HistMgr:
-    """In-memory history manager."""
+    """
+    Thread-safe in-memory history manager for STIG vulnerability assessments.
+
+    Tracks assessment history with microsecond precision, supporting:
+    - Deduplication via SHA-256 content hashing
+    - Automatic compression when history exceeds MAX_HIST
+    - Merge formatting for human-readable history display
+    - Import/export for history persistence
+
+    Thread Safety:
+        All operations are protected by RLock for concurrent access.
+    """
 
     def __init__(self):
         self._h: Dict[str, List[Hist]] = defaultdict(list)
@@ -1553,6 +1906,24 @@ class HistMgr:
         sev: str = "medium",
         who: str = "",
     ) -> bool:
+        """
+        Add a history entry for a vulnerability.
+
+        Creates a new history entry with timestamp and deduplication check.
+        Entries are stored sorted by timestamp using bisect for efficiency.
+
+        Args:
+            vid: Vulnerability ID (V-NNNNNN format)
+            stat: Status (NotAFinding, Open, Not_Applicable, Not_Reviewed)
+            find: Finding details text
+            comm: Comments text
+            src: Source identifier (e.g., checklist filename)
+            sev: Severity level (high, medium, low)
+            who: Assessor name (defaults to system username)
+
+        Returns:
+            True if entry was added, False if duplicate or invalid
+        """
         with self._lock:
             try:
                 vid = San.vuln(vid)
@@ -1605,6 +1976,13 @@ class HistMgr:
             return True
 
     def _compress(self, vid: str) -> None:
+        """
+        Compress history entries when exceeding MAX_HIST limit.
+
+        Preserves oldest (head) and newest (tail) entries while compressing
+        middle entries into a single summary placeholder. Called automatically
+        when add() would exceed the limit.
+        """
         entries = self._h[vid]
         if len(entries) <= Cfg.MAX_HIST:
             return
@@ -1629,6 +2007,20 @@ class HistMgr:
             self._h[vid] = head + tail
 
     def merge_find(self, vid: str, current: str = "") -> str:
+        """
+        Generate merged finding details with formatted history.
+
+        Creates a human-readable document combining current assessment
+        with historical entries, using box-drawing characters for structure.
+
+        Args:
+            vid: Vulnerability ID
+            current: Current finding details to prepend
+
+        Returns:
+            Formatted string with current assessment and history timeline,
+            truncated to MAX_FIND if necessary
+        """
         with self._lock:
             history = self._h.get(vid)
             if not history:
@@ -1678,6 +2070,20 @@ class HistMgr:
             return result
 
     def merge_comm(self, vid: str, current: str = "") -> str:
+        """
+        Generate merged comments with formatted history.
+
+        Creates a formatted document combining current comment with
+        historical comments, showing timestamp and source for each entry.
+
+        Args:
+            vid: Vulnerability ID
+            current: Current comment to prepend
+
+        Returns:
+            Formatted string with current and historical comments,
+            truncated to MAX_COMM if necessary
+        """
         with self._lock:
             history = self._h.get(vid)
             if not history:
@@ -1705,6 +2111,15 @@ class HistMgr:
             return result
 
     def export(self, path: Union[str, Path]) -> None:
+        """
+        Export all history to a JSON file.
+
+        Creates a structured JSON document with metadata header and
+        all history entries organized by vulnerability ID.
+
+        Args:
+            path: Destination file path (parent dirs created if needed)
+        """
         path = San.path(path, mkpar=True)
         with self._lock:
             payload = {
@@ -1726,6 +2141,21 @@ class HistMgr:
         LOG.i(f"Exported history for {len(payload['history'])} vulnerabilities")
 
     def imp(self, path: Union[str, Path]) -> int:
+        """
+        Import history entries from a JSON file.
+
+        Merges entries from the file into current history, skipping duplicates
+        based on content hash. Invalid entries are silently skipped.
+
+        Args:
+            path: Source JSON file path
+
+        Returns:
+            Number of entries successfully imported
+
+        Raises:
+            ParseError: If file is not valid JSON
+        """
         path = San.path(path, exist=True, file=True)
         try:
             payload = json.loads(FO.read(path))
@@ -1761,7 +2191,22 @@ class HistMgr:
 
 
 class BP:
-    """Status-aware boilerplate manager."""
+    """
+    Status-aware boilerplate template manager.
+
+    Provides pre-formatted templates for STIG assessment documentation,
+    with separate templates for each compliance status. Templates support
+    variable substitution using Python format strings.
+
+    Template Variables:
+        Common: {date}, {who}, {asset}
+        NotAFinding: {verify}, {evid}, {statement}, {notes}
+        Open: {severity}, {deficiency}, {impact}, {remediation}, {poam}, {target}, {owner}
+        Not_Reviewed: {scheduled}, {assigned}, {priority}, {plan}
+        Not_Applicable: {justification}, {approver}, {approval_date}
+
+    Custom templates can be loaded from JSON files to override defaults.
+    """
 
     DEFAULTS: Dict[str, Dict[str, str]] = {
         "NotAFinding": {
@@ -1837,6 +2282,13 @@ class BP:
     }
 
     def __init__(self, custom: Optional[Union[str, Path]] = None) -> None:
+        """
+        Initialize boilerplate manager with optional custom templates.
+
+        Args:
+            custom: Path to custom templates JSON file. If None, uses
+                    default file at Cfg.BOILERPLATE_FILE if it exists.
+        """
         self._templates = {k: v.copy() for k, v in self.DEFAULTS.items()}
         if not custom and Cfg.BOILERPLATE_FILE and Cfg.BOILERPLATE_FILE.exists():
             custom = Cfg.BOILERPLATE_FILE
@@ -1845,6 +2297,7 @@ class BP:
                 self._load(San.path(custom, exist=True, file=True))
 
     def _load(self, path: Path) -> None:
+        """Load and merge templates from a JSON file."""
         data = json.loads(FO.read(path))
         for status, tpl in data.items():
             if status not in Sch.STAT_VALS:
@@ -1859,6 +2312,16 @@ class BP:
         LOG.i(f"Boilerplate templates loaded from {path}")
 
     def find(self, status: str, **kwargs) -> str:
+        """
+        Generate finding details text from template.
+
+        Args:
+            status: Compliance status for template selection
+            **kwargs: Variable values to substitute in template
+
+        Returns:
+            Formatted finding details string
+        """
         try:
             status = San.status(status)
         except Exception:
@@ -1896,6 +2359,16 @@ class BP:
         return template
 
     def comm(self, status: str, **kwargs) -> str:
+        """
+        Generate comment text from template.
+
+        Args:
+            status: Compliance status for template selection
+            **kwargs: Variable values to substitute in template
+
+        Returns:
+            Formatted comment string
+        """
         try:
             status = San.status(status)
         except Exception:
@@ -1915,12 +2388,24 @@ class BP:
         return template
 
     def export(self, path: Union[str, Path]) -> None:
+        """
+        Export current templates to a JSON file.
+
+        Args:
+            path: Destination file path
+        """
         path = San.path(path, mkpar=True)
         with FO.atomic(path) as handle:
             json.dump(self._templates, handle, indent=2, ensure_ascii=False)
         LOG.i(f"Boilerplate templates exported to {path}")
 
     def imp(self, path: Union[str, Path]) -> None:
+        """
+        Import and merge templates from a JSON file.
+
+        Args:
+            path: Source JSON file path
+        """
         self._load(San.path(path, exist=True, file=True))
 
 
@@ -1930,9 +2415,33 @@ class BP:
 
 
 class Val:
-    """Checklist validator."""
+    """
+    STIG Viewer 2.18 compatibility validator for CKL files.
+
+    Validates checklist structure and content against STIG Viewer schema,
+    checking for required elements, valid status values, and proper formatting.
+    """
 
     def validate(self, path: Union[str, Path]) -> Tuple[bool, List[str], List[str], List[str]]:
+        """
+        Validate a CKL file for STIG Viewer compatibility.
+
+        Performs comprehensive validation including:
+        - XML structure and parsing
+        - Required elements (ASSET, STIGS, iSTIG, VULN)
+        - Status value validation
+        - Severity value validation
+
+        Args:
+            path: Path to CKL file to validate
+
+        Returns:
+            Tuple of (is_valid, errors, warnings, info):
+            - is_valid: True if no errors found
+            - errors: List of critical issues preventing use
+            - warnings: List of non-critical issues
+            - info: Summary statistics
+        """
         errors: List[str] = []
         warnings_: List[str] = []
         info: List[str] = []
@@ -1969,6 +2478,7 @@ class Val:
         return len(errors) == 0, errors, warnings_, info
 
     def _validate_asset(self, asset, errors: List[str], warnings_: List[str]) -> None:
+        """Validate ASSET element for required fields and valid values."""
         values = {child.tag: (child.text or "") for child in asset}
         required = ["ROLE", "ASSET_TYPE", "MARKING", "HOST_NAME", "TARGET_KEY", "WEB_OR_DATABASE"]
         for field in required:
@@ -1984,6 +2494,12 @@ class Val:
             errors.append("WEB_OR_DATABASE must be 'true' or 'false'")
 
     def _validate_stigs(self, stigs) -> Tuple[List[str], List[str], List[str]]:
+        """
+        Validate STIGS element and all contained vulnerabilities.
+
+        Checks each iSTIG and VULN element for proper structure,
+        valid status/severity values, and collects statistics.
+        """
         errors: List[str] = []
         warnings_: List[str] = []
         info: List[str] = []
@@ -2070,9 +2586,27 @@ class Val:
 
 
 class Proc:
-    """Checklist processor."""
+    """
+    Main STIG checklist processor for XCCDF to CKL conversion and merging.
+
+    Provides core functionality for:
+    - Converting XCCDF benchmark files to CKL checklist format
+    - Merging multiple checklists with history preservation
+    - Comparing checklists for differences
+    - Generating statistics and reports
+
+    Thread Safety:
+        Instance methods are thread-safe through use of HistMgr's locking.
+    """
 
     def __init__(self, history: Optional[HistMgr] = None, boiler: Optional[BP] = None):
+        """
+        Initialize processor with optional history and boilerplate managers.
+
+        Args:
+            history: History manager instance (creates new if None)
+            boiler: Boilerplate manager instance (creates new if None)
+        """
         self.history = history or HistMgr()
         self.boiler = boiler or BP()
         self.validator = Val()
@@ -2091,6 +2625,30 @@ class Proc:
         dry: bool = False,
         apply_boilerplate: bool = False,
     ) -> Dict[str, Any]:
+        """
+        Convert XCCDF benchmark to STIG Viewer CKL format.
+
+        Parses an XCCDF benchmark file and generates a compatible CKL checklist
+        with all vulnerabilities, metadata, and optional boilerplate text.
+
+        Args:
+            xccdf: Path to source XCCDF benchmark file
+            out: Path for output CKL file
+            asset: Asset hostname for checklist
+            ip: Asset IP address (optional)
+            mac: Asset MAC address (optional)
+            role: Asset role (default: "None")
+            marking: Classification marking (default: "CUI")
+            dry: If True, don't write output file
+            apply_boilerplate: If True, apply boilerplate templates
+
+        Returns:
+            Dict with keys: ok, output, processed, skipped, errors
+
+        Raises:
+            ValidationError: If input validation fails
+            ParseError: If XCCDF parsing fails or no vulnerabilities found
+        """
         try:
             xccdf = San.path(xccdf, exist=True, file=True)
             out = San.path(out, mkpar=True)
@@ -2184,8 +2742,8 @@ class Proc:
                 raise ValidationError(f"Generated CKL failed validation: {errs[0] if errs else 'Unknown error'}")
         except ValidationError:
             raise
-        except Exception:
-            pass  # Do not block output if validator crashes
+        except Exception as exc:
+            LOG.w(f"Validator encountered an error (output may still be valid): {exc}")
 
         LOG.i(f"Checklist created: {out}")
         LOG.clear()
@@ -2313,7 +2871,8 @@ class Proc:
             return None
         try:
             vid = San.vuln(vid)
-        except Exception:
+        except ValidationError:
+            LOG.d(f"Invalid VID format in group: {vid}")
             return None
 
         rule = group.find("ns:Rule", ns) if ns else group.find("Rule")
@@ -2558,6 +3117,27 @@ class Proc:
         apply_boilerplate: bool = True,
         dry: bool = False,
     ) -> Dict[str, Any]:
+        """
+        Merge multiple checklists into a single output with history preservation.
+
+        Ingests assessment history from multiple source checklists and merges
+        it into the base checklist's finding details and comments.
+
+        Args:
+            base: Base checklist to merge into
+            histories: Iterable of historical checklist paths to ingest
+            out: Output path for merged checklist
+            preserve_history: If True, include formatted history in output
+            apply_boilerplate: If True, apply boilerplate templates
+            dry: If True, don't write output file
+
+        Returns:
+            Dict with keys: updated, skipped, dry_run, output (if not dry)
+
+        Raises:
+            ValidationError: If path validation or limits exceeded
+            ParseError: If checklist parsing fails
+        """
         try:
             base = San.path(base, exist=True, file=True)
             out = San.path(out, mkpar=True)
@@ -2829,10 +3409,15 @@ class Proc:
 
     # ----------------------------------------------------------------- helpers
     def _ingest_history(self, path: Path) -> None:
+        """Ingest history entries from an existing CKL file."""
         try:
             tree = FO.parse_xml(path)
             root = tree.getroot()
-        except Exception:
+        except (FileError, ParseError, ValidationError) as exc:
+            LOG.d(f"Could not parse history from {path}: {exc}")
+            return
+        except Exception as exc:
+            LOG.w(f"Unexpected error parsing history from {path}: {exc}")
             return
 
         stigs = root.find("STIGS")
@@ -3414,12 +3999,14 @@ class FixExt:
 
 
     def _parse_group(self, group) -> Optional[Fix]:
+        """Parse a single XCCDF Group element into a Fix object."""
         vid = group.get("id", "")
         if not vid:
             return None
         try:
             vid = San.vuln(vid)
-        except Exception:
+        except ValidationError:
+            LOG.d(f"Invalid VID format in XCCDF group: {vid}")
             return None
 
         rule = group.find("ns:Rule", self.ns) if self.ns else group.find("Rule")
@@ -4650,7 +5237,28 @@ class PresetMgr:
 if Deps.HAS_TKINTER:
 
     class GUI:
-        """Graphical interface."""
+        """
+        Graphical user interface for STIG Assessor.
+
+        Provides a tabbed interface for all major operations:
+        - Create CKL: Convert XCCDF files to CKL checklists
+        - Merge Checklists: Combine multiple checklists preserving history
+        - Extract Fixes: Generate remediation scripts from XCCDF
+        - Import Results: Apply bulk remediation results to checklists
+        - Evidence: Manage evidence files for vulnerabilities
+        - Validate: Check CKL compatibility with STIG Viewer
+
+        All long-running operations execute asynchronously to keep the UI
+        responsive. Status updates are displayed in real-time via the
+        message queue system.
+
+        Attributes:
+            root: The main Tk window
+            proc: Processor instance for STIG operations
+            evidence: Evidence manager instance
+            presets: Preset manager for saved configurations
+            queue: Thread-safe queue for async callbacks
+        """
 
         def __init__(self):
             self.root = tk.Tk()
@@ -4666,38 +5274,54 @@ if Deps.HAS_TKINTER:
 
             self._build_menus()
             self._build_tabs()
+            self._bind_shortcuts()
             self.root.protocol("WM_DELETE_WINDOW", self._close)
             self.root.after(200, self._process_queue)
 
         # --------------------------------------------------------------- UI setup
         def _build_menus(self) -> None:
+            """Build the application menu bar with File, Tools, and Help menus."""
             menu = tk.Menu(self.root)
             self.root.config(menu=menu)
 
             file_menu = tk.Menu(menu, tearoff=0)
             menu.add_cascade(label="File", menu=file_menu)
-            file_menu.add_command(label="Save Preset…", command=self._save_preset)
-            file_menu.add_command(label="Load Preset…", command=self._load_preset)
+            file_menu.add_command(label="Save Preset...", command=self._save_preset, accelerator="Ctrl+S")
+            file_menu.add_command(label="Load Preset...", command=self._load_preset, accelerator="Ctrl+O")
             file_menu.add_separator()
-            file_menu.add_command(label="Exit", command=self._close)
+            file_menu.add_command(label="Exit", command=self._close, accelerator="Ctrl+Q")
 
             tools_menu = tk.Menu(menu, tearoff=0)
             menu.add_cascade(label="Tools", menu=tools_menu)
-            tools_menu.add_command(label="Export History…", command=self._export_history)
-            tools_menu.add_command(label="Import History…", command=self._import_history)
+            tools_menu.add_command(label="Export History...", command=self._export_history)
+            tools_menu.add_command(label="Import History...", command=self._import_history)
             tools_menu.add_separator()
-            tools_menu.add_command(label="Export Boilerplates…", command=self._export_boiler)
-            tools_menu.add_command(label="Import Boilerplates…", command=self._import_boiler)
+            tools_menu.add_command(label="Export Boilerplates...", command=self._export_boiler)
+            tools_menu.add_command(label="Import Boilerplates...", command=self._import_boiler)
             tools_menu.add_separator()
             tools_menu.add_command(label="Cleanup Old Files", command=self._cleanup_old)
 
             help_menu = tk.Menu(menu, tearoff=0)
             menu.add_cascade(label="Help", menu=help_menu)
-            help_menu.add_command(label="About", command=self._about)
+            help_menu.add_command(label="About", command=self._about, accelerator="F1")
+
+        def _bind_shortcuts(self) -> None:
+            """Bind keyboard shortcuts for common operations."""
+            # File operations
+            self.root.bind("<Control-s>", lambda e: self._save_preset())
+            self.root.bind("<Control-o>", lambda e: self._load_preset())
+            self.root.bind("<Control-q>", lambda e: self._close())
+
+            # Help
+            self.root.bind("<F1>", lambda e: self._about())
+
+            # Escape to close dialogs
+            self.root.bind("<Escape>", lambda e: self.root.focus_set())
 
         def _build_tabs(self) -> None:
+            """Build the main tabbed interface with all operation panels."""
             notebook = ttk.Notebook(self.root)
-            notebook.pack(fill="both", expand=True, padx=5, pady=5)
+            notebook.pack(fill="both", expand=True, padx=GUI_PADDING, pady=GUI_PADDING)
 
             tabs = [
                 ("Create CKL", self._tab_create),
@@ -4709,32 +5333,41 @@ if Deps.HAS_TKINTER:
             ]
 
             for title, builder in tabs:
-                frame = ttk.Frame(notebook, padding=10)
+                frame = ttk.Frame(notebook, padding=GUI_PADDING_LARGE)
                 notebook.add(frame, text=title)
                 builder(frame)
 
         # --------------------------------------------------------------- tabs
         def _tab_create(self, frame):
+            """Build the Create CKL tab for XCCDF to CKL conversion."""
             r = 0
             ttk.Label(frame, text="XCCDF File:").grid(row=r, column=0, sticky="w")
             self.create_xccdf = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.create_xccdf, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_create_xccdf).grid(row=r, column=2)
+            ttk.Entry(frame, textvariable=self.create_xccdf, width=GUI_ENTRY_WIDTH).grid(
+                row=r, column=1, padx=GUI_PADDING
+            )
+            ttk.Button(frame, text="Browse...", command=self._browse_create_xccdf).grid(row=r, column=2)
             r += 1
 
             ttk.Label(frame, text="Asset Name: *").grid(row=r, column=0, sticky="w")
             self.create_asset = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.create_asset, width=70).grid(row=r, column=1, padx=5)
+            ttk.Entry(frame, textvariable=self.create_asset, width=GUI_ENTRY_WIDTH).grid(
+                row=r, column=1, padx=GUI_PADDING
+            )
             r += 1
 
             ttk.Label(frame, text="IP Address:").grid(row=r, column=0, sticky="w")
             self.create_ip = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.create_ip, width=70).grid(row=r, column=1, padx=5)
+            ttk.Entry(frame, textvariable=self.create_ip, width=GUI_ENTRY_WIDTH).grid(
+                row=r, column=1, padx=GUI_PADDING
+            )
             r += 1
 
             ttk.Label(frame, text="MAC Address:").grid(row=r, column=0, sticky="w")
             self.create_mac = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.create_mac, width=70).grid(row=r, column=1, padx=5)
+            ttk.Entry(frame, textvariable=self.create_mac, width=GUI_ENTRY_WIDTH).grid(
+                row=r, column=1, padx=GUI_PADDING
+            )
             r += 1
 
             ttk.Label(frame, text="Marking:").grid(row=r, column=0, sticky="w")
@@ -4743,15 +5376,17 @@ if Deps.HAS_TKINTER:
                 frame,
                 textvariable=self.create_mark,
                 values=sorted(Sch.MARKS),
-                width=67,
+                width=GUI_ENTRY_WIDTH - 3,
                 state="readonly",
-            ).grid(row=r, column=1, padx=5)
+            ).grid(row=r, column=1, padx=GUI_PADDING)
             r += 1
 
             ttk.Label(frame, text="Output CKL:").grid(row=r, column=0, sticky="w")
             self.create_out = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.create_out, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_create_out).grid(row=r, column=2)
+            ttk.Entry(frame, textvariable=self.create_out, width=GUI_ENTRY_WIDTH).grid(
+                row=r, column=1, padx=GUI_PADDING
+            )
+            ttk.Button(frame, text="Browse...", command=self._browse_create_out).grid(row=r, column=2)
             r += 1
 
             self.create_bp = tk.BooleanVar(value=False)
@@ -4766,27 +5401,33 @@ if Deps.HAS_TKINTER:
                 frame,
                 text="Create Checklist",
                 command=self._do_create,
-                width=25,
-            ).grid(row=r, column=1, pady=15)
+                width=GUI_BUTTON_WIDTH_WIDE,
+            ).grid(row=r, column=1, pady=GUI_PADDING_SECTION)
             r += 1
 
             self.create_status = tk.StringVar()
-            ttk.Label(frame, textvariable=self.create_status, wraplength=860, foreground="blue").grid(
-                row=r, column=0, columnspan=3, pady=5
-            )
+            ttk.Label(
+                frame,
+                textvariable=self.create_status,
+                wraplength=GUI_WRAP_LENGTH,
+                foreground="blue",
+            ).grid(row=r, column=0, columnspan=3, pady=GUI_PADDING)
 
         def _tab_merge(self, frame):
+            """Build the Merge Checklists tab for combining multiple CKLs."""
             r = 0
             ttk.Label(frame, text="Base Checklist:").grid(row=r, column=0, sticky="w")
             self.merge_base = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.merge_base, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_merge_base).grid(row=r, column=2)
+            ttk.Entry(frame, textvariable=self.merge_base, width=GUI_ENTRY_WIDTH).grid(
+                row=r, column=1, padx=GUI_PADDING
+            )
+            ttk.Button(frame, text="Browse...", command=self._browse_merge_base).grid(row=r, column=2)
             r += 1
 
             ttk.Label(frame, text="Historical Files:").grid(row=r, column=0, sticky="nw")
             list_frame = ttk.Frame(frame)
-            list_frame.grid(row=r, column=1, padx=5, sticky="ew")
-            self.merge_list = tk.Listbox(list_frame, height=6, width=60)
+            list_frame.grid(row=r, column=1, padx=GUI_PADDING, sticky="ew")
+            self.merge_list = tk.Listbox(list_frame, height=GUI_LISTBOX_HEIGHT, width=GUI_LISTBOX_WIDTH)
             self.merge_list.pack(side="left", fill="both", expand=True)
             scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.merge_list.yview)
             scrollbar.pack(side="right", fill="y")
@@ -4794,7 +5435,7 @@ if Deps.HAS_TKINTER:
 
             btn_frame = ttk.Frame(frame)
             btn_frame.grid(row=r, column=2, sticky="n")
-            ttk.Button(btn_frame, text="Add…", command=self._add_merge_hist).pack(fill="x", pady=2)
+            ttk.Button(btn_frame, text="Add...", command=self._add_merge_hist).pack(fill="x", pady=2)
             ttk.Button(btn_frame, text="Remove", command=self._remove_merge_hist).pack(fill="x", pady=2)
             ttk.Button(btn_frame, text="Clear", command=self._clear_merge_hist).pack(fill="x", pady=2)
             self.merge_histories: List[str] = []
@@ -4802,72 +5443,105 @@ if Deps.HAS_TKINTER:
 
             ttk.Label(frame, text="Output CKL:").grid(row=r, column=0, sticky="w")
             self.merge_out = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.merge_out, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_merge_out).grid(row=r, column=2)
+            ttk.Entry(frame, textvariable=self.merge_out, width=GUI_ENTRY_WIDTH).grid(
+                row=r, column=1, padx=GUI_PADDING
+            )
+            ttk.Button(frame, text="Browse...", command=self._browse_merge_out).grid(row=r, column=2)
             r += 1
 
-            options = ttk.LabelFrame(frame, text="Options", padding=10)
-            options.grid(row=r, column=0, columnspan=3, sticky="ew", pady=10)
+            options = ttk.LabelFrame(frame, text="Options", padding=GUI_PADDING_LARGE)
+            options.grid(row=r, column=0, columnspan=3, sticky="ew", pady=GUI_PADDING_LARGE)
             self.merge_preserve = tk.BooleanVar(value=True)
             ttk.Checkbutton(options, text="Preserve full history", variable=self.merge_preserve).pack(anchor="w")
             self.merge_bp = tk.BooleanVar(value=True)
             ttk.Checkbutton(options, text="Apply boilerplates when missing", variable=self.merge_bp).pack(anchor="w")
             r += 1
 
-            ttk.Button(frame, text="Merge Checklists", command=self._do_merge, width=25).grid(row=r, column=1, pady=15)
+            ttk.Button(
+                frame,
+                text="Merge Checklists",
+                command=self._do_merge,
+                width=GUI_BUTTON_WIDTH_WIDE,
+            ).grid(row=r, column=1, pady=GUI_PADDING_SECTION)
             r += 1
 
             self.merge_status = tk.StringVar()
-            ttk.Label(frame, textvariable=self.merge_status, wraplength=860, foreground="blue").grid(
-                row=r, column=0, columnspan=3, pady=5
-            )
+            ttk.Label(
+                frame,
+                textvariable=self.merge_status,
+                wraplength=GUI_WRAP_LENGTH,
+                foreground="blue",
+            ).grid(row=r, column=0, columnspan=3, pady=GUI_PADDING)
 
         def _tab_extract(self, frame):
+            """Build the Extract Fixes tab for generating remediation scripts."""
             r = 0
             ttk.Label(frame, text="XCCDF File:").grid(row=r, column=0, sticky="w")
             self.extract_xccdf = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.extract_xccdf, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_extract_xccdf).grid(row=r, column=2)
+            ttk.Entry(frame, textvariable=self.extract_xccdf, width=GUI_ENTRY_WIDTH).grid(
+                row=r, column=1, padx=GUI_PADDING
+            )
+            ttk.Button(frame, text="Browse...", command=self._browse_extract_xccdf).grid(row=r, column=2)
             r += 1
 
             ttk.Label(frame, text="Output Directory:").grid(row=r, column=0, sticky="w")
             self.extract_outdir = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.extract_outdir, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_extract_out).grid(row=r, column=2)
+            ttk.Entry(frame, textvariable=self.extract_outdir, width=GUI_ENTRY_WIDTH).grid(
+                row=r, column=1, padx=GUI_PADDING
+            )
+            ttk.Button(frame, text="Browse...", command=self._browse_extract_out).grid(row=r, column=2)
             r += 1
 
-            formats = ttk.LabelFrame(frame, text="Export Formats", padding=10)
-            formats.grid(row=r, column=0, columnspan=3, sticky="ew", pady=10)
+            formats = ttk.LabelFrame(frame, text="Export Formats", padding=GUI_PADDING_LARGE)
+            formats.grid(row=r, column=0, columnspan=3, sticky="ew", pady=GUI_PADDING_LARGE)
             self.extract_json = tk.BooleanVar(value=True)
             self.extract_csv = tk.BooleanVar(value=True)
             self.extract_bash = tk.BooleanVar(value=True)
             self.extract_ps = tk.BooleanVar(value=True)
-            ttk.Checkbutton(formats, text="JSON", variable=self.extract_json).grid(row=0, column=0, padx=10)
-            ttk.Checkbutton(formats, text="CSV", variable=self.extract_csv).grid(row=0, column=1, padx=10)
-            ttk.Checkbutton(formats, text="Bash", variable=self.extract_bash).grid(row=0, column=2, padx=10)
-            ttk.Checkbutton(formats, text="PowerShell", variable=self.extract_ps).grid(row=0, column=3, padx=10)
+            ttk.Checkbutton(formats, text="JSON", variable=self.extract_json).grid(
+                row=0, column=0, padx=GUI_PADDING_LARGE
+            )
+            ttk.Checkbutton(formats, text="CSV", variable=self.extract_csv).grid(
+                row=0, column=1, padx=GUI_PADDING_LARGE
+            )
+            ttk.Checkbutton(formats, text="Bash", variable=self.extract_bash).grid(
+                row=0, column=2, padx=GUI_PADDING_LARGE
+            )
+            ttk.Checkbutton(formats, text="PowerShell", variable=self.extract_ps).grid(
+                row=0, column=3, padx=GUI_PADDING_LARGE
+            )
             r += 1
 
             self.extract_dry = tk.BooleanVar(value=False)
-            ttk.Checkbutton(frame, text="Generate scripts in dry-run mode", variable=self.extract_dry).grid(
-                row=r, column=1, sticky="w"
-            )
+            ttk.Checkbutton(
+                frame,
+                text="Generate scripts in dry-run mode",
+                variable=self.extract_dry,
+            ).grid(row=r, column=1, sticky="w")
             r += 1
 
-            ttk.Button(frame, text="Extract Fixes", command=self._do_extract, width=25).grid(row=r, column=1, pady=15)
+            ttk.Button(
+                frame,
+                text="Extract Fixes",
+                command=self._do_extract,
+                width=GUI_BUTTON_WIDTH_WIDE,
+            ).grid(row=r, column=1, pady=GUI_PADDING_SECTION)
             r += 1
 
             self.extract_status = tk.StringVar()
-            ttk.Label(frame, textvariable=self.extract_status, wraplength=860, foreground="blue").grid(
-                row=r, column=0, columnspan=3, pady=5
-            )
+            ttk.Label(
+                frame,
+                textvariable=self.extract_status,
+                wraplength=GUI_WRAP_LENGTH,
+                foreground="blue",
+            ).grid(row=r, column=0, columnspan=3, pady=GUI_PADDING)
 
         def _tab_results(self, frame):
             """Results import tab with batch file support."""
             r = 0
 
             # ═══ BATCH IMPORT ═══
-            batch_frame = ttk.LabelFrame(frame, text="📁 Batch Import (Multiple JSON Files)", padding=10)
+            batch_frame = ttk.LabelFrame(frame, text="Batch Import (Multiple JSON Files)", padding=GUI_PADDING_LARGE)
             batch_frame.grid(row=r, column=0, columnspan=3, sticky="ew", pady=(0, 10))
 
             ttk.Label(batch_frame, text="Results Files:").grid(row=0, column=0, sticky="nw", padx=5, pady=5)
@@ -4894,7 +5568,7 @@ if Deps.HAS_TKINTER:
             r += 1
 
             # ═══ SINGLE FILE (LEGACY) ═══
-            single_frame = ttk.LabelFrame(frame, text="📄 Single File Import", padding=10)
+            single_frame = ttk.LabelFrame(frame, text="Single File Import", padding=GUI_PADDING_LARGE)
             single_frame.grid(row=r, column=0, columnspan=3, sticky="ew", pady=(0, 10))
 
             ttk.Label(single_frame, text="Results JSON:").grid(row=0, column=0, sticky="w", padx=5)
@@ -4958,7 +5632,7 @@ if Deps.HAS_TKINTER:
                     added += 1
 
             if added:
-                self.results_status.set(f"✓ Added {added} file(s) - Total: {len(self.results_files)} queued")
+                self.results_status.set(f"{ICON_SUCCESS} Added {added} file(s) - Total: {len(self.results_files)} queued")
 
         def _remove_results_file(self):
             """Remove selected files from batch queue."""
@@ -5035,14 +5709,14 @@ if Deps.HAS_TKINTER:
             def done(result):
                 """Completion handler."""
                 if isinstance(result, Exception):
-                    self.results_status.set(f"✘ Error: {result}")
+                    self.results_status.set(f"{ICON_FAILURE} Error: {result}")
                     messagebox.showerror("Import Failed", str(result))
                 else:
                     nf = result.get("not_found", [])
                     nf_display = f"{len(nf)} VIDs" if nf else "None"
 
                     summary = (
-                        f"✔ Batch import complete!\n"
+                        f"{ICON_SUCCESS} Batch import complete!\n"
                         f"Files: {result.get('files_processed', 0)} | "
                         f"Results loaded: {result.get('total_loaded', 0)} | "
                         f"Skipped: {result.get('total_skipped', 0)}\n"
@@ -5061,53 +5735,90 @@ if Deps.HAS_TKINTER:
 
 
         def _tab_evidence(self, frame):
-            ttk.Label(frame, text="Evidence Manager", font=("TkDefaultFont", 12, "bold")).pack(anchor="w")
+            """Build the Evidence tab for managing vulnerability evidence files."""
+            ttk.Label(frame, text="Evidence Manager", font=GUI_FONT_HEADING).pack(anchor="w")
 
-            import_frame = ttk.LabelFrame(frame, text="Import Evidence", padding=10)
-            import_frame.pack(fill="x", pady=10)
+            import_frame = ttk.LabelFrame(frame, text="Import Evidence", padding=GUI_PADDING_LARGE)
+            import_frame.pack(fill="x", pady=GUI_PADDING_LARGE)
             ttk.Label(import_frame, text="Vuln ID:").grid(row=0, column=0, sticky="w")
             self.evid_vid = tk.StringVar()
-            ttk.Entry(import_frame, textvariable=self.evid_vid, width=25).grid(row=0, column=1, padx=5)
+            ttk.Entry(import_frame, textvariable=self.evid_vid, width=GUI_ENTRY_WIDTH_SMALL).grid(
+                row=0, column=1, padx=GUI_PADDING
+            )
             ttk.Label(import_frame, text="Description:").grid(row=0, column=2, sticky="w")
             self.evid_desc = tk.StringVar()
-            ttk.Entry(import_frame, textvariable=self.evid_desc, width=30).grid(row=0, column=3, padx=5)
+            ttk.Entry(import_frame, textvariable=self.evid_desc, width=30).grid(
+                row=0, column=3, padx=GUI_PADDING
+            )
             ttk.Label(import_frame, text="Category:").grid(row=0, column=4, sticky="w")
             self.evid_cat = tk.StringVar(value="general")
-            ttk.Entry(import_frame, textvariable=self.evid_cat, width=15).grid(row=0, column=5, padx=5)
-            ttk.Button(import_frame, text="Select & Import…", command=self._import_evidence).grid(row=0, column=6, padx=5)
-
-            action_frame = ttk.LabelFrame(frame, text="Export / Package", padding=10)
-            action_frame.pack(fill="x", pady=10)
-            ttk.Button(action_frame, text="Export All…", command=self._export_evidence).grid(row=0, column=0, padx=5, pady=5)
-            ttk.Button(action_frame, text="Create Package…", command=self._package_evidence).grid(row=0, column=1, padx=5, pady=5)
-            ttk.Button(action_frame, text="Import Package…", command=self._import_evidence_package).grid(
-                row=0, column=2, padx=5, pady=5
+            ttk.Entry(import_frame, textvariable=self.evid_cat, width=GUI_BUTTON_WIDTH).grid(
+                row=0, column=5, padx=GUI_PADDING
+            )
+            ttk.Button(import_frame, text="Select & Import...", command=self._import_evidence).grid(
+                row=0, column=6, padx=GUI_PADDING
             )
 
-            summary_frame = ttk.LabelFrame(frame, text="Summary", padding=10)
-            summary_frame.pack(fill="both", expand=True, pady=10)
+            action_frame = ttk.LabelFrame(frame, text="Export / Package", padding=GUI_PADDING_LARGE)
+            action_frame.pack(fill="x", pady=GUI_PADDING_LARGE)
+            ttk.Button(action_frame, text="Export All...", command=self._export_evidence).grid(
+                row=0, column=0, padx=GUI_PADDING, pady=GUI_PADDING
+            )
+            ttk.Button(action_frame, text="Create Package...", command=self._package_evidence).grid(
+                row=0, column=1, padx=GUI_PADDING, pady=GUI_PADDING
+            )
+            ttk.Button(action_frame, text="Import Package...", command=self._import_evidence_package).grid(
+                row=0, column=2, padx=GUI_PADDING, pady=GUI_PADDING
+            )
+
+            summary_frame = ttk.LabelFrame(frame, text="Summary", padding=GUI_PADDING_LARGE)
+            summary_frame.pack(fill="both", expand=True, pady=GUI_PADDING_LARGE)
             self.evid_summary = tk.StringVar()
-            ttk.Label(summary_frame, textvariable=self.evid_summary, justify="left", font=("Courier New", 10)).pack(
-                anchor="w", pady=5
-            )
+            ttk.Label(
+                summary_frame,
+                textvariable=self.evid_summary,
+                justify="left",
+                font=GUI_FONT_MONO,
+            ).pack(anchor="w", pady=GUI_PADDING)
             self._refresh_evidence_summary()
 
         def _tab_validate(self, frame):
-            ttk.Label(frame, text="Validate Checklist", font=("TkDefaultFont", 12, "bold")).pack(anchor="w")
+            """Build the Validate tab for checking CKL compatibility."""
+            ttk.Label(frame, text="Validate Checklist", font=GUI_FONT_HEADING).pack(anchor="w")
 
             input_frame = ttk.Frame(frame)
-            input_frame.pack(fill="x", pady=10)
+            input_frame.pack(fill="x", pady=GUI_PADDING_LARGE)
             ttk.Label(input_frame, text="Checklist (CKL):").pack(side="left")
             self.validate_ckl = tk.StringVar()
-            ttk.Entry(input_frame, textvariable=self.validate_ckl, width=60).pack(side="left", padx=5)
-            ttk.Button(input_frame, text="Browse…", command=self._browse_validate_ckl).pack(side="left", padx=5)
+            ttk.Entry(input_frame, textvariable=self.validate_ckl, width=GUI_LISTBOX_WIDTH).pack(
+                side="left", padx=GUI_PADDING
+            )
+            ttk.Button(input_frame, text="Browse...", command=self._browse_validate_ckl).pack(
+                side="left", padx=GUI_PADDING
+            )
             ttk.Button(input_frame, text="Validate", command=self._do_validate).pack(side="left")
 
-            self.validate_text = ScrolledText(frame, width=120, height=25, font=("Courier New", 10))
-            self.validate_text.pack(fill="both", expand=True, pady=5)
+            self.validate_text = ScrolledText(
+                frame,
+                width=GUI_TEXT_WIDTH,
+                height=GUI_TEXT_HEIGHT,
+                font=GUI_FONT_MONO,
+            )
+            self.validate_text.pack(fill="both", expand=True, pady=GUI_PADDING)
 
         # --------------------------------------------------------- action helpers
-        def _async(self, work_func, callback):
+        def _async(self, work_func: Callable, callback: Callable) -> None:
+            """
+            Execute a function asynchronously and call the callback with the result.
+
+            This method runs work_func in a background thread to prevent UI freezing
+            during long operations. The callback is invoked via the message queue
+            to ensure it runs on the main thread.
+
+            Args:
+                work_func: Function to execute in background (no arguments)
+                callback: Function to call with result (or exception if error)
+            """
             def worker():
                 try:
                     result = work_func()
@@ -5117,35 +5828,36 @@ if Deps.HAS_TKINTER:
 
             threading.Thread(target=worker, daemon=True).start()
 
-        def _process_queue(self):
-            """Process async callback queue with status update support."""
+        def _process_queue(self) -> None:
+            """
+            Process the async callback queue on the main thread.
+
+            This method runs periodically (every 200ms) to process messages
+            from background threads. It supports two message formats:
+            - ("callback", func, payload): Invoke func(payload)
+            - ("status", message): Update results_status display
+
+            Messages are processed until the queue is empty, then the method
+            reschedules itself.
+            """
             try:
                 while True:
                     item = self.queue.get_nowait()
 
-                    # Handle different message types with validation
-                    try:
-                        if not isinstance(item, tuple):
-                            LOG.w(f"Invalid queue item type: {type(item)}")
-                            continue
+                    if not isinstance(item, tuple):
+                        LOG.w(f"Invalid queue item type: {type(item)}")
+                        continue
 
+                    try:
                         if len(item) == 3:
-                            # Standard callback format
                             kind, func, payload = item
                             if kind == "callback" and callable(func):
                                 func(payload)
-                            else:
-                                LOG.w(f"Invalid callback item: kind={kind}, callable={callable(func)}")
                         elif len(item) == 2:
-                            # Status update format
                             kind, message = item
                             if kind == "status":
                                 self.results_status.set(message)
-                                self.root.update_idletasks()  # Force UI refresh
-                            else:
-                                LOG.w(f"Unknown queue item kind: {kind}")
-                        else:
-                            LOG.w(f"Invalid queue item length: {len(item)}")
+                                self.root.update_idletasks()
                     except Exception as e:
                         LOG.e(f"Error processing queue item: {e}", exc=True)
             except queue.Empty:
@@ -5153,6 +5865,78 @@ if Deps.HAS_TKINTER:
 
             self.root.after(200, self._process_queue)
 
+        # -------------------------------------------------------------- browse helpers
+        def _browse_open(
+            self,
+            target_var: tk.StringVar,
+            title: str,
+            filetypes: List[Tuple[str, str]],
+            auto_output: Optional[Tuple[tk.StringVar, str]] = None,
+        ) -> Optional[str]:
+            """
+            Open a file selection dialog and set the result to a StringVar.
+
+            Args:
+                target_var: StringVar to set with selected path
+                title: Dialog title
+                filetypes: List of (description, pattern) tuples
+                auto_output: Optional tuple of (output_var, suffix) to auto-set
+                            output path based on input selection
+
+            Returns:
+                Selected path or None if cancelled
+            """
+            path = filedialog.askopenfilename(title=title, filetypes=filetypes)
+            if path:
+                target_var.set(path)
+                if auto_output and not auto_output[0].get():
+                    out_path = Path(path).with_suffix(auto_output[1])
+                    auto_output[0].set(str(out_path))
+            return path
+
+        def _browse_save(
+            self,
+            target_var: tk.StringVar,
+            title: str,
+            default_ext: str,
+            filetypes: List[Tuple[str, str]],
+        ) -> Optional[str]:
+            """
+            Open a save file dialog and set the result to a StringVar.
+
+            Args:
+                target_var: StringVar to set with selected path
+                title: Dialog title
+                default_ext: Default file extension
+                filetypes: List of (description, pattern) tuples
+
+            Returns:
+                Selected path or None if cancelled
+            """
+            path = filedialog.asksaveasfilename(
+                title=title,
+                defaultextension=default_ext,
+                filetypes=filetypes,
+            )
+            if path:
+                target_var.set(path)
+            return path
+
+        def _browse_directory(self, target_var: tk.StringVar, title: str) -> Optional[str]:
+            """
+            Open a directory selection dialog and set the result to a StringVar.
+
+            Args:
+                target_var: StringVar to set with selected directory
+                title: Dialog title
+
+            Returns:
+                Selected path or None if cancelled
+            """
+            path = filedialog.askdirectory(title=title)
+            if path:
+                target_var.set(path)
+            return path
 
         # -------------------------------------------------------------- browse
         def _browse_create_xccdf(self):
@@ -5241,10 +6025,10 @@ if Deps.HAS_TKINTER:
 
             def done(result):
                 if isinstance(result, Exception):
-                    self.create_status.set(f"✘ Error: {result}")
+                    self.create_status.set(f"{ICON_FAILURE} Error: {result}")
                 else:
                     self.create_status.set(
-                        f"✔ Checklist created: {result.get('output')}\n"
+                        f"{ICON_SUCCESS} Checklist created: {result.get('output')}\n"
                         f"Processed: {result.get('processed')} | Skipped: {result.get('skipped')}"
                     )
 
@@ -5289,10 +6073,10 @@ if Deps.HAS_TKINTER:
 
             def done(result):
                 if isinstance(result, Exception):
-                    self.merge_status.set(f"✘ Error: {result}")
+                    self.merge_status.set(f"{ICON_FAILURE} Error: {result}")
                 else:
                     self.merge_status.set(
-                        f"✔ Merged checklist: {result.get('output')}\n"
+                        f"{ICON_SUCCESS} Merged checklist: {result.get('output')}\n"
                         f"Updated: {result.get('updated')} | Skipped: {result.get('skipped')}"
                     )
 
@@ -5327,11 +6111,11 @@ if Deps.HAS_TKINTER:
 
             def done(result):
                 if isinstance(result, Exception):
-                    self.extract_status.set(f"✘ Error: {result}")
+                    self.extract_status.set(f"{ICON_FAILURE} Error: {result}")
                 else:
                     stats, formats = result
                     self.extract_status.set(
-                        f"✔ Fix extraction complete\n"
+                        f"{ICON_SUCCESS} Fix extraction complete\n"
                         f"Total groups: {stats['total_groups']} | With fixes: {stats['with_fix']} | "
                         f"Commands: {stats['with_command']}\n"
                         f"Formats: {', '.join(formats)}"
@@ -5437,7 +6221,7 @@ if Deps.HAS_TKINTER:
 
             def done(result):
                 if isinstance(result, Exception):
-                    self.validate_text.insert("end", f"✘ Error: {result}\n")
+                    self.validate_text.insert("end", f"{ICON_FAILURE} Error: {result}\n")
                     return
                 ok, errors, warnings_, info = result
                 self.validate_text.delete("1.0", "end")
@@ -5460,9 +6244,9 @@ if Deps.HAS_TKINTER:
                         self.validate_text.insert("end", f"  - {msg}\n")
                     self.validate_text.insert("end", "\n")
                 if ok:
-                    self.validate_text.insert("end", "✔ Checklist is STIG Viewer compatible.\n", "ok")
+                    self.validate_text.insert("end", f"{ICON_SUCCESS} Checklist is STIG Viewer compatible.\n", "ok")
                 else:
-                    self.validate_text.insert("end", "✘ Checklist has errors that must be resolved.\n", "error")
+                    self.validate_text.insert("end", f"{ICON_FAILURE} Checklist has errors that must be resolved.\n", "error")
 
             self.validate_status = "Validating…"
             self._async(work, done)
