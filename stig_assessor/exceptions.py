@@ -47,3 +47,5 @@ class FileError(STIGError):
 
 class ParseError(STIGError):
     """Raised when XML parsing fails."""
+
+    pass

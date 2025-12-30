@@ -10,6 +10,16 @@ from typing import Dict, Any, List, Union, Tuple
 import json
 import xml.etree.ElementTree as ET
 
+# Import from modular package
+from stig_assessor.xml.sanitizer import San
+from stig_assessor.xml.schema import Sch
+from stig_assessor.xml.utils import XmlUtils
+from stig_assessor.core.config import Cfg
+from stig_assessor.core.logging import LOG
+from stig_assessor.io.file_ops import FO
+from stig_assessor.exceptions import ParseError
+from stig_assessor.remediation.models import FixResult
+
 
 class FixResPro:
     """
@@ -53,9 +63,6 @@ class FixResPro:
             ParseError: If JSON is invalid or unrecognized format
             FileError: If file cannot be read
         """
-        from STIG_Script import San, LOG, FO, ParseError
-        from stig_assessor.remediation.models import FixResult
-
         path = San.path(path, exist=True, file=True)
         LOG.ctx(op="load_fix_results", file=path.name)
         LOG.i("Loading remediation results JSON")
@@ -207,8 +214,6 @@ class FixResPro:
             ParseError: If CKL cannot be parsed
             ValidationError: If paths are invalid
         """
-        from STIG_Script import San, LOG, FO, XmlUtils, Cfg, Sch, ParseError
-
         checklist = San.path(checklist, exist=True, file=True)
         out = San.path(out, mkpar=True)
 
@@ -363,8 +368,6 @@ class FixResPro:
             root: XML root element
             out: Output file path
         """
-        from STIG_Script import FO, Sch
-
         with FO.atomic(out, mode="wb", bak=False) as handle:
             handle.write(b'<?xml version="1.0" encoding="UTF-8"?>\n')
             handle.write(f"<!--{Sch.COMMENT}-->\n".encode("utf-8"))

@@ -1,4 +1,5 @@
 """History tracking modules.
+"""History management module.
 
 This package contains history entry models and lifecycle management
 for vulnerability history with automatic deduplication, sorting, and compression.
@@ -12,6 +13,8 @@ from __future__ import annotations
 
 from .models import Hist
 from .manager import HistMgr
+from stig_assessor.history.models import Hist
+from stig_assessor.history.manager import HistMgr
 
 __all__ = [
     "Hist",

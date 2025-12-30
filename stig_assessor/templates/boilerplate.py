@@ -72,6 +72,9 @@ class BP:
         from stig_assessor.exceptions import FileError
 
         try:
+            content = json.dumps(self.templates, indent=2, ensure_ascii=False)
+            with FO.atomic(self.template_file, bak=False) as f:
+                f.write(content)
             with FO.atomic(self.template_file, bak=False) as handle:
                 json.dump(self.templates, handle, indent=2, ensure_ascii=False)
         except Exception as e:

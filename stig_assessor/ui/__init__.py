@@ -16,7 +16,6 @@ from __future__ import annotations
 from stig_assessor.ui.cli import main, ensure_default_boilerplates
 from stig_assessor.ui.presets import PresetMgr
 
-# Import GUI conditionally (only if tkinter is available)
 __all__ = [
     "main",
     "ensure_default_boilerplates",

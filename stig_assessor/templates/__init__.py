@@ -2,6 +2,7 @@
 
 This package contains boilerplate template management for STIG assessment
 findings and compliance text templates.
+"""Boilerplate template modules.
 
 Public API:
     - BP: Boilerplate template manager singleton class
