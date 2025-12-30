@@ -210,6 +210,17 @@ class XmlUtils:
         Returns:
             Element text content or empty string if None
         """
+    def get_text(elem: Optional[ET.Element]) -> str:
+        """Get element text safely.
+
+        Args:
+            elem: XML element
+
+        Returns:
+            Element text or empty string if None
+        """
+        if elem is None:
+            return ""
         return elem.text or ""
 
     @staticmethod
@@ -219,5 +230,7 @@ class XmlUtils:
         Args:
             elem: XML element to set text on
             text: Text content to set
+            elem: XML element
+            text: Text to set
         """
         elem.text = text
