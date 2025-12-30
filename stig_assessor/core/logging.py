@@ -61,9 +61,6 @@ class Log:
 
         # File handler
         with suppress(Exception):
-            # Import here to avoid circular dependency
-            from stig_assessor.core.config import Cfg
-
             file_handler = logging.handlers.RotatingFileHandler(
                 str(Cfg.LOG_DIR / f"{self.name}.log"),
                 maxBytes=10 * 1024 * 1024,

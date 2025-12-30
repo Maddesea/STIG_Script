@@ -1,10 +1,14 @@
-"""User interface modules."""
+"""User interface modules (CLI and GUI).
 
-from __future__ import annotations
+This package contains the command-line interface and graphical user interface
+for the STIG Assessor application.
 
-# Placeholder for Team 12 deliverables
-# Will contain cli.py, gui.py, and presets.py modules
-"""User interface modules (CLI and GUI)."""
+Public API:
+    - main: CLI entry point function
+    - ensure_default_boilerplates: Initialize default templates
+    - PresetMgr: GUI preset management class
+    - GUI: Graphical user interface (only available if tkinter is installed)
+"""
 
 from __future__ import annotations
 
@@ -26,18 +30,3 @@ try:
 except ImportError:
     # GUI not available (tkinter not installed)
     GUI = None
-"""User interface module.
-
-Provides CLI and GUI interfaces.
-"""
-
-# Exports will be added when UI modules are created
-"""User interface modules.
-
-This package contains CLI and GUI interfaces.
-"""
-"""User interface modules (CLI and GUI)."""
-
-from __future__ import annotations
-
-__all__ = []
