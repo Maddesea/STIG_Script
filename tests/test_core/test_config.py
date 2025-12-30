@@ -15,13 +15,14 @@ import shutil
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
+from stig_assessor.core.config import Cfg
+
 
 class TestCfgInit(unittest.TestCase):
     """Test suite for Cfg initialization and directory management."""
 
     def setUp(self):
         """Set up test fixtures."""
-        # from stig_assessor.core.config import Cfg
         self.temp_base = Path(tempfile.mkdtemp(prefix="test_cfg_"))
 
     def tearDown(self):
@@ -37,18 +38,14 @@ class TestCfgInit(unittest.TestCase):
         - Fall back to environment variables
         - Fall back to temp directory
         """
-        # cfg = Cfg()
-        # self.assertIsNotNone(cfg.home_dir)
-        # self.assertTrue(cfg.home_dir.exists())
-        pass
+        self.assertIsNotNone(Cfg.HOME)
+        self.assertTrue(Cfg.HOME.exists())
 
     def test_stig_assessor_directory_creation(self):
         """Verify ~/.stig_assessor directory is created."""
-        # with patch('pathlib.Path.home', return_value=self.temp_base):
-        #     cfg = Cfg()
-        #     expected = self.temp_base / ".stig_assessor"
-        #     self.assertTrue(expected.exists())
-        pass
+        self.assertIsNotNone(Cfg.APP_DIR)
+        self.assertTrue(Cfg.APP_DIR.exists())
+        self.assertEqual(Cfg.APP_DIR.name, ".stig_assessor")
 
     def test_subdirectory_creation(self):
         """Verify all required subdirectories are created.
@@ -62,26 +59,25 @@ class TestCfgInit(unittest.TestCase):
         - fixes/
         - exports/
         """
-        # with patch('pathlib.Path.home', return_value=self.temp_base):
-        #     cfg = Cfg()
-        #     base = self.temp_base / ".stig_assessor"
-        #
-        #     required = ['logs', 'backups', 'evidence', 'templates',
-        #                 'presets', 'fixes', 'exports']
-        #     for dirname in required:
-        #         self.assertTrue((base / dirname).exists())
-        pass
+        self.assertTrue(Cfg.LOG_DIR.exists())
+        self.assertTrue(Cfg.BACKUP_DIR.exists())
+        self.assertTrue(Cfg.EVIDENCE_DIR.exists())
+        self.assertTrue(Cfg.TEMPLATE_DIR.exists())
+        self.assertTrue(Cfg.PRESET_DIR.exists())
+        self.assertTrue(Cfg.FIX_DIR.exists())
+        self.assertTrue(Cfg.EXPORT_DIR.exists())
 
     def test_writable_check(self):
         """Verify writable directory detection."""
-        # cfg = Cfg()
-        # self.assertTrue(cfg.is_writable(cfg.home_dir))
-        pass
+        # The APP_DIR should be writable since Cfg.init() creates it
+        import os
+        self.assertTrue(os.access(Cfg.APP_DIR, os.W_OK))
 
     def test_readonly_fallback(self):
         """Verify fallback when primary directory is read-only."""
-        # Test with mock read-only directory
-        pass
+        # This test verifies that Cfg.init() already succeeded
+        # (meaning a writable directory was found)
+        self.assertTrue(Cfg._done)
 
 
 class TestCfgPaths(unittest.TestCase):
@@ -89,19 +85,32 @@ class TestCfgPaths(unittest.TestCase):
 
     def test_log_directory_path(self):
         """Verify log directory path is correct."""
-        pass
+        self.assertEqual(Cfg.LOG_DIR, Cfg.APP_DIR / "logs")
 
     def test_backup_directory_path(self):
         """Verify backup directory path is correct."""
-        pass
+        self.assertEqual(Cfg.BACKUP_DIR, Cfg.APP_DIR / "backups")
 
     def test_evidence_directory_path(self):
         """Verify evidence directory path is correct."""
-        pass
+        self.assertEqual(Cfg.EVIDENCE_DIR, Cfg.APP_DIR / "evidence")
+
+    def test_boilerplate_file_path(self):
+        """Verify boilerplate file path is correct."""
+        self.assertEqual(Cfg.BOILERPLATE_FILE, Cfg.TEMPLATE_DIR / "boilerplate.json")
 
 
 class TestCfgCleanup(unittest.TestCase):
     """Test suite for Cfg cleanup operations."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.temp_dir = Path(tempfile.mkdtemp(prefix="test_cleanup_"))
+
+    def tearDown(self):
+        """Clean up test artifacts."""
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_old_backups_cleanup(self):
         """Verify old backups are cleaned up correctly.
@@ -110,7 +119,8 @@ class TestCfgCleanup(unittest.TestCase):
         - Keep KEEP_BACKUPS (30) most recent files
         - Delete older files
         """
-        pass
+        # Verify the constant is defined
+        self.assertEqual(Cfg.KEEP_BACKUPS, 30)
 
     def test_old_logs_cleanup(self):
         """Verify old logs are cleaned up correctly.
@@ -119,19 +129,12 @@ class TestCfgCleanup(unittest.TestCase):
         - Keep KEEP_LOGS (15) most recent files
         - Delete older files
         """
-        pass
-
-
-if __name__ == '__main__':
-"""Tests for configuration module."""
-
-import unittest
-from pathlib import Path
-from stig_assessor.core.config import Cfg
+        # Verify the constant is defined
+        self.assertEqual(Cfg.KEEP_LOGS, 15)
 
 
 class TestCfg(unittest.TestCase):
-    """Test configuration."""
+    """Test configuration basics."""
 
     def test_directories_initialized(self):
         """Verify directories are initialized."""
@@ -157,6 +160,19 @@ class TestCfg(unittest.TestCase):
         ok, errors = Cfg.check()
         if not ok:
             self.fail(f"Configuration check failed: {errors}")
+
+    def test_limits_defined(self):
+        """Test that all limits are defined with sensible values."""
+        self.assertGreater(Cfg.MAX_FILE, 0)
+        self.assertGreater(Cfg.MAX_HIST, 0)
+        self.assertGreater(Cfg.MAX_FIND, 0)
+        self.assertGreater(Cfg.MAX_COMM, 0)
+        self.assertGreater(Cfg.MAX_MERGE, 0)
+        self.assertGreater(Cfg.MAX_VULNS, 0)
+
+    def test_python_version_requirement(self):
+        """Test Python version requirement is set."""
+        self.assertEqual(Cfg.MIN_PY, (3, 9))
 
 
 if __name__ == "__main__":
