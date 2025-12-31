@@ -592,9 +592,8 @@ class Cfg:
             with suppress(Exception):
                 candidates.append(Path.cwd() / ".stig_home")
 
-            attempted_paths: List[str] = []
+            attempted_paths: List[Tuple[str, str]] = []  # (path, error_reason)
             for candidate in candidates:
-                attempted_paths.append(str(candidate))
                 try:
                     candidate.mkdir(parents=True, exist_ok=True)
                     tmp = candidate / f".stig_test_{os.getpid()}"
@@ -603,17 +602,18 @@ class Cfg:
                     cls.HOME = candidate
                     break
                 except (OSError, PermissionError, IOError) as exc:
-                    # LOG not initialized yet during Cfg.init()
-                    # Use stderr for debugging if needed
+                    # LOG not initialized yet - capture error for diagnostics
+                    attempted_paths.append((str(candidate), str(exc)))
                     continue
                 except Exception as exc:
-                    # LOG not initialized yet during Cfg.init()
-                    # Use stderr for debugging if needed
+                    # LOG not initialized yet - capture error for diagnostics
+                    attempted_paths.append((str(candidate), str(exc)))
                     continue
 
             if not cls.HOME:
+                path_details = "; ".join(f"{p}: {e}" for p, e in attempted_paths[:5])
                 raise RuntimeError(
-                    f"Cannot find writable home directory. Tried: {', '.join(attempted_paths[:5])}. "
+                    f"Cannot find writable home directory. Tried: {path_details}. "
                     f"Please ensure write permissions on one of these directories or set $HOME/$USERPROFILE."
                 )
 
@@ -786,11 +786,13 @@ class Log:
         try:
             data = getattr(self._ctx, "data", {})
             if data:
-                return "[" + ", ".join(f"{k}={v}" for k, v in data.items()) + "] "
-        except (AttributeError, TypeError, RuntimeError) as exc:
+                # Make a copy of items to avoid RuntimeError during iteration
+                # if dict is modified in another thread
+                items = list(data.items())
+                return "[" + ", ".join(f"{k}={v}" for k, v in items) + "] "
+        except (AttributeError, TypeError, RuntimeError):
             # Gracefully handle context failures - logging should not fail
-            # RuntimeError can occur with dict changed size during iteration
-            print(f"[DEBUG] Context string build failed: {exc}", file=sys.stderr)
+            pass
         return ""
 
     def _log(self, level: str, message: str, exc: bool = False) -> None:
@@ -1838,6 +1840,34 @@ class FO:
             if tmp_zip and tmp_zip.exists():
                 with suppress(Exception):
                     tmp_zip.unlink()
+
+    @staticmethod
+    def write_ckl(root: ET.Element, out: Union[str, Path], backup: bool = False) -> None:
+        """
+        Write a CKL XML document to file with proper STIG Viewer formatting.
+
+        Writes the XML with:
+        - UTF-8 encoding with XML declaration
+        - STIG Viewer version comment
+        - Atomic write for data safety
+
+        Args:
+            root: Root XML element of the checklist
+            out: Output file path
+            backup: Whether to create a backup of existing file (default: False)
+
+        Raises:
+            FileError: If write operation fails
+        """
+        out = San.path(out, mkpar=True)
+        try:
+            with FO.atomic(out, mode="wb", bak=backup) as handle:
+                handle.write(b'<?xml version="1.0" encoding="UTF-8"?>\n')
+                handle.write(f"<!--{Sch.COMMENT}-->\n".encode("utf-8"))
+                xml_text = ET.tostring(root, encoding="unicode", method="xml")
+                handle.write(xml_text.encode("utf-8"))
+        except Exception as exc:
+            raise FileError(f"Failed to write CKL: {exc}") from exc
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -3075,14 +3105,8 @@ class Proc:
         return XmlUtils.extract_text_content(elem)
 
     def _write_ckl(self, root, out: Path) -> None:
-        try:
-            with FO.atomic(out, mode="wb", bak=False) as handle:
-                handle.write(b'<?xml version="1.0" encoding="UTF-8"?>\n')
-                handle.write(f"<!--{Sch.COMMENT}-->\n".encode("utf-8"))
-                xml_text = ET.tostring(root, encoding="unicode", method="xml")
-                handle.write(xml_text.encode("utf-8"))
-        except Exception as exc:
-            raise FileError(f"Failed to write CKL: {exc}") from exc
+        """Write CKL using shared FO.write_ckl implementation."""
+        FO.write_ckl(root, out, backup=False)
 
     # -------------------------------------------------------------------- merge
     def merge(
@@ -3801,7 +3825,14 @@ class Proc:
 
         # Format output
         if output_format == "json":
-            return dict(stats)
+            # Convert defaultdicts to regular dicts for JSON serialization
+            result = dict(stats)
+            result["by_status"] = dict(stats["by_status"])
+            result["by_severity"] = dict(stats["by_severity"])
+            result["by_status_and_severity"] = {
+                sev: dict(statuses) for sev, statuses in stats["by_status_and_severity"].items()
+            }
+            return result
         elif output_format == "csv":
             return self._format_stats_csv(stats)
         else:  # text
@@ -4657,8 +4688,6 @@ class FixResPro:
 
         return unique_count, skipped
 
-
-
     # ---------------------------------------------------------------- update ckl
     def update_ckl(
         self,
@@ -4779,11 +4808,8 @@ class FixResPro:
     # ---------------------------------------------------------------- helpers
 
     def _write_ckl(self, root, out: Path) -> None:
-        with FO.atomic(out, mode="wb", bak=False) as handle:
-            handle.write(b'<?xml version="1.0" encoding="UTF-8"?>\n')
-            handle.write(f"<!--{Sch.COMMENT}-->\n".encode("utf-8"))
-            xml_text = ET.tostring(root, encoding="unicode", method="xml")
-            handle.write(xml_text.encode("utf-8"))
+        """Write CKL using shared FO.write_ckl implementation."""
+        FO.write_ckl(root, out, backup=False)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -5568,8 +5594,6 @@ if Deps.HAS_TKINTER:
             self.results_list.delete(0, tk.END)
             self.results_status.set("Queue cleared")
 
-
-
         def _do_results(self):
             """Apply remediation results with batch import support."""
             if not self.results_ckl.get() or not self.results_out.get():
@@ -5646,9 +5670,6 @@ if Deps.HAS_TKINTER:
 
             self.results_status.set("Processing batch import…")
             self._async(work, done)
-
-
-
 
         def _tab_evidence(self, frame):
             """Build the Evidence tab for managing vulnerability evidence files."""
