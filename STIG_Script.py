@@ -2072,7 +2072,7 @@ class HistMgr:
                 parts.extend(
                     [
                         "┌" + "─" * 78 + "┐",
-                        "│ CURRENT ASSESSMENT".center(80) + "│",
+                        "│" + " CURRENT ASSESSMENT ".center(78) + "│",
                         "└" + "─" * 78 + "┘",
                         "",
                         current.strip(),
@@ -2083,7 +2083,7 @@ class HistMgr:
             parts.extend(
                 [
                     "┌" + "─" * 78 + "┐",
-                    "│ HISTORY (Most Recent → Oldest)".center(80) + "│",
+                    "│" + " HISTORY (Most Recent -> Oldest) ".center(78) + "│",
                     "└" + "─" * 78 + "┘",
                     "",
                 ]
@@ -3553,17 +3553,19 @@ class Proc:
         if stigs is not None:
             for istig in stigs.findall("iSTIG"):
                 for vuln in istig.findall("VULN"):
+                    vid = XmlUtils.get_vid(vuln) or "unknown"
+
                     finding_node = vuln.find("FINDING_DETAILS")
                     if finding_node is not None and finding_node.text:
                         if len(finding_node.text) > Cfg.MAX_FIND:
                             finding_node.text = finding_node.text[:Cfg.MAX_FIND - 15] + "\n[TRUNCATED]"
-                            repairs.append(f"Truncated oversized FINDING_DETAILS")
+                            repairs.append(f"Truncated oversized FINDING_DETAILS for {vid}")
 
                     comment_node = vuln.find("COMMENTS")
                     if comment_node is not None and comment_node.text:
                         if len(comment_node.text) > Cfg.MAX_COMM:
                             comment_node.text = comment_node.text[:Cfg.MAX_COMM - 15] + "\n[TRUNCATED]"
-                            repairs.append(f"Truncated oversized COMMENTS")
+                            repairs.append(f"Truncated oversized COMMENTS for {vid}")
 
         # Write repaired checklist
         XmlUtils.indent_xml(root)
@@ -4425,7 +4427,7 @@ class FixExt:
             if dry_run:
                 lines.append(f"Write-Host \"  [DRY-RUN] Would execute:`n{fix.fix_command}\"")
                 lines.append(f"Add-Result \"{fix.vid}\" $true \"dry_run\"")
-                lines.append("Continue")
+                # Note: No PowerShell 'Continue' needed here - Python's continue skips try/catch generation
                 lines.append("")
                 continue
 
@@ -6598,7 +6600,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 args.batch_convert,
                 args.batch_out,
                 asset_prefix=args.batch_asset_prefix,
-                apply_boilerplate=args.apply_boilerplate if hasattr(args, 'apply_boilerplate') else False
+                apply_boilerplate=args.apply_boilerplate,
             )
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0 if result.get('failures', 0) == 0 else 2
