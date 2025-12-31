@@ -117,7 +117,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Generator, IO, Iterable, List, Optional, Tuple, Union
-from enum import Enum, auto
+from enum import Enum
 
 # Filter only specific warnings that are expected in air-gapped environments
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="xml")
@@ -266,6 +266,7 @@ class GlobalState:
         self.shutdown = threading.Event()
         self.temps: List[Path] = []
         self.cleanups: List[Callable[[], None]] = []
+        self._cleanup_done = False  # Track if cleanup has been performed
         atexit.register(self.cleanup)
         self._setup_signals()
 
@@ -309,17 +310,25 @@ class GlobalState:
         Execute all cleanup operations and delete temporary files.
 
         Thread-safe and idempotent - can be called multiple times safely.
-        Sets shutdown event to prevent duplicate cleanup runs.
+        Uses a dedicated cleanup flag to prevent duplicate cleanup runs
+        (separate from shutdown event which signals other operations).
         """
+        # Use test_and_set pattern with lock for thread-safe idempotent cleanup
         with self._lock:
-            if self.shutdown.is_set():
+            # Check if cleanup has already been performed
+            if getattr(self, '_cleanup_done', False):
                 return
+            self._cleanup_done = True
+
+            # Signal shutdown to other operations
             self.shutdown.set()
 
+            # Execute cleanup callbacks in reverse order (LIFO)
             for func in reversed(self.cleanups):
                 with suppress(Exception):
                     func()
 
+            # Remove temporary files
             for temp in self.temps:
                 with suppress(Exception):
                     if temp and temp.exists():
@@ -3060,75 +3069,10 @@ class Proc:
         - Nested HTML elements (xhtml:br, xhtml:code, etc.)
         - CDATA sections
         - Mixed content with proper whitespace preservation
+
+        Delegates to XmlUtils.extract_text_content for consistent text extraction.
         """
-        if elem is None:
-            return ""
-
-        # Method 1: itertext() with proper newline preservation
-        try:
-            parts: List[str] = []
-            # Collect all text including from nested elements
-            for text_fragment in elem.itertext():
-                if text_fragment:
-                    # Only strip leading/trailing whitespace, preserve internal structure
-                    cleaned = text_fragment.strip()
-                    if cleaned:
-                        parts.append(cleaned)
-
-            if parts:
-                # Join with newlines to preserve command structure
-                result = '\n'.join(parts)
-                # Clean up excessive blank lines but keep structure
-                result = re.sub(r'\n\s*\n\s*\n+', '\n\n', result)
-                return result.strip()
-        except Exception as exc:
-            LOG.d(f"itertext() extraction failed: {exc}")
-
-        # Method 2: Manual traversal for complex mixed content
-        try:
-            def extract_text_recursive(element) -> List[str]:
-                texts = []
-                if element.text:
-                    txt = element.text.strip()
-                    if txt:
-                        texts.append(txt)
-                for child in element:
-                    # Recursively get text from children
-                    texts.extend(extract_text_recursive(child))
-                    # Get tail text (text after child element)
-                    if child.tail:
-                        tail = child.tail.strip()
-                        if tail:
-                            texts.append(tail)
-                return texts
-
-            parts = extract_text_recursive(elem)
-            if parts:
-                result = '\n'.join(parts)
-                result = re.sub(r'\n\s*\n\s*\n+', '\n\n', result)
-                return result.strip()
-        except Exception as exc:
-            LOG.d(f"Recursive extraction failed: {exc}")
-
-        # Method 3: Direct text attribute (simple elements only)
-        if elem.text and elem.text.strip():
-            return elem.text.strip()
-
-        # Method 4: Last resort - tostring
-        try:
-            text_content = ET.tostring(elem, encoding='unicode', method='text')
-            if text_content and text_content.strip():
-                # Clean up excessive whitespace
-                text_content = re.sub(r'\s+', ' ', text_content)
-                return text_content.strip()
-        except Exception as exc:
-            LOG.d(f"tostring() extraction failed: {exc}")
-
-        return ""
-
-
-
-
+        return XmlUtils.extract_text_content(elem)
 
     def _write_ckl(self, root, out: Path) -> None:
         try:
@@ -4133,71 +4077,10 @@ class FixExt:
 
         Handles XCCDF elements that contain plain text, nested elements,
         and preserves command formatting.
+
+        Delegates to XmlUtils.extract_text_content for consistent text extraction.
         """
-        if elem is None:
-            return ""
-
-        # Method 1: itertext() with proper newline preservation
-        try:
-            parts: List[str] = []
-            # Collect all text including from nested elements
-            for text_fragment in elem.itertext():
-                if text_fragment:
-                    # Only strip leading/trailing whitespace, preserve internal structure
-                    cleaned = text_fragment.strip()
-                    if cleaned:
-                        parts.append(cleaned)
-
-            if parts:
-                # Join with newlines to preserve command structure
-                result = '\n'.join(parts)
-                # Clean up excessive blank lines but keep structure
-                result = re.sub(r'\n\s*\n\s*\n+', '\n\n', result)
-                return result.strip()
-        except Exception as exc:
-            LOG.d(f"itertext() extraction failed: {exc}")
-
-        # Method 2: Manual traversal for complex mixed content
-        try:
-            def extract_text_recursive(element) -> List[str]:
-                texts = []
-                if element.text:
-                    txt = element.text.strip()
-                    if txt:
-                        texts.append(txt)
-                for child in element:
-                    # Recursively get text from children
-                    texts.extend(extract_text_recursive(child))
-                    # Get tail text (text after child element)
-                    if child.tail:
-                        tail = child.tail.strip()
-                        if tail:
-                            texts.append(tail)
-                return texts
-
-            parts = extract_text_recursive(elem)
-            if parts:
-                result = '\n'.join(parts)
-                result = re.sub(r'\n\s*\n\s*\n+', '\n\n', result)
-                return result.strip()
-        except Exception as exc:
-            LOG.d(f"Recursive extraction failed: {exc}")
-
-        # Method 3: Direct text attribute (simple elements only)
-        if elem.text and elem.text.strip():
-            return elem.text.strip()
-
-        # Method 4: Last resort - tostring
-        try:
-            text_content = ET.tostring(elem, encoding='unicode', method='text')
-            if text_content and text_content.strip():
-                # Clean up excessive whitespace
-                text_content = re.sub(r'\s+', ' ', text_content)
-                return text_content.strip()
-        except Exception as exc:
-            LOG.d(f"tostring() extraction failed: {exc}")
-
-        return ""
+        return XmlUtils.extract_text_content(elem)
 
 
     def _extract_command(self, text_block: str) -> Optional[str]:
@@ -4461,7 +4344,6 @@ class FixExt:
         ]
 
         for idx, fix in enumerate(fixes, 1):
-            safe_vid = re.sub(r"[^A-Za-z0-9_]", "_", fix.vid)
             lines.append(f"echo \"[{idx}/{len(fixes)}] {fix.vid} - {fix.title[:60]}\" | tee -a \"$LOG_FILE\"")
             if dry_run:
                 lines.append(f"echo \"  [DRY-RUN] Would execute:\n{fix.fix_command}\" | tee -a \"$LOG_FILE\"")
@@ -6280,7 +6162,8 @@ if Deps.HAS_TKINTER:
                 else:
                     self.validate_text.insert("end", f"{ICON_FAILURE} Checklist has errors that must be resolved.\n", "error")
 
-            self.validate_status = "Validating…"
+            self.validate_text.delete("1.0", "end")
+            self.validate_text.insert("end", "Validating...\n")
             self._async(work, done)
 
         # ------------------------------------------------------------ menu actions
