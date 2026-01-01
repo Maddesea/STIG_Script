@@ -128,7 +128,7 @@ warnings.filterwarnings("ignore", category=ResourceWarning)
 # CONSTANTS
 # ──────────────────────────────────────────────────────────────────────────────
 
-VERSION = "7.4.1"
+VERSION = "7.4.2"
 BUILD_DATE = "2026-01-01"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
@@ -2259,24 +2259,35 @@ class HistMgr:
             raise ParseError("Invalid history JSON")
 
         imported = 0
+        skipped_vids = 0
+        skipped_entries = 0
+        duplicate_entries = 0
         with self._lock:
             history_data = payload.get("history", {})
             for vid, entries in history_data.items():
                 try:
                     vid = San.vuln(vid)
-                except Exception:
+                except Exception as exc:
+                    LOG.d(f"Skipping invalid VID in history import: {vid}: {exc}")
+                    skipped_vids += 1
                     continue
                 slot = self._h[vid]
                 for entry_data in entries:
                     try:
                         entry = Hist.from_dict(entry_data)
-                    except Exception:
+                    except Exception as exc:
+                        LOG.d(f"Skipping invalid history entry for {vid}: {exc}")
+                        skipped_entries += 1
                         continue
                     if any(existing.chk == entry.chk for existing in slot):
+                        duplicate_entries += 1
                         continue
                     slot.append(entry)
                     imported += 1
                 slot.sort(key=lambda e: e.ts)
+
+        if skipped_vids > 0 or skipped_entries > 0:
+            LOG.w(f"History import: skipped {skipped_vids} invalid VIDs, {skipped_entries} invalid entries, {duplicate_entries} duplicates")
         LOG.i(f"Imported {imported} history entries")
         return imported
 
@@ -6686,7 +6697,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         if args.validate:
             ok, errors, warnings_, info = proc.validator.validate(args.validate)
-            print(json.dumps({"ok": ok, "errors": errors, "warnings": warnings_, "info": info}, indent=2))
+            print(json.dumps({"ok": ok, "errors": errors, "warnings": warnings_, "info": info}, indent=2, ensure_ascii=False))
             return 0 if ok else 1
 
         # New features for v7.2.0
