@@ -128,8 +128,8 @@ warnings.filterwarnings("ignore", category=ResourceWarning)
 # CONSTANTS
 # ──────────────────────────────────────────────────────────────────────────────
 
-VERSION = "7.4.0"
-BUILD_DATE = "2025-12-29"
+VERSION = "7.4.1"
+BUILD_DATE = "2026-01-01"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
 
@@ -3955,6 +3955,34 @@ class Fix:
 class FixExt:
     """Fix extractor with enhanced command parsing."""
 
+    # Shell/PowerShell escaping for safe script generation
+    @staticmethod
+    def _escape_bash_string(s: str) -> str:
+        """Escape a string for safe inclusion in bash single quotes."""
+        # In single quotes, only single quote needs escaping (via ending quote, escaped quote, start quote)
+        return s.replace("'", "'\"'\"'")
+
+    @staticmethod
+    def _escape_bash_double_quote(s: str) -> str:
+        """Escape a string for safe inclusion in bash double quotes."""
+        # Escape: backslash, backtick, dollar, double quote, newline
+        result = s.replace("\\", "\\\\")
+        result = result.replace("`", "\\`")
+        result = result.replace("$", "\\$")
+        result = result.replace('"', '\\"')
+        result = result.replace("\n", "\\n")
+        return result
+
+    @staticmethod
+    def _escape_powershell_string(s: str) -> str:
+        """Escape a string for safe inclusion in PowerShell double quotes."""
+        # Escape: backtick (escape char), dollar, double quote
+        result = s.replace("`", "``")
+        result = result.replace("$", "`$")
+        result = result.replace('"', '`"')
+        result = result.replace("\n", "`n")
+        return result
+
     CODE_BLOCK = re.compile(r"```(?:bash|sh|shell|zsh|powershell|ps1|ps|cmd|bat)\s*(.*?)```", re.DOTALL | re.IGNORECASE)
     TRIPLE_TICK = re.compile(r"```(.*?)```", re.DOTALL)
     SHELL_PROMPT = re.compile(r"(?m)^(?:\$|#|>)\s*(.+)")
@@ -3968,6 +3996,42 @@ class FixExt:
     SERVICE_CMD = re.compile(r"^\s*(?:systemctl|service)\s+(?:start|stop|restart|enable|disable|status)\s+\S+", re.MULTILINE)
     AUDIT_CMD = re.compile(r"^\s*(?:auditctl|ausearch|aureport)\s+.+", re.MULTILINE)
     SELINUX_CMD = re.compile(r"^\s*(?:semanage|setsebool|restorecon|chcon|getenforce|setenforce)\s+.+", re.MULTILINE)
+
+    # Pre-compiled patterns for _extract_command (performance optimization)
+    RUN_COMMAND_PATTERN = re.compile(
+        r"(?:run|execute|use|enter|type)\s+(?:the\s+)?(?:following\s+)?(?:command|commands?)[\s:]+\n(.+?)(?:\n\n|\Z)",
+        re.IGNORECASE | re.DOTALL
+    )
+    UNIX_CMD_PATTERN = re.compile(
+        r"^\s*(?:sudo\s+)?(?:chmod|chown|chgrp|systemctl|service|grep|sed|awk|find|rpm|yum|dnf|apt-get|"
+        r"apt|mount|umount|useradd|usermod|passwd|groupadd|ln|cp|mv|rm|mkdir|touch|cat|echo|vi|nano|"
+        r"gsettings|dconf|auditctl|ausearch|aureport|restorecon|semanage|setsebool|firewall-cmd)\s+.+",
+        re.MULTILINE
+    )
+    PS_CMDLET_PATTERN = re.compile(
+        r"^\s*(?:Set-|Get-|New-|Remove-|Add-|Enable-|Disable-|Test-|Invoke-)[A-Za-z]+(?:\s+-[A-Za-z]+\s+[^\n]+)+",
+        re.MULTILINE
+    )
+    REG_CMD_PATTERN = re.compile(
+        r"^\s*reg(?:\.exe)?\s+(?:add|delete|query|import|export)\s+.+",
+        re.MULTILINE | re.IGNORECASE
+    )
+    EDIT_FILE_PATTERN = re.compile(
+        r"(?:edit|modify|update|change)\s+(?:the\s+)?(?:file|configuration)\s+([/\w.-]+(?:/[\w.-]+)*)",
+        re.IGNORECASE
+    )
+    GPO_PATTERN = re.compile(
+        r"(?:Computer Configuration|User Configuration)\s*>>?\s*.+?(?:>>?\s*.+?)*",
+        re.IGNORECASE
+    )
+    MULTILINE_CMD_PATTERN = re.compile(
+        r"(?:^|\n)((?:(?:sudo\s+)?(?:\w+(?:/\w+)*|\w+)\s+[^\n]+\n?){2,})",
+        re.MULTILINE
+    )
+    COLON_CMD_PATTERN = re.compile(
+        r"(?:Command|Solution|Fix|Remediation|Action):\s*\n?(.+?)(?:\n\n|\Z)",
+        re.IGNORECASE | re.DOTALL
+    )
 
 
     def __init__(self, xccdf: Union[str, Path]):
@@ -4171,59 +4235,33 @@ class FixExt:
 
         # ═══ PATTERN 5: "Run the following command" blocks ═══
         # Matches: "Run the following command:" followed by actual commands
-        run_command_pattern = re.compile(
-            r"(?:run|execute|use|enter|type)\s+(?:the\s+)?(?:following\s+)?(?:command|commands?)[\s:]+\n(.+?)(?:\n\n|\Z)",
-            re.IGNORECASE | re.DOTALL
-        )
-        for match in run_command_pattern.finditer(text_block):
+        for match in self.RUN_COMMAND_PATTERN.finditer(text_block):
             cmd_block = match.group(1).strip()
             if cmd_block and len(cmd_block) > 5:
                 candidates.append(cmd_block)
 
         # ═══ PATTERN 6: Common Unix/Linux commands ═══
         # Matches lines with common system commands
-        unix_cmd_pattern = re.compile(
-            r"^\s*(?:sudo\s+)?(?:chmod|chown|chgrp|systemctl|service|grep|sed|awk|find|rpm|yum|dnf|apt-get|"
-            r"apt|mount|umount|useradd|usermod|passwd|groupadd|ln|cp|mv|rm|mkdir|touch|cat|echo|vi|nano|"
-            r"gsettings|dconf|auditctl|ausearch|aureport|restorecon|semanage|setsebool|firewall-cmd)\s+.+",
-            re.MULTILINE
-        )
-        candidates.extend(unix_cmd_pattern.findall(text_block))
+        candidates.extend(self.UNIX_CMD_PATTERN.findall(text_block))
 
         # ═══ PATTERN 7: PowerShell cmdlets ═══
         # Matches PowerShell commands
-        ps_cmdlet_pattern = re.compile(
-            r"^\s*(?:Set-|Get-|New-|Remove-|Add-|Enable-|Disable-|Test-|Invoke-)[A-Za-z]+(?:\s+-[A-Za-z]+\s+[^\n]+)+",
-            re.MULTILINE
-        )
-        candidates.extend(ps_cmdlet_pattern.findall(text_block))
+        candidates.extend(self.PS_CMDLET_PATTERN.findall(text_block))
 
         # ═══ PATTERN 8: Registry commands (Windows) ═══
         # Matches reg.exe commands
-        reg_cmd_pattern = re.compile(
-            r"^\s*reg(?:\.exe)?\s+(?:add|delete|query|import|export)\s+.+",
-            re.MULTILINE | re.IGNORECASE
-        )
-        candidates.extend(reg_cmd_pattern.findall(text_block))
+        candidates.extend(self.REG_CMD_PATTERN.findall(text_block))
 
         # ═══ PATTERN 9: File editing instructions ═══
         # Matches "Edit the file /path/to/file" and extracts the file path
-        edit_file_pattern = re.compile(
-            r"(?:edit|modify|update|change)\s+(?:the\s+)?(?:file|configuration)\s+([/\w.-]+(?:/[\w.-]+)*)",
-            re.IGNORECASE
-        )
-        for match in edit_file_pattern.finditer(text_block):
+        for match in self.EDIT_FILE_PATTERN.finditer(text_block):
             file_path = match.group(1)
             # Create a simple edit command
             candidates.append(f"# Edit file: {file_path}\nvi {file_path}")
 
         # ═══ PATTERN 10: Windows Group Policy paths ═══
         # These aren't executable but are important configuration instructions
-        gpo_pattern = re.compile(
-            r"(?:Computer Configuration|User Configuration)\s*>>?\s*.+?(?:>>?\s*.+?)*",
-            re.IGNORECASE
-        )
-        gpo_matches = gpo_pattern.findall(text_block)
+        gpo_matches = self.GPO_PATTERN.findall(text_block)
         if gpo_matches:
             # Format as a configuration instruction
             for gpo_path in gpo_matches:
@@ -4232,11 +4270,7 @@ class FixExt:
 
         # ═══ PATTERN 11: Multi-line command blocks ═══
         # Matches blocks that look like shell scripts (multiple lines with commands)
-        multiline_pattern = re.compile(
-            r"(?:^|\n)((?:(?:sudo\s+)?(?:\w+(?:/\w+)*|\w+)\s+[^\n]+\n?){2,})",
-            re.MULTILINE
-        )
-        for match in multiline_pattern.finditer(text_block):
+        for match in self.MULTILINE_CMD_PATTERN.finditer(text_block):
             block = match.group(1).strip()
             # Verify it looks like commands (has common command words)
             if any(cmd in block for cmd in ['chmod', 'chown', 'systemctl', 'grep', 'sed', 'echo', 'Set-', 'Get-']):
@@ -4244,11 +4278,7 @@ class FixExt:
 
         # ═══ PATTERN 12: Commands after colons ═══
         # Matches: "Command: something" or "Solution: do this"
-        colon_cmd_pattern = re.compile(
-            r"(?:Command|Solution|Fix|Remediation|Action):\s*\n?(.+?)(?:\n\n|\Z)",
-            re.IGNORECASE | re.DOTALL
-        )
-        for match in colon_cmd_pattern.finditer(text_block):
+        for match in self.COLON_CMD_PATTERN.finditer(text_block):
             cmd = match.group(1).strip()
             if len(cmd) > MIN_CMD_LENGTH and len(cmd) < MAX_CMD_REASONABLE:
                 candidates.append(cmd)
@@ -4363,6 +4393,17 @@ class FixExt:
 
     def to_bash(self, path: Union[str, Path], severity_filter: Optional[List[str]] = None, dry_run: bool = False) -> None:
         path = San.path(path, mkpar=True)
+
+        # Validate severity filter values
+        if severity_filter:
+            valid_severities = Severity.all_values()
+            invalid = [s for s in severity_filter if s not in valid_severities]
+            if invalid:
+                LOG.w(f"Invalid severity filter values ignored: {invalid}. Valid: {sorted(valid_severities)}")
+                severity_filter = [s for s in severity_filter if s in valid_severities]
+                if not severity_filter:
+                    severity_filter = None  # Reset if all were invalid
+
         fixes = [
             fix
             for fix in self.fixes
@@ -4398,9 +4439,13 @@ class FixExt:
         ]
 
         for idx, fix in enumerate(fixes, 1):
-            lines.append(f"echo \"[{idx}/{len(fixes)}] {fix.vid} - {fix.title[:60]}\" | tee -a \"$LOG_FILE\"")
+            # Escape title for safe echo in double quotes
+            safe_title = self._escape_bash_double_quote(fix.title[:60])
+            lines.append(f"echo \"[{idx}/{len(fixes)}] {fix.vid} - {safe_title}\" | tee -a \"$LOG_FILE\"")
             if dry_run:
-                lines.append(f"echo \"  [DRY-RUN] Would execute:\n{fix.fix_command}\" | tee -a \"$LOG_FILE\"")
+                # Use heredoc for safe multi-line command display
+                safe_cmd = self._escape_bash_double_quote(fix.fix_command)
+                lines.append(f"echo \"  [DRY-RUN] Would execute:\\n{safe_cmd}\" | tee -a \"$LOG_FILE\"")
                 lines.append(f"record_result \"{fix.vid}\" true \"dry_run\"")
                 lines.append("((PASS++))")
                 lines.append("")
@@ -4443,6 +4488,17 @@ class FixExt:
 
     def to_powershell(self, path: Union[str, Path], severity_filter: Optional[List[str]] = None, dry_run: bool = False) -> None:
         path = San.path(path, mkpar=True)
+
+        # Validate severity filter values
+        if severity_filter:
+            valid_severities = Severity.all_values()
+            invalid = [s for s in severity_filter if s not in valid_severities]
+            if invalid:
+                LOG.w(f"Invalid severity filter values ignored: {invalid}. Valid: {sorted(valid_severities)}")
+                severity_filter = [s for s in severity_filter if s in valid_severities]
+                if not severity_filter:
+                    severity_filter = None  # Reset if all were invalid
+
         fixes = [
             fix
             for fix in self.fixes
@@ -4475,9 +4531,12 @@ class FixExt:
         ]
 
         for idx, fix in enumerate(fixes, 1):
-            lines.append(f"Write-Host \"[{idx}/{len(fixes)}] {fix.vid} - {fix.title[:60]}\"")
+            # Escape title for safe Write-Host in double quotes
+            safe_title = self._escape_powershell_string(fix.title[:60])
+            lines.append(f"Write-Host \"[{idx}/{len(fixes)}] {fix.vid} - {safe_title}\"")
             if dry_run:
-                lines.append(f"Write-Host \"  [DRY-RUN] Would execute:`n{fix.fix_command}\"")
+                safe_cmd = self._escape_powershell_string(fix.fix_command)
+                lines.append(f"Write-Host \"  [DRY-RUN] Would execute:`n{safe_cmd}\"")
                 lines.append(f"Add-Result \"{fix.vid}\" $true \"dry_run\"")
                 # Note: No PowerShell 'Continue' needed here - Python's continue skips try/catch generation
                 lines.append("")
@@ -4486,7 +4545,7 @@ class FixExt:
             lines.append("try {")
             for line in fix.fix_command.splitlines():
                 lines.append(f"    {line}")
-            lines.append(f"    Write-Host \"  ✔ Success\"")
+            lines.append("    Write-Host \"  ✔ Success\"")
             lines.append(f"    Add-Result \"{fix.vid}\" $true \"success\"")
             lines.append("} catch {")
             lines.append("    Write-Warning \"  ✘ Failed: $($_.Exception.Message)\"")
@@ -6415,7 +6474,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     extract_group.add_argument("--script-dry-run", action="store_true", help="Generate scripts in dry-run mode")
 
     result_group = parser.add_argument_group("Apply Remediation Results")
-    result_group.add_argument("--apply-results", help="Results JSON file to import")
+    result_group.add_argument("--apply-results", nargs="+", metavar="JSON", help="Results JSON file(s) to import (supports multiple files)")
     result_group.add_argument("--checklist", help="Checklist to update")
     result_group.add_argument("--results-out", help="Updated checklist output path")
     result_group.add_argument("--no-auto-status", action="store_true", help="Do not auto-mark successes as NotAFinding")
@@ -6535,8 +6594,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             if not (args.checklist and args.results_out):
                 parser.error("--apply-results requires --checklist and --results-out")
 
-            # ═══ ENHANCED: Support multiple result files ═══
-            result_files = args.apply_results if isinstance(args.apply_results, list) else [args.apply_results]
+            # args.apply_results is now always a list due to nargs="+"
+            result_files = args.apply_results
 
             processor = FixResPro()
             total_loaded = 0
