@@ -115,6 +115,7 @@ from collections import OrderedDict, defaultdict
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, Generator, IO, Iterable, List, Optional, Tuple, Union
 from enum import Enum
@@ -137,6 +138,17 @@ CHUNK_SIZE = 8192
 MAX_RETRIES = 3
 RETRY_DELAY = 0.5
 MAX_XML_SIZE = 500 * 1024 * 1024
+
+# Command extraction limits
+MIN_CMD_LENGTH = 5           # Minimum characters for a valid command
+MAX_CMD_LENGTH = 2000        # Maximum characters for extracted commands
+MAX_CMD_REASONABLE = 500     # Reasonable limit for display in exports
+
+# Title/text truncation limits
+TITLE_MAX_LONG = 300         # Maximum rule title length in VULN element
+TITLE_MAX_MEDIUM = 200       # Truncation for JSON export
+TITLE_MAX_SHORT = 120        # Truncation for CSV export
+GROUP_TITLE_MAX = 80         # Maximum group title in CSV
 
 ENCODINGS = [
     "utf-8",
@@ -339,7 +351,7 @@ class GlobalState:
             gc.collect()
 
 
-GLOBAL = GlobalState()
+GLOBAL: GlobalState = GlobalState()
 
 # ──────────────────────────────────────────────────────────────────────────────
 # EXCEPTIONS
@@ -405,6 +417,7 @@ def retry(
     """
 
     def decorator(func: Callable) -> Callable:
+        @wraps(func)
         def wrapper(*args, **kwargs):
             wait = delay
             last_err: Optional[BaseException] = None
@@ -842,7 +855,7 @@ class Log:
         self._log("critical", msg, exc)
 
 
-LOG = Log("stig")
+LOG: Log = Log("stig")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # SCHEMA
@@ -1578,7 +1591,6 @@ class FO:
 
     @staticmethod
     @contextmanager
-    @retry()
     def atomic(
         target: Union[str, Path],
         mode: str = "w",
@@ -2989,7 +3001,7 @@ class Proc:
                 LOG.w(f"Failed to extract text from XML element {elem.tag}: {exc}")
                 return ""
 
-        rule_title = text(find("title"))[:300]
+        rule_title = text(find("title"))[:TITLE_MAX_LONG]
         rule_ver = text(find("version"))
         discussion = text(find("description"))
         fix_elem = find("fixtext")
@@ -3928,7 +3940,7 @@ class Fix:
             "vid": self.vid,
             "rule_id": self.rule_id,
             "severity": self.severity,
-            "title": self.title[:200],
+            "title": self.title[:TITLE_MAX_MEDIUM],
             "group_title": self.group_title,
             "fix_text": self.fix_text,
             "fix_command": self.fix_command,
@@ -4138,7 +4150,7 @@ class FixExt:
         - Registry modifications
         """
         text_block = text_block or ""
-        if len(text_block) < 5:
+        if len(text_block) < MIN_CMD_LENGTH:
             return None
 
         candidates: List[str] = []
@@ -4238,7 +4250,7 @@ class FixExt:
         )
         for match in colon_cmd_pattern.finditer(text_block):
             cmd = match.group(1).strip()
-            if len(cmd) > 5 and len(cmd) < 500:  # Reasonable command length
+            if len(cmd) > MIN_CMD_LENGTH and len(cmd) < MAX_CMD_REASONABLE:
                 candidates.append(cmd)
 
         # ═══ CLEANUP: Remove comments, filter, and deduplicate ═══
@@ -4261,9 +4273,9 @@ class FixExt:
             cmd = '\n'.join(lines)
 
             # Validation: must meet minimum criteria
-            if len(cmd) < 5:
+            if len(cmd) < MIN_CMD_LENGTH:
                 continue
-            if len(cmd) > 2000:  # Too long, probably not a command
+            if len(cmd) > MAX_CMD_LENGTH:
                 continue
 
             # Deduplicate using SHA256 instead of MD5 for security
@@ -4337,13 +4349,13 @@ class FixExt:
                         fix.vid,
                         fix.rule_id,
                         fix.severity,
-                        fix.title[:120],
-                        fix.group_title[:80],
+                        fix.title[:TITLE_MAX_SHORT],
+                        fix.group_title[:GROUP_TITLE_MAX],
                         fix.platform,
                         "Yes" if fix.fix_command else "No",
                         "Yes" if fix.check_command else "No",
-                        (fix.fix_command or "")[:500],
-                        (fix.check_command or "")[:200],
+                        (fix.fix_command or "")[:MAX_CMD_REASONABLE],
+                        (fix.check_command or "")[:TITLE_MAX_MEDIUM],
                         "; ".join(fix.cci[:5]),
                     ]
                 )
@@ -4978,11 +4990,11 @@ class EvidenceMgr:
 
     # ------------------------------------------------------------------- export
     def export_all(self, dest_dir: Union[str, Path]) -> int:
-        dest_dir = San.path(dest_dir, mkpar=True, dir=True)
+        dest_dir = San.path(dest_dir, dir=True)
         LOG.ctx(op="export_evidence")
         LOG.i(f"Exporting evidence to {dest_dir}")
 
-        # Ensure destination directory exists before export
+        # Create destination directory (and parents if needed)
         dest_dir.mkdir(parents=True, exist_ok=True)
 
         copied = 0
