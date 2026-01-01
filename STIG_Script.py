@@ -1957,6 +1957,19 @@ class HistMgr:
         self._h: Dict[str, List[Hist]] = defaultdict(list)
         self._lock = threading.RLock()
 
+    def has(self, vid: str) -> bool:
+        """
+        Check if a vulnerability has any history entries.
+
+        Args:
+            vid: Vulnerability ID to check
+
+        Returns:
+            True if history exists for the VID, False otherwise
+        """
+        with self._lock:
+            return vid in self._h and len(self._h[vid]) > 0
+
     def add(
         self,
         vid: str,
@@ -3452,8 +3465,7 @@ class Proc:
                         sev=severity,
                     )
 
-
-    def _merge_vuln(self, vuln, preserve_history: bool, apply_boilerplate: bool) -> bool:
+    def _merge_vuln(self, vuln: ET.Element, preserve_history: bool, apply_boilerplate: bool) -> bool:
         vid = XmlUtils.get_vid(vuln)
         if not vid:
             return False
@@ -3468,7 +3480,7 @@ class Proc:
 
         merged = False
 
-        if preserve_history and vid in self.history._h:
+        if preserve_history and self.history.has(vid):
             merged_finding = self.history.merge_find(vid, current_finding)
             if finding_node is None:
                 finding_node = ET.SubElement(vuln, "FINDING_DETAILS")
@@ -3999,13 +4011,12 @@ class FixExt:
     def _groups(self, root: ET.Element) -> List[ET.Element]:
         search = ".//ns:Group" if self.ns else ".//Group"
         groups = root.findall(search, self.ns)
-        valid: List[Any] = []
+        valid: List[ET.Element] = []
         for group in groups:
             rule = group.find("ns:Rule", self.ns) if self.ns else group.find("Rule")
             if rule is not None:
                 valid.append(group)
         return valid
-
 
     def _parse_group(self, group) -> Optional[Fix]:
         """Parse a single XCCDF Group element into a Fix object."""
@@ -4103,7 +4114,6 @@ class FixExt:
             legacy=legacy_refs,
         )
 
-
     def _collect_text(self, elem: Any) -> str:
         """
         Enhanced text extraction with proper mixed content handling.
@@ -4114,7 +4124,6 @@ class FixExt:
         Delegates to XmlUtils.extract_text_content for consistent text extraction.
         """
         return XmlUtils.extract_text_content(elem)
-
 
     def _extract_command(self, text_block: str) -> Optional[str]:
         """
@@ -4972,6 +4981,9 @@ class EvidenceMgr:
         dest_dir = San.path(dest_dir, mkpar=True, dir=True)
         LOG.ctx(op="export_evidence")
         LOG.i(f"Exporting evidence to {dest_dir}")
+
+        # Ensure destination directory exists before export
+        dest_dir.mkdir(parents=True, exist_ok=True)
 
         copied = 0
         with self._lock:
