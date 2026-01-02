@@ -128,8 +128,8 @@ warnings.filterwarnings("ignore", category=ResourceWarning)
 # CONSTANTS
 # ──────────────────────────────────────────────────────────────────────────────
 
-VERSION = "7.4.2"
-BUILD_DATE = "2026-01-01"
+VERSION = "7.4.3"
+BUILD_DATE = "2026-01-02"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
 
@@ -287,8 +287,9 @@ class GlobalState:
         def handler(sig, frame):
             print(f"\n[SIGNAL {sig}] Shutting down gracefully...", file=sys.stderr)
             self.shutdown.set()
-            self.cleanup()
-            sys.exit(0)
+            # Note: cleanup is registered with atexit and will be called automatically
+            # We raise SystemExit instead of calling sys.exit() to allow proper stack unwinding
+            raise SystemExit(0)
 
         for sig in (signal.SIGINT, signal.SIGTERM):
             with suppress(Exception):
@@ -2255,8 +2256,10 @@ class HistMgr:
         path = San.path(path, exist=True, file=True)
         try:
             payload = json.loads(FO.read(path))
-        except Exception:
-            raise ParseError("Invalid history JSON")
+        except json.JSONDecodeError as exc:
+            raise ParseError(f"Invalid history JSON: {exc}") from exc
+        except (OSError, IOError) as exc:
+            raise FileError(f"Cannot read history file: {exc}") from exc
 
         imported = 0
         skipped_vids = 0
@@ -5021,6 +5024,7 @@ class EvidenceMgr:
 
         # Check for duplicates BEFORE copying (saves I/O)
         with self._lock:
+            stale_entry = None
             for entry in self._meta[vid]:
                 if entry.file_hash == digest:
                     LOG.w("Duplicate evidence detected (by hash), skipping copy")
@@ -5029,9 +5033,13 @@ class EvidenceMgr:
                         return existing_path
                     else:
                         LOG.w(f"Duplicate entry exists but file missing: {existing_path}")
-                        # Remove stale metadata entry
-                        self._meta[vid].remove(entry)
+                        # Mark stale metadata entry for removal (don't modify list while iterating)
+                        stale_entry = entry
                         break
+
+            # Remove stale entry outside of iteration loop
+            if stale_entry is not None:
+                self._meta[vid].remove(stale_entry)
 
             # Not a duplicate, proceed with import
             dest_dir.mkdir(parents=True, exist_ok=True)
@@ -5060,11 +5068,12 @@ class EvidenceMgr:
 
     # ------------------------------------------------------------------- export
     def export_all(self, dest_dir: Union[str, Path]) -> int:
-        dest_dir = San.path(dest_dir, dir=True)
+        # Validate path without requiring it to exist (mkpar=True will create it)
+        dest_dir = San.path(dest_dir, mkpar=True)
         LOG.ctx(op="export_evidence")
         LOG.i(f"Exporting evidence to {dest_dir}")
 
-        # Create destination directory (and parents if needed)
+        # Ensure destination directory exists (mkpar should have created parent, create the dir itself)
         dest_dir.mkdir(parents=True, exist_ok=True)
 
         copied = 0
