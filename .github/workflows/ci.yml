@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Verify main script syntax
+        run: python -m py_compile STIG_Script.py
+
+      - name: Verify modular package syntax
+        run: |
+          python -m py_compile stig_assessor/__init__.py
+          python -m py_compile stig_assessor/core/constants.py
+          python -m py_compile stig_assessor/core/config.py
+          python -m py_compile stig_assessor/core/state.py
+          python -m py_compile stig_assessor/core/logging.py
+          python -m py_compile stig_assessor/core/deps.py
+          python -m py_compile stig_assessor/exceptions.py
+          python -m py_compile stig_assessor/xml/schema.py
+          python -m py_compile stig_assessor/xml/sanitizer.py
+          python -m py_compile stig_assessor/xml/utils.py
+          python -m py_compile stig_assessor/io/file_ops.py
+          python -m py_compile stig_assessor/validation/validator.py
+
+      - name: Run tests with coverage
+        run: |
+          python -m pytest tests/ -v --cov=stig_assessor --cov-report=xml --cov-report=term-missing --timeout=300
+        continue-on-error: true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pylint
+
+      - name: Lint with flake8
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 STIG_Script.py --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exit-zero treats all errors as warnings
+          flake8 STIG_Script.py --count --exit-zero --max-complexity=15 --max-line-length=120 --statistics
+
+      - name: Lint modular package with flake8
+        run: |
+          flake8 stig_assessor/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 stig_assessor/ --count --exit-zero --max-complexity=15 --max-line-length=120 --statistics
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install bandit
+        run: pip install bandit
+
+      - name: Run security scan
+        run: |
+          bandit -r STIG_Script.py -ll --skip B101,B603,B607 -f txt || true
+          bandit -r stig_assessor/ -ll --skip B101,B603,B607 -f txt || true
+
+  verify-cli:
+    name: Verify CLI Operations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Test --version flag
+        run: python STIG_Script.py --version
+
+      - name: Test --help flag
+        run: python STIG_Script.py --help

@@ -1,0 +1,26 @@
+# Development dependencies for STIG Assessor
+# Install with: pip install -r requirements-dev.txt
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-timeout>=2.1.0
+pytest-benchmark>=4.0.0
+
+# Code quality
+flake8>=6.0.0
+pylint>=2.17.0
+mypy>=1.0.0
+
+# Security scanning
+bandit>=1.7.0
+
+# Documentation (optional)
+# sphinx>=6.0.0
+# sphinx-rtd-theme>=1.2.0
+
+# Type stubs for better type checking
+types-setuptools>=67.0.0
+
+# Note: The main STIG Assessor application has ZERO runtime dependencies
+# (stdlib only) for air-gap compatibility. These are development-only.
