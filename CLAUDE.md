@@ -4,12 +4,12 @@
 
 **STIG Assessor Complete** is a production-ready, zero-dependency, air-gap certified security compliance tool for Department of Defense (DoD) Security Technical Implementation Guide (STIG) assessments.
 
-- **Version:** 7.0.0
-- **Build Date:** 2025-10-28
+- **Version:** 7.4.3
+- **Build Date:** 2026-01-02
 - **STIG Viewer Compatibility:** 2.18
 - **Language:** Python 3.9+
-- **Lines of Code:** ~4,729
-- **Architecture:** Single-file monolith (intentional for air-gap deployments)
+- **Lines of Code:** ~6,776 (monolith) + ~6,600 (modular package)
+- **Architecture:** Dual - Single-file monolith for air-gap + modular package for development
 
 ### Core Capabilities
 
@@ -28,9 +28,55 @@
 
 ```
 STIG_Script/
-├── STIG_Script.py          # Single comprehensive script (~4,729 lines)
-├── CLAUDE.md               # This file - AI assistant documentation
-└── .git/                   # Git repository
+├── STIG_Script.py              # Single comprehensive script (~6,776 lines)
+├── CLAUDE.md                   # This file - AI assistant documentation
+├── requirements-dev.txt        # Development/test dependencies
+├── .github/workflows/          # CI/CD automation
+│   └── ci.yml                  # GitHub Actions workflow
+├── stig_assessor/              # Modular package (~6,600 lines)
+│   ├── core/                   # Foundation modules
+│   │   ├── constants.py        # Enums, limits, platform detection
+│   │   ├── state.py            # GlobalState singleton
+│   │   ├── config.py           # Configuration & directory management
+│   │   ├── logging.py          # Rotating file logger
+│   │   └── deps.py             # Dependency detection
+│   ├── exceptions.py           # Exception hierarchy
+│   ├── xml/                    # XML processing
+│   │   ├── schema.py           # Namespaces & schema definitions
+│   │   ├── sanitizer.py        # Input sanitization
+│   │   └── utils.py            # XML utilities
+│   ├── io/                     # File operations
+│   │   └── file_ops.py         # Atomic writes, encoding detection
+│   ├── validation/             # STIG Viewer validation
+│   │   └── validator.py        # CKL validation (Team 5)
+│   ├── history/                # History tracking
+│   │   ├── models.py           # History dataclass
+│   │   └── manager.py          # History lifecycle management
+│   ├── templates/              # Boilerplate management
+│   │   └── boilerplate.py      # Template system
+│   ├── remediation/            # Remediation extraction/import
+│   │   ├── models.py           # Fix dataclasses
+│   │   ├── extractor.py        # Command extraction
+│   │   └── processor.py        # Bulk import processing
+│   ├── evidence/               # Evidence management
+│   │   ├── models.py           # Evidence metadata
+│   │   └── manager.py          # Evidence lifecycle
+│   └── ui/                     # User interfaces
+│       ├── cli.py              # CLI entry point
+│       ├── gui.py              # Tkinter GUI
+│       └── presets.py          # GUI preset management
+├── tests/                      # Test suite (~4,500 lines)
+│   ├── conftest.py             # Shared fixtures
+│   ├── test_core/              # Core infrastructure tests
+│   ├── test_xml/               # XML processing tests
+│   ├── test_io/                # File operations tests
+│   ├── test_validation/        # Validation tests
+│   ├── test_history/           # History tracking tests
+│   ├── test_templates/         # Boilerplate tests
+│   ├── test_remediation/       # Remediation tests
+│   ├── test_evidence/          # Evidence tests
+│   └── test_integration/       # End-to-end tests
+└── .git/                       # Git repository
 
 Runtime directories (created in ~/.stig_assessor/):
 ├── logs/                   # Application logs (rotating, 10MB max)
@@ -46,45 +92,50 @@ Runtime directories (created in ~/.stig_assessor/):
 
 ## Architecture Overview
 
-### Core Classes (18 total)
+### Core Classes (26 total in monolith)
+
+#### Constants & Enums
+- **`Status`** (line 202) - STIG status values enum
+- **`Severity`** (line 220) - STIG severity levels enum
 
 #### Foundation Layer
-- **`GlobalState`** (line 98) - Process-wide shutdown coordination
-- **`Cfg`** (line 301) - Application configuration, directory management
-- **`Log`** (line 454) - Thread-safe logging with contextual metadata
-- **`Deps`** (line 233) - Dependency detection (tkinter, XML parser)
+- **`GlobalState`** (line 242) - Process-wide shutdown coordination
+- **`Cfg`** (line 547) - Application configuration, directory management
+- **`Log`** (line 720) - Thread-safe logging with contextual metadata
+- **`Deps`** (line 450) - Dependency detection (tkinter, XML parser)
 
 #### Error Handling
-- **`STIGError`** (line 165) - Base exception class
-- **`ValidationError`** (line 180) - STIG Viewer compatibility errors
-- **`FileError`** (line 184) - File I/O errors
-- **`ParseError`** (line 188) - XML parsing errors
+- **`STIGError`** (line 362) - Base exception class
+- **`ValidationError`** (line 377) - STIG Viewer compatibility errors
+- **`FileError`** (line 381) - File I/O errors
+- **`ParseError`** (line 385) - XML parsing errors
 
 #### XML & Validation
-- **`Sch`** (line 555) - XML schema definitions (namespaces, elements)
-- **`San`** (line 663) - XML sanitization (prevents injection attacks)
-- **`Val`** (line 1431) - STIG Viewer 2.18 compatibility validation
+- **`Sch`** (line 866) - XML schema definitions (namespaces, elements)
+- **`XmlUtils`** (line 974) - XML utilities
+- **`San`** (line 1215) - XML sanitization (prevents injection attacks)
+- **`Val`** (line 2531) - STIG Viewer 2.18 compatibility validation
 
 #### Core Operations
-- **`FO`** (line 821) - File operations (atomic writes, backups, encoding detection)
-- **`Proc`** (line 1536) - Main processor for XCCDF→CKL, merge operations
-- **`BP`** (line 1262) - Boilerplate template management
+- **`FO`** (line 1579) - File operations (atomic writes, backups, encoding detection)
+- **`Proc`** (line 2702) - Main processor for XCCDF→CKL, merge operations
+- **`BP`** (line 2303) - Boilerplate template management
 
 #### History & Evidence
-- **`Hist`** (line 991) - Individual history entry (dataclass)
-- **`HistMgr`** (line 1050) - History lifecycle management (deduplication, sorting)
-- **`EvidenceMeta`** (line 3198) - Evidence metadata (dataclass)
-- **`EvidenceMgr`** (line 3244) - Evidence import/export/packaging
+- **`Hist`** (line 1892) - Individual history entry (dataclass)
+- **`HistMgr`** (line 1955) - History lifecycle management (deduplication, sorting)
+- **`EvidenceMeta`** (line 4915) - Evidence metadata (dataclass)
+- **`EvidenceMgr`** (line 4961) - Evidence import/export/packaging
 
 #### Remediation System
-- **`Fix`** (line 2183) - Single remediation fix (dataclass)
-- **`FixExt`** (line 2214) - Fix extraction from XCCDF (multi-format export)
-- **`FixResult`** (line 2856) - Remediation execution result (dataclass)
-- **`FixResPro`** (line 2896) - Remediation results processor (bulk import)
+- **`Fix`** (line 3938) - Single remediation fix (dataclass)
+- **`FixExt`** (line 3969) - Fix extraction from XCCDF (multi-format export)
+- **`FixResult`** (line 4606) - Remediation execution result (dataclass)
+- **`FixResPro`** (line 4646) - Remediation results processor (bulk import)
 
 #### User Interface
-- **`PresetMgr`** (line 3470) - GUI preset management
-- **`GUI`** (lines 3500+) - Tkinter-based graphical interface (async operations)
+- **`PresetMgr`** (line 5231) - GUI preset management
+- **`GUI`** (lines 5300+) - Tkinter-based graphical interface (async operations)
 
 ---
 
@@ -574,24 +625,32 @@ Based on repository history:
 | Evidence | `~/.stig_assessor/evidence/` |
 | Templates | `~/.stig_assessor/templates/boilerplate.json` |
 
-### Key Line Numbers
+### Key Line Numbers (STIG_Script.py v7.4.3)
 | Component | Line Range |
 |-----------|------------|
-| Constants | 66-91 |
-| Configuration | 301-441 |
-| Logging | 454-553 |
-| XML Schema | 555-661 |
-| Sanitization | 663-819 |
-| File Operations | 821-989 |
-| History Manager | 1050-1260 |
-| Boilerplate | 1262-1429 |
-| Validation | 1431-1534 |
-| Main Processor | 1536-2181 |
-| Fix Extraction | 2214-2854 |
-| Remediation | 2896-3196 |
-| Evidence | 3244-3468 |
-| GUI | 3500+ |
-| CLI Entry | 4478-4729 |
+| Constants | 127-195 |
+| Enums (Status/Severity) | 197-235 |
+| GlobalState | 237-355 |
+| Errors | 357-387 |
+| Retry Decorator | 389-442 |
+| Dependencies | 445-540 |
+| Configuration | 542-713 |
+| Logging | 715-859 |
+| XML Schema | 861-967 |
+| XML Utils | 969-1208 |
+| Sanitization | 1210-1572 |
+| File Operations | 1574-1884 |
+| History | 1886-2296 |
+| Boilerplate | 2298-2524 |
+| Validation | 2526-2695 |
+| Main Processor | 2697-3930 |
+| Fix Extraction | 3932-4598 |
+| Remediation | 4600-4907 |
+| Evidence | 4909-5224 |
+| Presets | 5226-5276 |
+| GUI | 5278-6427 |
+| Utility | 6429-6437 |
+| CLI Entry | 6440-6776 |
 
 ### Status Values (Case-Sensitive)
 - `NotAFinding` - Control satisfied
@@ -679,6 +738,6 @@ Based on repository history:
 
 ---
 
-**Last Updated:** 2025-11-16
+**Last Updated:** 2026-01-02
 **Repository:** Maddesea/STIG_Script
-**Current Branch:** claude/claude-md-mi10q1bblig17kze-01JwjQkipWiaNFzRzEYubSgs
+**Current Branch:** claude/improve-project-pj6D9
