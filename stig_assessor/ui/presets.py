@@ -7,29 +7,11 @@ from contextlib import suppress
 import json
 import re
 
-# Temporary imports from monolithic file - will be replaced when other teams complete their modules
-# This allows Team 12 to work in parallel while Teams 0-11 modularize their components
-import sys
-from pathlib import Path
-
-# Add parent directory to path to import from monolithic STIG_Script.py
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-try:
-    from STIG_Script import (
-        Cfg,          # Configuration (Team 1 - core/config.py)
-        FO,           # File Operations (Team 3 - io/file_ops.py)
-        LOG,          # Logging (Team 1 - core/logging.py)
-        VERSION,      # Constants (Team 0 - core/constants.py)
-        ValidationError,  # Exceptions (Team 0 - exceptions.py)
-    )
-except ImportError:
-    # If running as part of the full modular package, import from proper modules
-    from stig_assessor.core.config import Cfg
-    from stig_assessor.io.file_ops import FO
-    from stig_assessor.core.logging import LOG
-    from stig_assessor.core.constants import VERSION
-    from stig_assessor.exceptions import ValidationError
+from stig_assessor.core.config import Cfg
+from stig_assessor.io.file_ops import FO
+from stig_assessor.core.logging import LOG
+from stig_assessor.core.constants import VERSION
+from stig_assessor.exceptions import ValidationError
 
 
 class PresetMgr:
