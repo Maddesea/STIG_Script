@@ -1,6 +1,3 @@
-"""Remediation modules for STIG fix extraction and processing.
-
-This package handles extraction of remediation commands from XCCDF benchmarks
 """Remediation module for STIG fix extraction and processing.
 
 This module handles extraction of remediation commands from XCCDF benchmarks
@@ -9,10 +6,7 @@ and provides multi-format export capabilities (JSON, CSV, Bash, PowerShell).
 Key Components:
     - Fix: Dataclass representing a single remediation fix
     - FixExt: Extractor for parsing XCCDF and generating remediation scripts
-    - FixResult: Remediation execution result dataclass
-    - FixResPro: Remediation results processor for bulk import
     - FixResult: Dataclass representing a remediation result
-    - FixResPro: Processor for applying remediation results to checklists
     - FixResPro: Processor for bulk remediation results import
 
 Usage:
@@ -34,8 +28,6 @@ from __future__ import annotations
 from .models import Fix, FixResult
 from .extractor import FixExt
 from .processor import FixResPro
-from stig_assessor.remediation.models import Fix
-from stig_assessor.remediation.extractor import FixExt
 
 __all__ = [
     "Fix",
@@ -43,11 +35,3 @@ __all__ = [
     "FixResult",
     "FixResPro",
 ]
-]
-
-# Try to import processor components (may have additional dependencies)
-try:
-    from stig_assessor.remediation.processor import FixResPro
-    __all__.append("FixResPro")
-except ImportError:
-    pass

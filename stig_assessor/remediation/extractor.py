@@ -16,30 +16,10 @@ from typing import Any, Dict, List, Optional, Union
 
 from .models import Fix
 
-# TODO: These imports will be available when other teams complete their modules
-# For now, these are placeholders - the actual implementations exist in STIG_Script.py
-# Team 1 (Core Infrastructure) - lines 188-704
-# from stig_assessor.core.logging import LOG
-# from stig_assessor.core.config import Cfg
-
-# Team 2 (XML Foundation) - lines 705-1229
-# from stig_assessor.xml.sanitizer import San
-
-# Team 3 (File Operations) - lines 1230-1475
-# from stig_assessor.io.file_ops import FO
-
-# TEMPORARY: Import from original monolith until modules are available
-try:
-    # When running in modularized environment
-    from stig_assessor.core.logging import LOG
-    from stig_assessor.core.config import Cfg
-    from stig_assessor.xml.sanitizer import San
-    from stig_assessor.io.file_ops import FO
-except ImportError:
-    # Fallback to original monolith for development
-    import sys
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from STIG_Script import LOG, Cfg, San, FO
+from stig_assessor.core.logging import LOG
+from stig_assessor.core.config import Cfg
+from stig_assessor.xml.sanitizer import San
+from stig_assessor.io.file_ops import FO
 
 # Version constant (will move to core/constants.py)
 VERSION = "7.3.0"

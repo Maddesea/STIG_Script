@@ -191,7 +191,7 @@ class TestFileOperations(unittest.TestCase):
         """Test that reading nonexistent file raises error."""
         test_file = self.test_dir / "nonexistent.txt"
 
-        with self.assertRaises(FileError):
+        with self.assertRaises(ValidationError):
             FO.read(test_file)
 
     def test_parse_xml_valid_file(self):
@@ -226,7 +226,7 @@ class TestFileOperations(unittest.TestCase):
         """Test that parsing nonexistent XML file raises error."""
         test_file = self.test_dir / "nonexistent.xml"
 
-        with self.assertRaises((FileError, ParseError)):
+        with self.assertRaises(ValidationError):
             FO.parse_xml(test_file)
 
     def test_zip_creates_archive(self):

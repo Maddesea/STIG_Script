@@ -9,40 +9,18 @@ import threading
 import queue
 import platform
 
-# Temporary imports from monolithic file - will be replaced when other teams complete their modules
-# This allows Team 12 to work in parallel while Teams 0-11 modularize their components
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-try:
-    from STIG_Script import (
-        # Core components (Team 1)
-        Cfg, LOG, Deps, APP_NAME, VERSION, BUILD_DATE, STIG_VIEWER_VERSION,
-        # XML components (Teams 2, 4)
-        Sch, San,
-        # Processor (Team 11)
-        Proc,
-        # Remediation (Teams 8, 10)
-        FixExt, FixResPro,
-        # Evidence (Team 9)
-        EvidenceMgr,
-        # Exceptions (Team 0)
-        ValidationError,
-    )
-    from STIG_Script import PresetMgr
-except ImportError:
-    # If running as part of the full modular package
-    from stig_assessor.core.config import Cfg, APP_NAME, VERSION, BUILD_DATE, STIG_VIEWER_VERSION
-    from stig_assessor.core.logging import LOG
-    from stig_assessor.core.deps import Deps
-    from stig_assessor.xml.schema import Sch
-    from stig_assessor.xml.sanitizer import San
-    from stig_assessor.processor.processor import Proc
-    from stig_assessor.remediation.extractor import FixExt
-    from stig_assessor.remediation.processor import FixResPro
-    from stig_assessor.evidence.manager import EvidenceMgr
-    from stig_assessor.exceptions import ValidationError
-    from stig_assessor.ui.presets import PresetMgr
+from stig_assessor.core.config import Cfg
+from stig_assessor.core.constants import APP_NAME, VERSION, BUILD_DATE, STIG_VIEWER_VERSION
+from stig_assessor.core.logging import LOG
+from stig_assessor.core.deps import Deps
+from stig_assessor.xml.schema import Sch
+from stig_assessor.xml.sanitizer import San
+from stig_assessor.processor.processor import Proc
+from stig_assessor.remediation.extractor import FixExt
+from stig_assessor.remediation.processor import FixResPro
+from stig_assessor.evidence.manager import EvidenceMgr
+from stig_assessor.exceptions import ValidationError
+from stig_assessor.ui.presets import PresetMgr
 
 # Tkinter imports - only if available
 if Deps.HAS_TKINTER:

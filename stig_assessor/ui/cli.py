@@ -9,43 +9,20 @@ import logging
 import json
 import gc
 
-# Temporary imports from monolithic file - will be replaced when other teams complete their modules
-# This allows Team 12 to work in parallel while Teams 0-11 modularize their components
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-try:
-    from STIG_Script import (
-        # Core components (Team 1, Team 0)
-        Cfg, LOG, Deps, APP_NAME, VERSION, GlobalState,
-        # Boilerplate (Team 7)
-        BP,
-        # Processor (Team 11)
-        Proc,
-        # Remediation (Teams 8, 10)
-        FixExt, FixResPro,
-        # Evidence (Team 9)
-        EvidenceMgr,
-    )
-    # Get the global instance
-    GLOBAL = GlobalState()
-except ImportError:
-    # If running as part of the full modular package
-    from stig_assessor.core.config import Cfg, APP_NAME, VERSION
-    from stig_assessor.core.logging import LOG
-    from stig_assessor.core.deps import Deps
-    from stig_assessor.core.state import GLOBAL_STATE as GLOBAL
-    from stig_assessor.templates.boilerplate import BP
-    from stig_assessor.processor.processor import Proc
-    from stig_assessor.remediation.extractor import FixExt
-    from stig_assessor.remediation.processor import FixResPro
-    from stig_assessor.evidence.manager import EvidenceMgr
+from stig_assessor.core.config import Cfg
+from stig_assessor.core.constants import APP_NAME, VERSION
+from stig_assessor.core.logging import LOG
+from stig_assessor.core.deps import Deps
+from stig_assessor.core.state import GLOBAL_STATE as GLOBAL
+from stig_assessor.templates.boilerplate import BP
+from stig_assessor.processor.processor import Proc
+from stig_assessor.remediation.extractor import FixExt
+from stig_assessor.remediation.processor import FixResPro
+from stig_assessor.evidence.manager import EvidenceMgr
 
 # Import GUI conditionally
 if Deps.HAS_TKINTER:
-    try:
-        from STIG_Script import GUI
-    except ImportError:
-        from stig_assessor.ui.gui import GUI
+    from stig_assessor.ui.gui import GUI
 
 
 def ensure_default_boilerplates() -> None:

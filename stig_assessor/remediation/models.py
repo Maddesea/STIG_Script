@@ -83,19 +83,6 @@ class FixResult:
         """Ensure timestamp is timezone-aware."""
         if self.ts.tzinfo is None:
             self.ts = self.ts.replace(tzinfo=timezone.utc)
-    Represents the result of a remediation action.
-
-    Contains the outcome of applying a fix, including success/failure status,
-    messages, and any output or errors.
-
-    Thread-safe: Yes (immutable after creation)
-    """
-    vid: str
-    ok: bool
-    message: str
-    ts: datetime
-    output: Optional[str] = None
-    error: Optional[str] = None
 
     def as_dict(self) -> Dict[str, Any]:
         """
@@ -109,10 +96,8 @@ class FixResult:
             "ok": self.ok,
             "ts": self.ts.isoformat(),
             "msg": self.message,
-            "message": self.message,
-            "ts": self.ts.isoformat(),
-            "output": self.output,
-            "error": self.error,
+            "out": self.output,
+            "err": self.error,
         }
 
     @classmethod
@@ -128,16 +113,15 @@ class FixResult:
             FixResult instance
 
         Raises:
-            ValidationError: If data is invalid or missing required fields
+            ValueError: If data is invalid or missing required fields
         """
         # Import here to avoid circular imports
         try:
             from stig_assessor.xml.sanitizer import San
             from stig_assessor.exceptions import ValidationError
         except ImportError:
-            class ValidationError(Exception):
-                pass
-
+            # Fallback
+            class ValidationError(ValueError): pass
             class San:
                 @staticmethod
                 def vuln(s):
@@ -151,26 +135,6 @@ class FixResult:
         if not vid:
             raise ValidationError("Result entry missing 'vid'")
         vid = San.vuln(str(vid))
-        Create FixResult from dictionary.
-
-        Supports multiple key formats for flexibility:
-        - vid/vuln_id/vulnerability_id
-        - ok/success/passed
-        - message/msg/status_message
-
-        Args:
-            data: Dictionary containing result data
-
-        Returns:
-            New FixResult instance
-
-        Raises:
-            ValueError: If required fields are missing
-        """
-        # Extract VID with multiple key support
-        vid = data.get("vid") or data.get("vuln_id") or data.get("vulnerability_id")
-        if not vid:
-            raise ValueError("Missing vulnerability ID (vid/vuln_id/vulnerability_id)")
 
         # Extract success status with multiple key support
         ok = data.get("ok")
@@ -179,7 +143,16 @@ class FixResult:
         if ok is None:
             ok = data.get("passed")
         if ok is None:
-            ok = data.get("result") == "pass"
+            # Try to infer from status string
+            status = str(data.get("status", "")).lower()
+            if status in ("success", "passed", "notafinding", "not_a_finding", "true"):
+                ok = True
+            elif data.get("result") == "pass":
+                ok = True
+
+        # Ensure boolean
+        if isinstance(ok, str):
+            ok = ok.lower() in ("true", "yes", "1", "success", "passed")
         ok = bool(ok)
 
         # Parse timestamp
@@ -198,10 +171,10 @@ class FixResult:
         message = data.get("msg") or data.get("message") or data.get("summary") or ""
 
         # Extract output
-        output = data.get("output") or data.get("stdout") or ""
+        output = data.get("out") or data.get("output") or data.get("stdout") or ""
 
         # Extract error
-        error = data.get("error") or data.get("stderr") or data.get("err") or ""
+        error = data.get("err") or data.get("error") or data.get("stderr") or ""
 
         return cls(
             vid=vid,
@@ -210,38 +183,4 @@ class FixResult:
             message=str(message),
             output=str(output),
             error=str(error),
-            # Try to infer from status string
-            status = data.get("status", "").lower()
-            ok = status in ("success", "passed", "notafinding", "not_a_finding", "true")
-
-        # Ensure boolean
-        if isinstance(ok, str):
-            ok = ok.lower() in ("true", "yes", "1", "success", "passed")
-
-        # Extract message with multiple key support
-        message = data.get("message") or data.get("msg") or data.get("status_message") or ""
-
-        # Parse timestamp
-        ts = datetime.now(timezone.utc)
-        ts_str = data.get("ts") or data.get("timestamp")
-        if ts_str:
-            try:
-                if isinstance(ts_str, str):
-                    ts = datetime.fromisoformat(ts_str.rstrip("Z"))
-                    if ts.tzinfo is None:
-                        ts = ts.replace(tzinfo=timezone.utc)
-            except Exception:
-                pass  # Use default timestamp
-
-        # Extract optional fields
-        output = data.get("output") or data.get("stdout")
-        error = data.get("error") or data.get("stderr")
-
-        return cls(
-            vid=str(vid).strip(),
-            ok=bool(ok),
-            message=str(message),
-            ts=ts,
-            output=str(output) if output else None,
-            error=str(error) if error else None,
         )

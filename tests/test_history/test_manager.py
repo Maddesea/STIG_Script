@@ -217,7 +217,7 @@ class TestHistMgrCompression(unittest.TestCase):
 
     def test_compression_triggered(self):
         """Test that compression is triggered when max entries exceeded."""
-        from STIG_Script import Cfg
+        from stig_assessor.core.config import Cfg
 
         # Add more than MAX_HIST entries
         for i in range(Cfg.MAX_HIST + 10):
@@ -238,7 +238,7 @@ class TestHistMgrCompression(unittest.TestCase):
 
     def test_compression_preserves_head_and_tail(self):
         """Test that compression keeps head and tail entries."""
-        from STIG_Script import Cfg
+        from stig_assessor.core.config import Cfg
 
         # Add many entries - need enough to trigger compression
         # After MAX_HIST entries, compression will keep HEAD + TAIL + 1 compressed entry
@@ -306,7 +306,7 @@ class TestHistMgrMergeFinding(unittest.TestCase):
 
     def test_merge_find_truncation(self):
         """Test that merge_find truncates if too long."""
-        from STIG_Script import Cfg
+        from stig_assessor.core.config import Cfg
 
         # Add entry with very long finding
         long_find = "X" * (Cfg.MAX_FIND + 1000)
