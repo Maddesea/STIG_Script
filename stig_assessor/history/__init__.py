@@ -1,13 +1,4 @@
-"""History tracking modules.
-"""History management module.
-
-This package contains history entry models and lifecycle management
-for vulnerability history with automatic deduplication, sorting, and compression.
-
-Public API:
-    - Hist: Dataclass representing a single history entry
-    - HistMgr: Manager class for history lifecycle operations
-"""
+"""History tracking modules."""
 
 from __future__ import annotations
 

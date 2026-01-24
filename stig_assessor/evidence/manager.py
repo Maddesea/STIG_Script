@@ -29,6 +29,9 @@ from stig_assessor.evidence.models import EvidenceMeta
 CHUNK_SIZE = 8192  # For file I/O operations
 
 
+SAFE_FILENAME_RE = re.compile(r"[^\w.-]")
+
+
 class EvidenceMgr:
     """Evidence file lifecycle manager (Singleton).
 
@@ -236,7 +239,7 @@ class EvidenceMgr:
             # Not a duplicate, proceed with import
             dest_dir.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-            safe_name = re.sub(r"[^\w.-]", "_", file_path.name)
+            safe_name = SAFE_FILENAME_RE.sub("_", file_path.name)
             dest_name = f"{timestamp}_{safe_name}"
             dest = dest_dir / dest_name
             shutil.copy2(file_path, dest)
