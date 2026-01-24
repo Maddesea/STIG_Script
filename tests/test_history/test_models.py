@@ -374,14 +374,14 @@ class TestHistEdgeCases(unittest.TestCase):
 
     def test_from_dict_with_non_dict(self):
         """Test that from_dict raises error for non-dict input."""
-        from STIG_Script import ValidationError
+        from stig_assessor.exceptions import ValidationError
 
         with self.assertRaises(ValidationError):
             Hist.from_dict("not a dict")
 
     def test_from_dict_with_none(self):
         """Test that from_dict raises error for None."""
-        from STIG_Script import ValidationError
+        from stig_assessor.exceptions import ValidationError
 
         with self.assertRaises(ValidationError):
             Hist.from_dict(None)

@@ -32,6 +32,9 @@ except ImportError:
     from stig_assessor.exceptions import ValidationError
 
 
+SAFE_PRESET_NAME_RE = re.compile(r"[^a-zA-Z0-9_-]")
+
+
 class PresetMgr:
     """CLI/GUI presets."""
 
@@ -50,7 +53,7 @@ class PresetMgr:
                     self.presets[file.stem] = data
 
     def save(self, name: str, payload: Dict[str, Any]) -> None:
-        name = re.sub(r"[^a-zA-Z0-9_-]", "_", name).strip("_")
+        name = SAFE_PRESET_NAME_RE.sub("_", name).strip("_")
         if not name:
             raise ValidationError("Invalid preset name")
         path = self.base / f"{name}.json"

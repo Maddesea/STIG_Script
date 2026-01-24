@@ -49,6 +49,9 @@ from stig_assessor.core.deps import Deps
 from stig_assessor.xml.sanitizer import San
 
 
+AMPERSAND_RE = re.compile(r"&(?!(amp|lt|gt|quot|apos);)")
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # RETRY DECORATOR
 # ──────────────────────────────────────────────────────────────────────────────
@@ -316,7 +319,7 @@ class FO:
                     LOG.w(f"Large file ({file_size} bytes) requires entity sanitization, may be slow")
 
                 content = FO.read(path)
-                content = re.sub(r"&(?!(amp|lt|gt|quot|apos);)", "&amp;", content)
+                content = AMPERSAND_RE.sub("&amp;", content)
                 with tempfile.NamedTemporaryFile(
                     mode="w", encoding="utf-8", suffix=".xml", delete=False
                 ) as tmp:

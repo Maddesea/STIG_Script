@@ -15,6 +15,9 @@ from stig_assessor.core.logging import LOG
 from stig_assessor.exceptions import ValidationError
 
 
+EXCESSIVE_NEWLINE_RE = re.compile(r'\n\s*\n\s*\n+')
+
+
 class XmlUtils:
     """
     Shared XML processing utilities to eliminate code duplication.
@@ -163,7 +166,7 @@ class XmlUtils:
                 # Join with newlines to preserve command structure
                 result = '\n'.join(parts)
                 # Clean up excessive blank lines but keep structure
-                result = re.sub(r'\n\s*\n\s*\n+', '\n\n', result)
+                result = EXCESSIVE_NEWLINE_RE.sub('\n\n', result)
                 return result.strip()
         except Exception as exc:
             LOG.d(f"itertext() extraction failed: {exc}")
@@ -189,7 +192,7 @@ class XmlUtils:
             parts = extract_text_recursive(elem)
             if parts:
                 result = '\n'.join(parts)
-                result = re.sub(r'\n\s*\n\s*\n+', '\n\n', result)
+                result = EXCESSIVE_NEWLINE_RE.sub('\n\n', result)
                 return result.strip()
         except Exception as exc:
             LOG.d(f"Recursive extraction failed: {exc}")
@@ -201,32 +204,12 @@ class XmlUtils:
         return ""
 
     @staticmethod
-    def get_text(elem: ET.Element) -> str:
-        """Get element text safely."""
-
-    @staticmethod
-    def get_text(elem: ET.Element) -> str:
-
-    @staticmethod
-    def get_text(elem: ET.Element) -> str:
-        """Get element text safely.
-
-        Args:
-            elem: XML element to get text from
-
-        Returns:
-            Element text content or empty string if None
-        """
     def get_text(elem: Optional[ET.Element]) -> str:
         """Get element text safely.
-
         Args:
             elem: XML element
-
         Returns:
             Element text content or empty string if None
-        """
-            Element text or empty string if None
         """
         if elem is None:
             return ""
@@ -234,15 +217,9 @@ class XmlUtils:
 
     @staticmethod
     def set_text(elem: ET.Element, text: str) -> None:
-        """Set element text safely."""
         """Set element text safely.
-
         Args:
             elem: XML element
             text: Text content to set
-            elem: XML element to set text on
-            text: Text content to set
-            elem: XML element
-            text: Text to set
         """
         elem.text = text

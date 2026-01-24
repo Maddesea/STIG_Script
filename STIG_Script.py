@@ -971,6 +971,9 @@ class Sch:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+EXCESSIVE_NEWLINE_RE = re.compile(r'\n\s*\n\s*\n+')
+
+
 class XmlUtils:
     """Shared XML processing utilities to eliminate code duplication."""
 
@@ -1150,7 +1153,7 @@ class XmlUtils:
                 # Join with newlines to preserve command structure
                 result = '\n'.join(parts)
                 # Clean up excessive blank lines but keep structure
-                result = re.sub(r'\n\s*\n\s*\n+', '\n\n', result)
+                result = EXCESSIVE_NEWLINE_RE.sub('\n\n', result)
                 return result.strip()
         except Exception as exc:
             LOG.d(f"itertext() extraction failed: {exc}")
@@ -1176,7 +1179,7 @@ class XmlUtils:
             parts = extract_text_recursive(elem)
             if parts:
                 result = '\n'.join(parts)
-                result = re.sub(r'\n\s*\n\s*\n+', '\n\n', result)
+                result = EXCESSIVE_NEWLINE_RE.sub('\n\n', result)
                 return result.strip()
         except Exception as exc:
             LOG.d(f"Recursive extraction failed: {exc}")
@@ -1576,6 +1579,9 @@ class San:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+AMPERSAND_RE = re.compile(r"&(?!(amp|lt|gt|quot|apos);)")
+
+
 class FO:
     """
     Safe file operations with atomic writes and automatic backups.
@@ -1794,7 +1800,7 @@ class FO:
                     LOG.w(f"Large file ({file_size} bytes) requires entity sanitization, may be slow")
 
                 content = FO.read(path)
-                content = re.sub(r"&(?!(amp|lt|gt|quot|apos);)", "&amp;", content)
+                content = AMPERSAND_RE.sub("&amp;", content)
                 with tempfile.NamedTemporaryFile(
                     mode="w", encoding="utf-8", suffix=".xml", delete=False
                 ) as tmp:
@@ -4911,6 +4917,9 @@ class FixResPro:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+SAFE_FILENAME_RE = re.compile(r"[^\w.-]")
+
+
 @dataclass
 class EvidenceMeta:
     vid: str
@@ -5044,7 +5053,7 @@ class EvidenceMgr:
             # Not a duplicate, proceed with import
             dest_dir.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-            safe_name = re.sub(r"[^\w.-]", "_", file_path.name)
+            safe_name = SAFE_FILENAME_RE.sub("_", file_path.name)
             dest_name = f"{timestamp}_{safe_name}"
             dest = dest_dir / dest_name
             shutil.copy2(file_path, dest)
@@ -5228,6 +5237,9 @@ class EvidenceMgr:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+SAFE_PRESET_NAME_RE = re.compile(r"[^a-zA-Z0-9_-]")
+
+
 class PresetMgr:
     """CLI/GUI presets."""
 
@@ -5246,7 +5258,7 @@ class PresetMgr:
                     self.presets[file.stem] = data
 
     def save(self, name: str, payload: Dict[str, Any]) -> None:
-        name = re.sub(r"[^a-zA-Z0-9_-]", "_", name).strip("_")
+        name = SAFE_PRESET_NAME_RE.sub("_", name).strip("_")
         if not name:
             raise ValidationError("Invalid preset name")
         path = self.base / f"{name}.json"

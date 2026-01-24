@@ -33,8 +33,8 @@ class TestFixResult(unittest.TestCase):
         self.assertEqual(result_dict["vid"], "V-123456")
         self.assertEqual(result_dict["ok"], True)
         self.assertEqual(result_dict["msg"], "Test message")
-        self.assertEqual(result_dict["out"], "Test output")
-        self.assertEqual(result_dict["err"], "")
+        self.assertEqual(result_dict["output"], "Test output")
+        self.assertEqual(result_dict["error"], "")
         self.assertIn("2025-11-16", result_dict["ts"])
 
     def test_from_dict_success(self):
@@ -44,8 +44,8 @@ class TestFixResult(unittest.TestCase):
             "ts": "2025-11-16T12:00:00Z",
             "ok": True,
             "msg": "Remediation successful",
-            "out": "Command executed",
-            "err": ""
+            "output": "Command executed",
+            "error": ""
         }
 
         result = FixResult.from_dict(data)
@@ -74,7 +74,7 @@ class TestFixResult(unittest.TestCase):
 
     def test_from_dict_invalid(self):
         """Test that invalid data raises ValidationError."""
-        from STIG_Script import ValidationError
+        from stig_assessor.exceptions import ValidationError
 
         with self.assertRaises(ValidationError):
             FixResult.from_dict("not a dict")
@@ -239,7 +239,7 @@ class TestFixResPro(unittest.TestCase):
 
     def test_load_invalid_json(self):
         """Test that invalid JSON raises ParseError."""
-        from STIG_Script import ParseError
+        from stig_assessor.exceptions import ParseError
 
         test_file = Path(self.temp_dir) / "invalid.json"
         test_file.write_text("{ invalid json }")
@@ -249,7 +249,7 @@ class TestFixResPro(unittest.TestCase):
 
     def test_load_unrecognized_format(self):
         """Test that unrecognized format raises ParseError."""
-        from STIG_Script import ParseError
+        from stig_assessor.exceptions import ParseError
 
         test_data = {"unknown_key": "value"}
 

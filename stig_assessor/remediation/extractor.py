@@ -45,6 +45,11 @@ except ImportError:
 VERSION = "7.3.0"
 
 
+EXCESSIVE_NEWLINE_RE = re.compile(r'\n\s*\n\s*\n+')
+WHITESPACE_RE = re.compile(r'\s+')
+SAFE_VID_RE = re.compile(r"[^A-Za-z0-9_]")
+
+
 class FixExt:
     """Fix extractor with enhanced command parsing."""
 
@@ -278,7 +283,7 @@ class FixExt:
                 # Join with newlines to preserve command structure
                 result = '\n'.join(parts)
                 # Clean up excessive blank lines but keep structure
-                result = re.sub(r'\n\s*\n\s*\n+', '\n\n', result)
+                result = EXCESSIVE_NEWLINE_RE.sub('\n\n', result)
                 return result.strip()
         except Exception as exc:
             LOG.d(f"itertext() extraction failed: {exc}")
@@ -304,7 +309,7 @@ class FixExt:
             parts = extract_text_recursive(elem)
             if parts:
                 result = '\n'.join(parts)
-                result = re.sub(r'\n\s*\n\s*\n+', '\n\n', result)
+                result = EXCESSIVE_NEWLINE_RE.sub('\n\n', result)
                 return result.strip()
         except Exception as exc:
             LOG.d(f"Recursive extraction failed: {exc}")
@@ -318,7 +323,7 @@ class FixExt:
             text_content = ET.tostring(elem, encoding='unicode', method='text')
             if text_content and text_content.strip():
                 # Clean up excessive whitespace
-                text_content = re.sub(r'\s+', ' ', text_content)
+                text_content = WHITESPACE_RE.sub(' ', text_content)
                 return text_content.strip()
         except Exception as exc:
             LOG.d(f"tostring() extraction failed: {exc}")
@@ -617,7 +622,7 @@ class FixExt:
         ]
 
         for idx, fix in enumerate(fixes, 1):
-            safe_vid = re.sub(r"[^A-Za-z0-9_]", "_", fix.vid)
+            safe_vid = SAFE_VID_RE.sub("_", fix.vid)
             lines.append(f"echo \"[{idx}/{len(fixes)}] {fix.vid} - {fix.title[:60]}\" | tee -a \"$LOG_FILE\"")
             if dry_run:
                 lines.append(f"echo \"  [DRY-RUN] Would execute:\n{fix.fix_command}\" | tee -a \"$LOG_FILE\"")

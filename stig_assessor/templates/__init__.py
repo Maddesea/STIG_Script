@@ -1,17 +1,4 @@
-"""Template management modules.
-
-Provides template management for compliance responses.
-"""
-
-
-This package contains boilerplate template management for STIG assessment
-findings and compliance text templates.
-"""Boilerplate template modules.
-
-Public API:
-    - BP: Boilerplate template manager singleton class
-    - BOILERPLATE: Module-level singleton instance
-"""
+"""Template management modules."""
 
 from __future__ import annotations
 
