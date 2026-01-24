@@ -44,6 +44,38 @@ except ImportError:
     from stig_assessor.exceptions import ValidationError
     from stig_assessor.ui.presets import PresetMgr
 
+# ──────────────────────────────────────────────────────────────────────────────
+# GUI CONSTANTS
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Status icons
+ICON_SUCCESS = "\u2714"  # ✔
+ICON_FAILURE = "\u2718"  # ✘
+ICON_WARNING = "\u26A0"  # ⚠
+ICON_INFO = "\u2139"     # ℹ
+ICON_PENDING = "\u23F3"  # ⏳
+
+# Widget sizing
+GUI_ENTRY_WIDTH = 70
+GUI_ENTRY_WIDTH_SMALL = 25
+GUI_ENTRY_WIDTH_MEDIUM = 40
+GUI_BUTTON_WIDTH = 15
+GUI_BUTTON_WIDTH_WIDE = 25
+GUI_LISTBOX_HEIGHT = 6
+GUI_LISTBOX_WIDTH = 60
+GUI_TEXT_WIDTH = 120
+GUI_TEXT_HEIGHT = 25
+GUI_WRAP_LENGTH = 860
+
+# Layout spacing
+GUI_PADDING = 5
+GUI_PADDING_LARGE = 10
+GUI_PADDING_SECTION = 15
+
+# Font settings
+GUI_FONT_MONO = ("Courier New", 10)
+GUI_FONT_HEADING = ("TkDefaultFont", 12, "bold")
+
 # Tkinter imports - only if available
 if Deps.HAS_TKINTER:
     import tkinter as tk
@@ -67,6 +99,7 @@ if Deps.HAS_TKINTER:
             self.queue: "queue.Queue[Tuple[str, Any]]" = queue.Queue()
 
             self._build_menus()
+            self._create_status_bar()
             self._build_tabs()
             self.root.protocol("WM_DELETE_WINDOW", self._close)
             self.root.after(200, self._process_queue)
@@ -99,7 +132,7 @@ if Deps.HAS_TKINTER:
 
         def _build_tabs(self) -> None:
             notebook = ttk.Notebook(self.root)
-            notebook.pack(fill="both", expand=True, padx=5, pady=5)
+            notebook.pack(fill="both", expand=True, padx=GUI_PADDING, pady=GUI_PADDING)
 
             tabs = [
                 ("Create CKL", self._tab_create),
@@ -111,171 +144,194 @@ if Deps.HAS_TKINTER:
             ]
 
             for title, builder in tabs:
-                frame = ttk.Frame(notebook, padding=10)
+                frame = ttk.Frame(notebook, padding=GUI_PADDING_LARGE)
                 notebook.add(frame, text=title)
                 builder(frame)
 
+        def _create_status_bar(self) -> None:
+            """Create global status bar at the bottom."""
+            self.status_var = tk.StringVar()
+            self.status_bar = ttk.Label(
+                self.root,
+                textvariable=self.status_var,
+                relief=tk.SUNKEN,
+                anchor=tk.W,
+                padding=(5, 2)
+            )
+            self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+            self.status_var.set("Ready")
+
         # --------------------------------------------------------------- tabs
         def _tab_create(self, frame):
-            r = 0
-            ttk.Label(frame, text="XCCDF File:").grid(row=r, column=0, sticky="w")
+            # Input/Output Frame
+            files_frame = ttk.LabelFrame(frame, text="Files", padding=GUI_PADDING_LARGE)
+            files_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+
+            ttk.Label(files_frame, text="XCCDF File:").grid(row=0, column=0, sticky="w")
             self.create_xccdf = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.create_xccdf, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_create_xccdf).grid(row=r, column=2)
-            r += 1
+            ttk.Entry(files_frame, textvariable=self.create_xccdf, width=GUI_ENTRY_WIDTH).grid(
+                row=0, column=1, padx=GUI_PADDING
+            )
+            ttk.Button(files_frame, text="Browse…", command=self._browse_create_xccdf).grid(row=0, column=2)
 
-            ttk.Label(frame, text="Asset Name: *").grid(row=r, column=0, sticky="w")
+            ttk.Label(files_frame, text="Output CKL:").grid(row=1, column=0, sticky="w")
+            self.create_out = tk.StringVar()
+            ttk.Entry(files_frame, textvariable=self.create_out, width=GUI_ENTRY_WIDTH).grid(
+                row=1, column=1, padx=GUI_PADDING
+            )
+            ttk.Button(files_frame, text="Browse…", command=self._browse_create_out).grid(row=1, column=2)
+
+            # Asset Info Frame
+            asset_frame = ttk.LabelFrame(frame, text="Asset Details", padding=GUI_PADDING_LARGE)
+            asset_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+
+            r = 0
+            ttk.Label(asset_frame, text="Asset Name: *").grid(row=r, column=0, sticky="w")
             self.create_asset = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.create_asset, width=70).grid(row=r, column=1, padx=5)
+            ttk.Entry(asset_frame, textvariable=self.create_asset, width=GUI_ENTRY_WIDTH).grid(
+                row=r, column=1, padx=GUI_PADDING
+            )
             r += 1
 
-            ttk.Label(frame, text="IP Address:").grid(row=r, column=0, sticky="w")
+            ttk.Label(asset_frame, text="IP Address:").grid(row=r, column=0, sticky="w")
             self.create_ip = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.create_ip, width=70).grid(row=r, column=1, padx=5)
+            ttk.Entry(asset_frame, textvariable=self.create_ip, width=GUI_ENTRY_WIDTH).grid(
+                row=r, column=1, padx=GUI_PADDING
+            )
             r += 1
 
-            ttk.Label(frame, text="MAC Address:").grid(row=r, column=0, sticky="w")
+            ttk.Label(asset_frame, text="MAC Address:").grid(row=r, column=0, sticky="w")
             self.create_mac = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.create_mac, width=70).grid(row=r, column=1, padx=5)
+            ttk.Entry(asset_frame, textvariable=self.create_mac, width=GUI_ENTRY_WIDTH).grid(
+                row=r, column=1, padx=GUI_PADDING
+            )
             r += 1
 
-            ttk.Label(frame, text="Marking:").grid(row=r, column=0, sticky="w")
+            ttk.Label(asset_frame, text="Marking:").grid(row=r, column=0, sticky="w")
             self.create_mark = tk.StringVar(value="CUI")
             ttk.Combobox(
-                frame,
+                asset_frame,
                 textvariable=self.create_mark,
                 values=sorted(Sch.MARKS),
-                width=67,
+                width=GUI_ENTRY_WIDTH - 3,
                 state="readonly",
-            ).grid(row=r, column=1, padx=5)
-            r += 1
-
-            ttk.Label(frame, text="Output CKL:").grid(row=r, column=0, sticky="w")
-            self.create_out = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.create_out, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_create_out).grid(row=r, column=2)
+            ).grid(row=r, column=1, padx=GUI_PADDING)
             r += 1
 
             self.create_bp = tk.BooleanVar(value=False)
             ttk.Checkbutton(
-                frame,
+                asset_frame,
                 text="Apply boilerplate templates",
                 variable=self.create_bp,
-            ).grid(row=r, column=1, sticky="w")
-            r += 1
+            ).grid(row=r, column=1, sticky="w", pady=(GUI_PADDING, 0))
 
             ttk.Button(
                 frame,
                 text="Create Checklist",
                 command=self._do_create,
-                width=25,
-            ).grid(row=r, column=1, pady=15)
-            r += 1
-
-            self.create_status = tk.StringVar()
-            ttk.Label(frame, textvariable=self.create_status, wraplength=860, foreground="blue").grid(
-                row=r, column=0, columnspan=3, pady=5
-            )
+                width=GUI_BUTTON_WIDTH_WIDE,
+            ).pack(pady=GUI_PADDING_SECTION)
 
         def _tab_merge(self, frame):
-            r = 0
-            ttk.Label(frame, text="Base Checklist:").grid(row=r, column=0, sticky="w")
-            self.merge_base = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.merge_base, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_merge_base).grid(row=r, column=2)
-            r += 1
+            # Input Frame
+            input_frame = ttk.LabelFrame(frame, text="Input Checklists", padding=GUI_PADDING_LARGE)
+            input_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
 
-            ttk.Label(frame, text="Historical Files:").grid(row=r, column=0, sticky="nw")
-            list_frame = ttk.Frame(frame)
-            list_frame.grid(row=r, column=1, padx=5, sticky="ew")
-            self.merge_list = tk.Listbox(list_frame, height=6, width=60)
+            ttk.Label(input_frame, text="Base Checklist:").grid(row=0, column=0, sticky="w")
+            self.merge_base = tk.StringVar()
+            ttk.Entry(input_frame, textvariable=self.merge_base, width=GUI_ENTRY_WIDTH).grid(
+                row=0, column=1, padx=GUI_PADDING
+            )
+            ttk.Button(input_frame, text="Browse…", command=self._browse_merge_base).grid(row=0, column=2)
+
+            ttk.Label(input_frame, text="History Files:").grid(row=1, column=0, sticky="nw", pady=GUI_PADDING)
+
+            list_container = ttk.Frame(input_frame)
+            list_container.grid(row=1, column=1, padx=GUI_PADDING, pady=GUI_PADDING, sticky="ew")
+
+            self.merge_list = tk.Listbox(list_container, height=GUI_LISTBOX_HEIGHT, width=GUI_LISTBOX_WIDTH)
             self.merge_list.pack(side="left", fill="both", expand=True)
-            scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.merge_list.yview)
+            scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=self.merge_list.yview)
             scrollbar.pack(side="right", fill="y")
             self.merge_list.config(yscrollcommand=scrollbar.set)
 
-            btn_frame = ttk.Frame(frame)
-            btn_frame.grid(row=r, column=2, sticky="n")
+            btn_frame = ttk.Frame(input_frame)
+            btn_frame.grid(row=1, column=2, sticky="n", pady=GUI_PADDING)
             ttk.Button(btn_frame, text="Add…", command=self._add_merge_hist).pack(fill="x", pady=2)
             ttk.Button(btn_frame, text="Remove", command=self._remove_merge_hist).pack(fill="x", pady=2)
             ttk.Button(btn_frame, text="Clear", command=self._clear_merge_hist).pack(fill="x", pady=2)
             self.merge_histories: List[str] = []
-            r += 1
 
-            ttk.Label(frame, text="Output CKL:").grid(row=r, column=0, sticky="w")
+            # Output Frame
+            out_frame = ttk.LabelFrame(frame, text="Output", padding=GUI_PADDING_LARGE)
+            out_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+
+            ttk.Label(out_frame, text="Merged CKL:").grid(row=0, column=0, sticky="w")
             self.merge_out = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.merge_out, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_merge_out).grid(row=r, column=2)
-            r += 1
+            ttk.Entry(out_frame, textvariable=self.merge_out, width=GUI_ENTRY_WIDTH).grid(
+                row=0, column=1, padx=GUI_PADDING
+            )
+            ttk.Button(out_frame, text="Browse…", command=self._browse_merge_out).grid(row=0, column=2)
 
-            options = ttk.LabelFrame(frame, text="Options", padding=10)
-            options.grid(row=r, column=0, columnspan=3, sticky="ew", pady=10)
+            # Options
+            options = ttk.LabelFrame(frame, text="Options", padding=GUI_PADDING_LARGE)
+            options.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
             self.merge_preserve = tk.BooleanVar(value=True)
             ttk.Checkbutton(options, text="Preserve full history", variable=self.merge_preserve).pack(anchor="w")
             self.merge_bp = tk.BooleanVar(value=True)
             ttk.Checkbutton(options, text="Apply boilerplates when missing", variable=self.merge_bp).pack(anchor="w")
-            r += 1
 
-            ttk.Button(frame, text="Merge Checklists", command=self._do_merge, width=25).grid(row=r, column=1, pady=15)
-            r += 1
-
-            self.merge_status = tk.StringVar()
-            ttk.Label(frame, textvariable=self.merge_status, wraplength=860, foreground="blue").grid(
-                row=r, column=0, columnspan=3, pady=5
-            )
+            ttk.Button(frame, text="Merge Checklists", command=self._do_merge, width=GUI_BUTTON_WIDTH_WIDE).pack(pady=GUI_PADDING_SECTION)
 
         def _tab_extract(self, frame):
-            r = 0
-            ttk.Label(frame, text="XCCDF File:").grid(row=r, column=0, sticky="w")
+            # Input/Output
+            io_frame = ttk.LabelFrame(frame, text="Input & Output", padding=GUI_PADDING_LARGE)
+            io_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+
+            ttk.Label(io_frame, text="XCCDF File:").grid(row=0, column=0, sticky="w")
             self.extract_xccdf = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.extract_xccdf, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_extract_xccdf).grid(row=r, column=2)
-            r += 1
+            ttk.Entry(io_frame, textvariable=self.extract_xccdf, width=GUI_ENTRY_WIDTH).grid(
+                row=0, column=1, padx=GUI_PADDING
+            )
+            ttk.Button(io_frame, text="Browse…", command=self._browse_extract_xccdf).grid(row=0, column=2)
 
-            ttk.Label(frame, text="Output Directory:").grid(row=r, column=0, sticky="w")
+            ttk.Label(io_frame, text="Output Dir:").grid(row=1, column=0, sticky="w")
             self.extract_outdir = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.extract_outdir, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_extract_out).grid(row=r, column=2)
-            r += 1
+            ttk.Entry(io_frame, textvariable=self.extract_outdir, width=GUI_ENTRY_WIDTH).grid(
+                row=1, column=1, padx=GUI_PADDING
+            )
+            ttk.Button(io_frame, text="Browse…", command=self._browse_extract_out).grid(row=1, column=2)
 
-            formats = ttk.LabelFrame(frame, text="Export Formats", padding=10)
-            formats.grid(row=r, column=0, columnspan=3, sticky="ew", pady=10)
+            # Options
+            formats = ttk.LabelFrame(frame, text="Export Formats", padding=GUI_PADDING_LARGE)
+            formats.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
             self.extract_json = tk.BooleanVar(value=True)
             self.extract_csv = tk.BooleanVar(value=True)
             self.extract_bash = tk.BooleanVar(value=True)
             self.extract_ps = tk.BooleanVar(value=True)
-            ttk.Checkbutton(formats, text="JSON", variable=self.extract_json).grid(row=0, column=0, padx=10)
-            ttk.Checkbutton(formats, text="CSV", variable=self.extract_csv).grid(row=0, column=1, padx=10)
-            ttk.Checkbutton(formats, text="Bash", variable=self.extract_bash).grid(row=0, column=2, padx=10)
-            ttk.Checkbutton(formats, text="PowerShell", variable=self.extract_ps).grid(row=0, column=3, padx=10)
-            r += 1
 
+            # Grid for checkbuttons
+            ttk.Checkbutton(formats, text="JSON", variable=self.extract_json).grid(row=0, column=0, padx=GUI_PADDING_LARGE)
+            ttk.Checkbutton(formats, text="CSV", variable=self.extract_csv).grid(row=0, column=1, padx=GUI_PADDING_LARGE)
+            ttk.Checkbutton(formats, text="Bash", variable=self.extract_bash).grid(row=0, column=2, padx=GUI_PADDING_LARGE)
+            ttk.Checkbutton(formats, text="PowerShell", variable=self.extract_ps).grid(row=0, column=3, padx=GUI_PADDING_LARGE)
+
+            opts_frame = ttk.Frame(frame)
+            opts_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
             self.extract_dry = tk.BooleanVar(value=False)
-            ttk.Checkbutton(frame, text="Generate scripts in dry-run mode", variable=self.extract_dry).grid(
-                row=r, column=1, sticky="w"
-            )
-            r += 1
+            ttk.Checkbutton(opts_frame, text="Generate scripts in dry-run mode", variable=self.extract_dry).pack(anchor="center")
 
-            ttk.Button(frame, text="Extract Fixes", command=self._do_extract, width=25).grid(row=r, column=1, pady=15)
-            r += 1
-
-            self.extract_status = tk.StringVar()
-            ttk.Label(frame, textvariable=self.extract_status, wraplength=860, foreground="blue").grid(
-                row=r, column=0, columnspan=3, pady=5
-            )
+            ttk.Button(frame, text="Extract Fixes", command=self._do_extract, width=GUI_BUTTON_WIDTH_WIDE).pack(pady=GUI_PADDING_SECTION)
 
         def _tab_results(self, frame):
-            """Results import tab with batch file support."""
-            r = 0
+            # Batch Import
+            batch_frame = ttk.LabelFrame(frame, text="Batch Import (Multiple JSON Files)", padding=GUI_PADDING_LARGE)
+            batch_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
 
-            # ═══ BATCH IMPORT ═══
-            batch_frame = ttk.LabelFrame(frame, text="📁 Batch Import (Multiple JSON Files)", padding=10)
-            batch_frame.grid(row=r, column=0, columnspan=3, sticky="ew", pady=(0, 10))
-
-            ttk.Label(batch_frame, text="Results Files:").grid(row=0, column=0, sticky="nw", padx=5, pady=5)
+            ttk.Label(batch_frame, text="Results Files:").grid(row=0, column=0, sticky="nw", padx=GUI_PADDING, pady=GUI_PADDING)
 
             list_container = ttk.Frame(batch_frame)
-            list_container.grid(row=0, column=1, padx=5, sticky="ew")
+            list_container.grid(row=0, column=1, padx=GUI_PADDING, sticky="ew")
 
             self.results_list = tk.Listbox(list_container, height=5, width=65, selectmode=tk.EXTENDED)
             self.results_list.pack(side="left", fill="both", expand=True)
@@ -287,62 +343,53 @@ if Deps.HAS_TKINTER:
             self.results_files: List[str] = []
 
             btn_container = ttk.Frame(batch_frame)
-            btn_container.grid(row=0, column=2, sticky="n", padx=5)
+            btn_container.grid(row=0, column=2, sticky="n", padx=GUI_PADDING)
             ttk.Button(btn_container, text="Add Files…", command=self._add_results_files, width=15).pack(fill="x", pady=2)
             ttk.Button(btn_container, text="Remove", command=self._remove_results_file, width=15).pack(fill="x", pady=2)
             ttk.Button(btn_container, text="Clear All", command=self._clear_results_files, width=15).pack(fill="x", pady=2)
 
             batch_frame.columnconfigure(1, weight=1)
-            r += 1
 
-            # ═══ SINGLE FILE (LEGACY) ═══
-            single_frame = ttk.LabelFrame(frame, text="📄 Single File Import", padding=10)
-            single_frame.grid(row=r, column=0, columnspan=3, sticky="ew", pady=(0, 10))
+            # Single File Import
+            single_frame = ttk.LabelFrame(frame, text="Single File Import", padding=GUI_PADDING_LARGE)
+            single_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
 
-            ttk.Label(single_frame, text="Results JSON:").grid(row=0, column=0, sticky="w", padx=5)
+            ttk.Label(single_frame, text="Results JSON:").grid(row=0, column=0, sticky="w", padx=GUI_PADDING)
             self.results_json = tk.StringVar()
-            ttk.Entry(single_frame, textvariable=self.results_json, width=70).grid(row=0, column=1, padx=5)
-            ttk.Button(single_frame, text="Browse…", command=self._browse_results_json).grid(row=0, column=2, padx=5)
-            r += 1
+            ttk.Entry(single_frame, textvariable=self.results_json, width=GUI_ENTRY_WIDTH).grid(row=0, column=1, padx=GUI_PADDING)
+            ttk.Button(single_frame, text="Browse…", command=self._browse_results_json).grid(row=0, column=2, padx=GUI_PADDING)
 
-            # ═══ TARGET CHECKLIST ═══
-            ttk.Label(frame, text="Target Checklist (CKL):").grid(row=r, column=0, sticky="w")
+            # Target & Output
+            target_frame = ttk.LabelFrame(frame, text="Target & Output", padding=GUI_PADDING_LARGE)
+            target_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+
+            ttk.Label(target_frame, text="Target CKL:").grid(row=0, column=0, sticky="w")
             self.results_ckl = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.results_ckl, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_results_ckl).grid(row=r, column=2)
-            r += 1
+            ttk.Entry(target_frame, textvariable=self.results_ckl, width=GUI_ENTRY_WIDTH).grid(row=0, column=1, padx=GUI_PADDING)
+            ttk.Button(target_frame, text="Browse…", command=self._browse_results_ckl).grid(row=0, column=2)
 
-            ttk.Label(frame, text="Output CKL:").grid(row=r, column=0, sticky="w")
+            ttk.Label(target_frame, text="Output CKL:").grid(row=1, column=0, sticky="w")
             self.results_out = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.results_out, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_results_out).grid(row=r, column=2)
-            r += 1
+            ttk.Entry(target_frame, textvariable=self.results_out, width=GUI_ENTRY_WIDTH).grid(row=1, column=1, padx=GUI_PADDING)
+            ttk.Button(target_frame, text="Browse…", command=self._browse_results_out).grid(row=1, column=2)
 
-            # ═══ OPTIONS ═══
+            # Options
+            opts_frame = ttk.Frame(frame)
+            opts_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
             self.results_auto = tk.BooleanVar(value=True)
             ttk.Checkbutton(
-                frame,
+                opts_frame,
                 text="Auto-mark successful remediations as NotAFinding",
                 variable=self.results_auto,
-            ).grid(row=r, column=1, sticky="w")
-            r += 1
+            ).pack(anchor="center")
 
             self.results_dry = tk.BooleanVar(value=False)
-            ttk.Checkbutton(frame, text="Dry run (preview only)", variable=self.results_dry).grid(
-                row=r, column=1, sticky="w"
-            )
-            r += 1
-
-            # ═══ ACTION ═══
-            ttk.Button(frame, text="Apply Remediation Results", command=self._do_results, width=30).grid(row=r, column=1, pady=15)
-            r += 1
-
-            # ═══ STATUS ═══
-            self.results_status = tk.StringVar()
-            ttk.Label(frame, textvariable=self.results_status, wraplength=900, foreground="blue").grid(
-                row=r, column=0, columnspan=3, pady=5
+            ttk.Checkbutton(opts_frame, text="Dry run (preview only)", variable=self.results_dry).pack(
+                anchor="center"
             )
 
+            # Action
+            ttk.Button(frame, text="Apply Remediation Results", command=self._do_results, width=GUI_BUTTON_WIDTH_WIDE).pack(pady=GUI_PADDING_SECTION)
 
         # Add helper methods for batch file management:
 
@@ -360,7 +407,7 @@ if Deps.HAS_TKINTER:
                     added += 1
 
             if added:
-                self.results_status.set(f"✓ Added {added} file(s) - Total: {len(self.results_files)} queued")
+                self.status_var.set(f"✓ Added {added} file(s) - Total: {len(self.results_files)} queued")
 
         def _remove_results_file(self):
             """Remove selected files from batch queue."""
@@ -372,15 +419,13 @@ if Deps.HAS_TKINTER:
                 self.results_list.delete(index)
                 self.results_files.pop(index)
 
-            self.results_status.set(f"{len(self.results_files)} file(s) remaining")
+            self.status_var.set(f"{len(self.results_files)} file(s) remaining")
 
         def _clear_results_files(self):
             """Clear all files from batch queue."""
             self.results_files.clear()
             self.results_list.delete(0, tk.END)
-            self.results_status.set("Queue cleared")
-
-
+            self.status_var.set("Queue cleared")
 
         def _do_results(self):
             """Apply remediation results with batch import support."""
@@ -437,7 +482,7 @@ if Deps.HAS_TKINTER:
             def done(result):
                 """Completion handler."""
                 if isinstance(result, Exception):
-                    self.results_status.set(f"✘ Error: {result}")
+                    self.status_var.set(f"✘ Error: {result}")
                     messagebox.showerror("Import Failed", str(result))
                 else:
                     nf = result.get("not_found", [])
@@ -453,60 +498,57 @@ if Deps.HAS_TKINTER:
                         f"Output: {result.get('output', 'dry run')}"
                     )
 
-                    self.results_status.set(summary)
+                    self.status_var.set(f"Batch import complete: {result.get('updated', 0)} updated")
                     messagebox.showinfo("Success", summary)
 
-            self.results_status.set("Processing batch import…")
+            self.status_var.set("Processing batch import…")
             self._async(work, done)
 
-
-
-
         def _tab_evidence(self, frame):
-            ttk.Label(frame, text="Evidence Manager", font=("TkDefaultFont", 12, "bold")).pack(anchor="w")
+            ttk.Label(frame, text="Evidence Manager", font=GUI_FONT_HEADING).pack(anchor="w")
 
-            import_frame = ttk.LabelFrame(frame, text="Import Evidence", padding=10)
-            import_frame.pack(fill="x", pady=10)
+            import_frame = ttk.LabelFrame(frame, text="Import Evidence", padding=GUI_PADDING_LARGE)
+            import_frame.pack(fill="x", pady=GUI_PADDING_LARGE)
             ttk.Label(import_frame, text="Vuln ID:").grid(row=0, column=0, sticky="w")
             self.evid_vid = tk.StringVar()
-            ttk.Entry(import_frame, textvariable=self.evid_vid, width=25).grid(row=0, column=1, padx=5)
+            ttk.Entry(import_frame, textvariable=self.evid_vid, width=GUI_ENTRY_WIDTH_SMALL).grid(row=0, column=1, padx=GUI_PADDING)
             ttk.Label(import_frame, text="Description:").grid(row=0, column=2, sticky="w")
             self.evid_desc = tk.StringVar()
-            ttk.Entry(import_frame, textvariable=self.evid_desc, width=30).grid(row=0, column=3, padx=5)
+            ttk.Entry(import_frame, textvariable=self.evid_desc, width=30).grid(row=0, column=3, padx=GUI_PADDING)
             ttk.Label(import_frame, text="Category:").grid(row=0, column=4, sticky="w")
             self.evid_cat = tk.StringVar(value="general")
-            ttk.Entry(import_frame, textvariable=self.evid_cat, width=15).grid(row=0, column=5, padx=5)
-            ttk.Button(import_frame, text="Select & Import…", command=self._import_evidence).grid(row=0, column=6, padx=5)
+            ttk.Entry(import_frame, textvariable=self.evid_cat, width=15).grid(row=0, column=5, padx=GUI_PADDING)
+            ttk.Button(import_frame, text="Select & Import…", command=self._import_evidence).grid(row=0, column=6, padx=GUI_PADDING)
 
-            action_frame = ttk.LabelFrame(frame, text="Export / Package", padding=10)
-            action_frame.pack(fill="x", pady=10)
-            ttk.Button(action_frame, text="Export All…", command=self._export_evidence).grid(row=0, column=0, padx=5, pady=5)
-            ttk.Button(action_frame, text="Create Package…", command=self._package_evidence).grid(row=0, column=1, padx=5, pady=5)
+            action_frame = ttk.LabelFrame(frame, text="Export / Package", padding=GUI_PADDING_LARGE)
+            action_frame.pack(fill="x", pady=GUI_PADDING_LARGE)
+            ttk.Button(action_frame, text="Export All…", command=self._export_evidence).grid(row=0, column=0, padx=GUI_PADDING, pady=GUI_PADDING)
+            ttk.Button(action_frame, text="Create Package…", command=self._package_evidence).grid(row=0, column=1, padx=GUI_PADDING, pady=GUI_PADDING)
             ttk.Button(action_frame, text="Import Package…", command=self._import_evidence_package).grid(
-                row=0, column=2, padx=5, pady=5
+                row=0, column=2, padx=GUI_PADDING, pady=GUI_PADDING
             )
 
-            summary_frame = ttk.LabelFrame(frame, text="Summary", padding=10)
-            summary_frame.pack(fill="both", expand=True, pady=10)
+            summary_frame = ttk.LabelFrame(frame, text="Summary", padding=GUI_PADDING_LARGE)
+            summary_frame.pack(fill="both", expand=True, pady=GUI_PADDING_LARGE)
             self.evid_summary = tk.StringVar()
-            ttk.Label(summary_frame, textvariable=self.evid_summary, justify="left", font=("Courier New", 10)).pack(
-                anchor="w", pady=5
+            ttk.Label(summary_frame, textvariable=self.evid_summary, justify="left", font=GUI_FONT_MONO).pack(
+                anchor="w", pady=GUI_PADDING
             )
             self._refresh_evidence_summary()
 
         def _tab_validate(self, frame):
-            ttk.Label(frame, text="Validate Checklist", font=("TkDefaultFont", 12, "bold")).pack(anchor="w")
+            ttk.Label(frame, text="Validate Checklist", font=GUI_FONT_HEADING).pack(anchor="w")
 
             input_frame = ttk.Frame(frame)
-            input_frame.pack(fill="x", pady=10)
+            input_frame.pack(fill="x", pady=GUI_PADDING_LARGE)
             ttk.Label(input_frame, text="Checklist (CKL):").pack(side="left")
             self.validate_ckl = tk.StringVar()
-            ttk.Entry(input_frame, textvariable=self.validate_ckl, width=60).pack(side="left", padx=5)
-            ttk.Button(input_frame, text="Browse…", command=self._browse_validate_ckl).pack(side="left", padx=5)
+            ttk.Entry(input_frame, textvariable=self.validate_ckl, width=60).pack(side="left", padx=GUI_PADDING)
+            ttk.Button(input_frame, text="Browse…", command=self._browse_validate_ckl).pack(side="left", padx=GUI_PADDING)
             ttk.Button(input_frame, text="Validate", command=self._do_validate).pack(side="left")
 
-            self.validate_text = ScrolledText(frame, width=120, height=25, font=("Courier New", 10))
-            self.validate_text.pack(fill="both", expand=True, pady=5)
+            self.validate_text = ScrolledText(frame, width=GUI_TEXT_WIDTH, height=25, font=GUI_FONT_MONO)
+            self.validate_text.pack(fill="both", expand=True, pady=GUI_PADDING)
 
         # --------------------------------------------------------- action helpers
         def _async(self, work_func, callback):
@@ -542,7 +584,7 @@ if Deps.HAS_TKINTER:
                             # Status update format
                             kind, message = item
                             if kind == "status":
-                                self.results_status.set(message)
+                                self.status_var.set(message)
                                 self.root.update_idletasks()  # Force UI refresh
                             else:
                                 LOG.w(f"Unknown queue item kind: {kind}")
@@ -643,14 +685,13 @@ if Deps.HAS_TKINTER:
 
             def done(result):
                 if isinstance(result, Exception):
-                    self.create_status.set(f"✘ Error: {result}")
+                    self.status_var.set(f"✘ Error: {result}")
                 else:
-                    self.create_status.set(
-                        f"✔ Checklist created: {result.get('output')}\n"
-                        f"Processed: {result.get('processed')} | Skipped: {result.get('skipped')}"
+                    self.status_var.set(
+                        f"✔ Checklist created: {result.get('output')}"
                     )
 
-            self.create_status.set("Processing…")
+            self.status_var.set("Processing…")
             self._async(work, done)
 
         def _add_merge_hist(self):
@@ -691,14 +732,13 @@ if Deps.HAS_TKINTER:
 
             def done(result):
                 if isinstance(result, Exception):
-                    self.merge_status.set(f"✘ Error: {result}")
+                    self.status_var.set(f"✘ Error: {result}")
                 else:
-                    self.merge_status.set(
-                        f"✔ Merged checklist: {result.get('output')}\n"
-                        f"Updated: {result.get('updated')} | Skipped: {result.get('skipped')}"
+                    self.status_var.set(
+                        f"✔ Merged checklist: {result.get('output')}"
                     )
 
-            self.merge_status.set("Processing…")
+            self.status_var.set("Processing…")
             self._async(work, done)
 
         def _do_extract(self):
@@ -729,17 +769,14 @@ if Deps.HAS_TKINTER:
 
             def done(result):
                 if isinstance(result, Exception):
-                    self.extract_status.set(f"✘ Error: {result}")
+                    self.status_var.set(f"✘ Error: {result}")
                 else:
                     stats, formats = result
-                    self.extract_status.set(
-                        f"✔ Fix extraction complete\n"
-                        f"Total groups: {stats['total_groups']} | With fixes: {stats['with_fix']} | "
-                        f"Commands: {stats['with_command']}\n"
-                        f"Formats: {', '.join(formats)}"
+                    self.status_var.set(
+                        f"✔ Fix extraction complete. Total groups: {stats['total_groups']}"
                     )
 
-            self.extract_status.set("Processing…")
+            self.status_var.set("Processing…")
             self._async(work, done)
 
         def _import_evidence(self):
@@ -866,7 +903,7 @@ if Deps.HAS_TKINTER:
                 else:
                     self.validate_text.insert("end", "✘ Checklist has errors that must be resolved.\n", "error")
 
-            self.validate_status = "Validating…"
+            self.status_var.set("Validating…")
             self._async(work, done)
 
         # ------------------------------------------------------------ menu actions
