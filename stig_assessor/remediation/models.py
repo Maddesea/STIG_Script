@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from contextlib import suppress
 
 
@@ -18,20 +18,33 @@ class Fix:
 
     Thread-safe: Yes (immutable after creation)
     """
-    vid: str
-    rule_id: str
-    severity: str
-    title: str
-    group_title: str
-    fix_text: str
-    fix_command: Optional[str] = None
-    check_command: Optional[str] = None
-    platform: str = "generic"
-    rule_version: str = ""
-    cci: List[str] = field(default_factory=list)
-    legacy: List[str] = field(default_factory=list)
 
-    def as_dict(self) -> Dict[str, Any]:
+    vid: str
+    """Vulnerability ID (e.g., 'V-12345')."""
+    rule_id: str
+    """Associated Rule ID."""
+    severity: str
+    """Severity classification (e.g., 'high', 'medium')."""
+    title: str
+    """Vulnerability title/description."""
+    group_title: str
+    """Title of the containing group."""
+    fix_text: str
+    """Human-readable remediation instructions."""
+    fix_command: Optional[str] = None
+    """Machine-readable fix command."""
+    check_command: Optional[str] = None
+    """Machine-readable check command."""
+    platform: str = "generic"
+    """Target platform."""
+    rule_version: str = ""
+    """Version of the application rule."""
+    cci: List[str] = field(default_factory=list)
+    """List of mapped CCIs."""
+    legacy: List[str] = field(default_factory=list)
+    """List of legacy IDs."""
+
+    def as_dict(self) -> Dict[str, Union[str, List[str], None]]:
         """
         Convert Fix to dictionary for JSON serialization.
 
@@ -72,6 +85,7 @@ class FixResult:
         output: Standard output from the remediation command
         error: Error output or exception message
     """
+
     vid: str
     ok: bool
     ts: datetime
@@ -84,7 +98,7 @@ class FixResult:
         if self.ts.tzinfo is None:
             self.ts = self.ts.replace(tzinfo=timezone.utc)
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> Dict[str, Union[str, bool]]:
         """
         Convert FixResult to dictionary for JSON serialization.
         """
@@ -98,7 +112,7 @@ class FixResult:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "FixResult":
+    def from_dict(cls, data: Dict[str, Union[str, bool, int, float]]) -> "FixResult":
         """
         Create FixResult from dictionary.
         """
@@ -122,7 +136,7 @@ class FixResult:
         ts_str = data.get("ts") or data.get("timestamp")
         ts = datetime.now(timezone.utc)
         if ts_str:
-            with suppress(Exception):
+            with suppress(ValueError, AttributeError):
                 ts = datetime.fromisoformat(str(ts_str).rstrip("Z"))
 
         if ts.tzinfo is None:
@@ -132,7 +146,7 @@ class FixResult:
             vid=vid,
             ok=bool(ok),
             ts=ts,
-            message=str(data.get("msg", "")),
-            output=str(data.get("output", "")),
-            error=str(data.get("error", "")),
+            message=str(data.get("msg") or ""),
+            output=str(data.get("output") or ""),
+            error=str(data.get("error") or ""),
         )

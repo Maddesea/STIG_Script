@@ -16,6 +16,7 @@ from stig_assessor.xml.schema import Sch
 from stig_assessor.xml.utils import XmlUtils
 from stig_assessor.core.config import Cfg
 from stig_assessor.core.logging import LOG
+from stig_assessor.core.constants import Status
 from stig_assessor.io.file_ops import FO
 from stig_assessor.exceptions import ParseError
 from stig_assessor.remediation.models import FixResult
@@ -69,11 +70,34 @@ class FixResPro:
 
         try:
             content = FO.read(path)
-            payload = json.loads(content)
+
+            # Auto-detect CSV format via file extension
+            if str(path).lower().endswith(".csv"):
+                import csv
+                import io
+
+                reader = csv.DictReader(io.StringIO(content))
+                entries = []
+                for row in reader:
+                    # Map CSV columns to expected JSON-like dict schema
+                    entry = {
+                        "vid": row.get("vid") or row.get("Vuln_ID", ""),
+                        "ok": row.get("ok", "false").lower() in ("true", "1", "yes", "success"),
+                        "msg": row.get("msg", ""),
+                        "output": row.get("out", ""),
+                        "error": row.get("err", ""),
+                    }
+                    if "ts" in row or "timestamp" in row:
+                        entry["ts"] = row.get("ts") or row.get("timestamp")
+                    entries.append(entry)
+                payload = entries
+                LOG.i("Detected CSV remediation results format")
+            else:
+                payload = json.loads(content)
         except json.JSONDecodeError as exc:
             raise ParseError(f"Invalid JSON in {path.name}: {exc}") from exc
-        except Exception as exc:
-            raise ParseError(f"Cannot read {path.name}: {exc}") from exc
+        except (OSError, RuntimeError) as exc:
+            raise ParseError(f"Cannot parse {path.name}: {exc}") from exc
 
         imported = 0
         skipped = 0
@@ -105,7 +129,7 @@ class FixResPro:
                             # Tag each result with source system
                             for entry in system_results:
                                 if isinstance(entry, dict):
-                                    entry['_source_system'] = system_name
+                                    entry["_source_system"] = system_name
                             entries.extend(system_results)
                             LOG.d(f"  Loaded {len(system_results)} from system '{system_name}'")
 
@@ -145,7 +169,7 @@ class FixResPro:
         # ═══ PROCESS ENTRIES WITH DEDUPLICATION ═══
         dedup: Dict[str, FixResult] = {}
 
-        for idx, entry in enumerate(entries, 1):
+        for idx, entry in enumerate(entries[:1000], 1):
             try:
                 result = FixResult.from_dict(entry)
 
@@ -162,7 +186,7 @@ class FixResPro:
 
                 imported += 1
 
-            except Exception as exc:
+            except (ValueError, TypeError, KeyError) as exc:
                 skipped += 1
                 LOG.w(f"Entry {idx}: invalid - {exc}")
                 continue
@@ -177,7 +201,9 @@ class FixResPro:
                 self.results[vid] = result
 
         unique_count = len(dedup)
-        LOG.i(f"Loaded {unique_count} unique results from {imported} total entries (skipped {skipped})")
+        LOG.i(
+            f"Loaded {unique_count} unique results from {imported} total entries (skipped {skipped})"
+        )
         LOG.clear()
 
         return unique_count, skipped
@@ -189,13 +215,15 @@ class FixResPro:
         *,
         auto_status: bool = True,
         dry: bool = False,
+        details_mode: str = "prepend",
+        comment_mode: str = "prepend",
     ) -> Dict[str, Any]:
         """
         Update CKL file with remediation results.
 
         Applies loaded remediation results to vulnerabilities in the checklist.
         Preserves existing finding details by prepending remediation evidence.
-        Optionally updates status to "NotAFinding" for successful remediations.
+        Optionally updates status to NotAFinding for successful remediations.
 
         Args:
             checklist: Path to input CKL file
@@ -223,7 +251,7 @@ class FixResPro:
         try:
             tree = FO.parse_xml(checklist)
             root = tree.getroot()
-        except Exception as exc:
+        except (ParseError, OSError, ValueError) as exc:
             raise ParseError(f"Unable to parse checklist: {exc}") from exc
 
         stigs = root.find("STIGS")
@@ -275,10 +303,32 @@ class FixResPro:
                 summary.append(result.error)
 
             existing = finding_node.text or ""
+            summary_text = "\n".join(summary)
             if existing.strip():
-                combined = "\n".join(summary) + "\n\n" + "═" * 80 + "\n[PREVIOUS]\n" + "═" * 80 + "\n\n" + existing
+                if details_mode == "overwrite":
+                    combined = summary_text
+                elif details_mode == "append":
+                    combined = (
+                        existing
+                        + "\n\n"
+                        + "═" * 80
+                        + "\n[AUTOMATED REMEDIATION]\n"
+                        + "═" * 80
+                        + "\n\n"
+                        + summary_text
+                    )
+                else:  # prepend (default)
+                    combined = (
+                        summary_text
+                        + "\n\n"
+                        + "═" * 80
+                        + "\n[PREVIOUS]\n"
+                        + "═" * 80
+                        + "\n\n"
+                        + existing
+                    )
             else:
-                combined = "\n".join(summary)
+                combined = summary_text
 
             if len(combined) > Cfg.MAX_FIND:
                 combined = combined[: Cfg.MAX_FIND - 15] + "\n[TRUNCATED]"
@@ -290,15 +340,24 @@ class FixResPro:
             comments = comment_node.text or ""
             entry = f"[Automated Remediation {result.ts.strftime('%Y-%m-%d %H:%M:%S UTC')}] {result.message or 'Refer to details'}"
             if comments.strip():
-                comment_node.text = entry + "\n" + comments
+                if comment_mode == "overwrite":
+                    combined_comments = entry
+                elif comment_mode == "append":
+                    combined_comments = comments + "\n" + entry
+                else:  # prepend (default)
+                    combined_comments = entry + "\n" + comments
             else:
-                comment_node.text = entry
+                combined_comments = entry
+                
+            if len(combined_comments) > Cfg.MAX_COMM:
+                combined_comments = combined_comments[: Cfg.MAX_COMM - 15] + "\n[TRUNCATED]"
+            comment_node.text = combined_comments
 
             if auto_status and result.ok:
                 status_node = vuln.find("STATUS")
                 if status_node is None:
                     status_node = ET.SubElement(vuln, "STATUS")
-                status_node.text = San.status("NotAFinding")
+                status_node.text = San.status(Status.NOT_A_FINDING)
 
         XmlUtils.indent_xml(root)
 
@@ -340,18 +399,17 @@ class FixResPro:
             import io
 
             output = io.StringIO()
-            writer = csv.DictWriter(
-                output,
-                fieldnames=['vid', 'timestamp', 'success', 'message']
-            )
+            writer = csv.DictWriter(output, fieldnames=["vid", "timestamp", "success", "message"])
             writer.writeheader()
             for r in self.results.values():
-                writer.writerow({
-                    'vid': r.vid,
-                    'timestamp': r.ts.isoformat(),
-                    'success': r.ok,
-                    'message': r.message
-                })
+                writer.writerow(
+                    {
+                        "vid": r.vid,
+                        "timestamp": r.ts.isoformat(),
+                        "success": r.ok,
+                        "message": r.message,
+                    }
+                )
             return output.getvalue()
 
         else:  # text

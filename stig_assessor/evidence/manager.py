@@ -21,12 +21,15 @@ import tempfile
 import zipfile
 import re
 import os
+import sys
 
 from stig_assessor.evidence.models import EvidenceMeta
-
-
-# Constants (from STIG_Script.py)
-CHUNK_SIZE = 8192  # For file I/O operations
+from stig_assessor.core.config import Cfg
+from stig_assessor.core.logging import LOG
+from stig_assessor.core.constants import CHUNK_SIZE, LARGE_EVIDENCE_THRESHOLD
+from stig_assessor.xml.sanitizer import San
+from stig_assessor.io.file_ops import FO
+from stig_assessor.exceptions import ValidationError, FileError
 
 
 SAFE_FILENAME_RE = re.compile(r"[^\w.-]")
@@ -58,17 +61,9 @@ class EvidenceMgr:
         Loads existing metadata from disk if available.
         Creates evidence directory structure as needed.
         """
-        # Import dependencies here to avoid circular imports
-        try:
-            from stig_assessor.core.config import Cfg
-            self.base = Cfg.EVIDENCE_DIR
-        except ImportError:
-            # Fallback for when core module isn't available yet
-            from pathlib import Path
-            home = Path.home()
-            self.base = home / ".stig_assessor" / "evidence"
-            self.base.mkdir(parents=True, exist_ok=True)
+        self.base = Cfg.EVIDENCE_DIR
 
+        self.base.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.meta_file = self.base / "meta.json"
         self._meta: Dict[str, List[EvidenceMeta]] = defaultdict(list)
         self._lock = threading.RLock()
@@ -84,28 +79,20 @@ class EvidenceMgr:
         if not self.meta_file.exists():
             return
 
-        with suppress(Exception):
-            try:
-                from stig_assessor.io.file_ops import FO
-                data = json.loads(FO.read(self.meta_file))
-            except ImportError:
-                # Fallback when FO isn't available yet
-                data = json.loads(self.meta_file.read_text(encoding="utf-8"))
-
+        with suppress(OSError, ValueError):
+            data = json.loads(FO.read(self.meta_file))
             for vid, entries in data.items():
                 try:
-                    # Import sanitizer if available
-                    try:
-                        from stig_assessor.xml.sanitizer import San
-                        vid = San.vuln(vid)
-                    except ImportError:
-                        vid = str(vid).strip()
-                except Exception:
+                    vid = San.vuln(vid)
+                except ValidationError as exc:
+                    LOG.w(f"Skipping badly formed VID '{vid}' during evidence meta load: {exc}")
                     continue
 
                 self._meta[vid] = []
-                for entry in entries:
-                    with suppress(Exception):
+                if not isinstance(entries, list):
+                    continue
+                for entry in entries[:100]:
+                    with suppress(ValueError, TypeError):
                         meta = EvidenceMeta.from_dict(entry)
                         self._meta[vid].append(meta)
 
@@ -116,18 +103,11 @@ class EvidenceMgr:
         Writes metadata to meta.json using atomic write if available.
         """
         payload = {
-            vid: [entry.as_dict() for entry in entries]
-            for vid, entries in self._meta.items()
+            vid: [entry.as_dict() for entry in entries] for vid, entries in self._meta.items()
         }
 
-        try:
-            from stig_assessor.io.file_ops import FO
-            with FO.atomic(self.meta_file) as handle:
-                json.dump(payload, handle, indent=2, ensure_ascii=False)
-        except ImportError:
-            # Fallback when FO isn't available yet
-            with self.meta_file.open('w', encoding='utf-8') as handle:
-                json.dump(payload, handle, indent=2, ensure_ascii=False)
+        with FO.atomic(self.meta_file) as handle:
+            json.dump(payload, handle, indent=2, ensure_ascii=False)
 
     # ----------------------------------------------------------------------- import
     def import_file(
@@ -158,86 +138,41 @@ class EvidenceMgr:
             - Files are renamed with timestamp prefix
             - Original file is copied (not moved)
         """
-        # Import dependencies
-        try:
-            from stig_assessor.xml.sanitizer import San
-            from stig_assessor.core.logging import LOG
-            from stig_assessor.exceptions import FileError
-        except ImportError:
-            # Fallback implementations
-            class FileError(Exception):
-                pass
-
-            class San:
-                @staticmethod
-                def vuln(s):
-                    return str(s).strip()
-
-                @staticmethod
-                def path(p, exist=False, file=False):
-                    p = Path(p)
-                    if exist and not p.exists():
-                        raise FileError(f"Path does not exist: {p}")
-                    if file and p.exists() and not p.is_file():
-                        raise FileError(f"Path is not a file: {p}")
-                    return p
-
-            class LOG:
-                @staticmethod
-                def ctx(**kwargs):
-                    pass
-
-                @staticmethod
-                def i(msg):
-                    print(f"INFO: {msg}")
-
-                @staticmethod
-                def w(msg):
-                    print(f"WARN: {msg}")
-
-                @staticmethod
-                def clear():
-                    pass
-
         vid = San.vuln(vid)
         file_path = San.path(file_path, exist=True, file=True)
 
-        LOG.ctx(op="import_evidence", vid=vid)
-        LOG.i(f"Importing evidence for {vid}: {file_path}")
+        with LOG.context(op="import_evidence", vid=vid):
+            LOG.i(f"Importing evidence for {vid}: {file_path}")
 
-        dest_dir = self.base / vid
+            dest_dir = self.base / vid
 
-        # Compute hash BEFORE checking for duplicates to avoid unnecessary I/O
-        file_size = file_path.stat().st_size
-        file_hash = hashlib.sha256()
+            file_size = file_path.stat().st_size
+            file_hash = hashlib.sha256()
 
-        # Add progress indication for large files
-        if file_size > 10 * 1024 * 1024:  # 10MB+
-            LOG.i(f"Computing hash for large file ({file_size} bytes)...")
+            if file_size > LARGE_EVIDENCE_THRESHOLD:
+                LOG.i(f"Computing hash for large file ({file_size} bytes)...")
 
-        with open(file_path, "rb") as handle:
-            for chunk in iter(lambda: handle.read(CHUNK_SIZE), b""):
-                file_hash.update(chunk)
+            with open(file_path, "rb") as handle:
+                for chunk in iter(lambda: handle.read(CHUNK_SIZE), b""):
+                    file_hash.update(chunk)
 
-        digest = file_hash.hexdigest()
+            digest = file_hash.hexdigest()
 
-        # Check for duplicates BEFORE copying (saves I/O)
-        with self._lock:
-            for entry in self._meta[vid]:
-                if entry.file_hash == digest:
-                    LOG.w("Duplicate evidence detected (by hash), skipping copy")
-                    existing_path = dest_dir / entry.filename
-                    if existing_path.exists():
-                        LOG.clear()
-                        return existing_path
-                    else:
-                        LOG.w(f"Duplicate entry exists but file missing: {existing_path}")
-                        # Remove stale metadata entry
-                        self._meta[vid].remove(entry)
-                        break
+            # Check for duplicates BEFORE copying (saves I/O)
+            with self._lock:
+                for entry in self._meta[vid]:
+                    if entry.file_hash == digest:
+                        LOG.w("Duplicate evidence detected (by hash), skipping copy")
+                        existing_path = dest_dir / entry.filename
+                        if existing_path.exists():
+                            return existing_path
+                        else:
+                            LOG.w(f"Duplicate entry exists but file missing: {existing_path}")
+                            self._meta[vid].remove(entry)
+                            break
 
-            # Not a duplicate, proceed with import
-            dest_dir.mkdir(parents=True, exist_ok=True)
+            # Not a duplicate, proceed with import outside lock for fast mutox
+            dest_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             safe_name = SAFE_FILENAME_RE.sub("_", file_path.name)
             dest_name = f"{timestamp}_{safe_name}"
@@ -254,12 +189,12 @@ class EvidenceMgr:
                 category=category,
                 who=os.getenv("USER") or os.getenv("USERNAME") or "System",
             )
-            self._meta[vid].append(meta)
-            self._save()
+            with self._lock:
+                self._meta[vid].append(meta)
+                self._save()
 
-        LOG.i(f"Evidence imported to {dest}")
-        LOG.clear()
-        return dest
+            LOG.i(f"Evidence imported to {dest}")
+            return dest
 
     # ----------------------------------------------------------------------- export
     def export_all(self, dest_dir: Union[str, Path]) -> int:
@@ -276,39 +211,22 @@ class EvidenceMgr:
             - Exports metadata to evidence_meta.json
             - Preserves file timestamps (copy2)
         """
-        # Import sanitizer if available
-        try:
-            from stig_assessor.xml.sanitizer import San
-            from stig_assessor.core.logging import LOG
-            dest_dir = San.path(dest_dir, mkpar=True, dir=True)
-        except ImportError:
-            dest_dir = Path(dest_dir)
-            dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_dir = San.path(dest_dir, mkpar=True, dir=True)
 
-            class LOG:
-                @staticmethod
-                def ctx(**kwargs):
-                    pass
+        with LOG.context(op="export_evidence"):
+            LOG.i(f"Exporting evidence to {dest_dir}")
 
-                @staticmethod
-                def i(msg):
-                    print(f"INFO: {msg}")
+            copied = 0
+            # Pull meta out of lock to avoid blocking IO
+            with self._lock:
+                meta_snapshot = {vid: list(entries) for vid, entries in self._meta.items()}
 
-                @staticmethod
-                def clear():
-                    pass
-
-        LOG.ctx(op="export_evidence")
-        LOG.i(f"Exporting evidence to {dest_dir}")
-
-        copied = 0
-        with self._lock:
-            for vid, entries in self._meta.items():
+            for vid, entries in meta_snapshot.items():
                 source_dir = self.base / vid
                 if not source_dir.exists():
                     continue
                 target_vid_dir = dest_dir / vid
-                target_vid_dir.mkdir(parents=True, exist_ok=True)
+                target_vid_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
                 for entry in entries:
                     source_file = source_dir / entry.filename
                     if not source_file.exists():
@@ -316,31 +234,21 @@ class EvidenceMgr:
                     shutil.copy2(source_file, target_vid_dir / entry.filename)
                     copied += 1
 
-        # Export metadata
-        metadata_path = dest_dir / "evidence_meta.json"
-        try:
-            from stig_assessor.io.file_ops import FO
+            # Export metadata
+            metadata_path = dest_dir / "evidence_meta.json"
             with FO.atomic(metadata_path) as handle:
                 json.dump(
-                    {vid: [entry.as_dict() for entry in entries]
-                     for vid, entries in self._meta.items()},
-                    handle,
-                    indent=2,
-                    ensure_ascii=False,
-                )
-        except ImportError:
-            with metadata_path.open('w', encoding='utf-8') as handle:
-                json.dump(
-                    {vid: [entry.as_dict() for entry in entries]
-                     for vid, entries in self._meta.items()},
+                    {
+                        vid: [entry.as_dict() for entry in entries]
+                        for vid, entries in meta_snapshot.items()
+                    },
                     handle,
                     indent=2,
                     ensure_ascii=False,
                 )
 
-        LOG.i(f"Exported {copied} evidence files")
-        LOG.clear()
-        return copied
+            LOG.i(f"Exported {copied} evidence files")
+            return copied
 
     # ----------------------------------------------------------------------- package
     def package(self, zip_path: Union[str, Path]) -> Path:
@@ -360,72 +268,45 @@ class EvidenceMgr:
             - Files organized as VID/filename in archive
             - Uses ZIP_DEFLATED compression
         """
-        # Import sanitizer if available
-        try:
-            from stig_assessor.xml.sanitizer import San
-            from stig_assessor.core.logging import LOG
-            from stig_assessor.io.file_ops import FO
-            zip_path = San.path(zip_path, mkpar=True)
-        except ImportError:
-            zip_path = Path(zip_path)
-            zip_path.parent.mkdir(parents=True, exist_ok=True)
+        zip_path = San.path(zip_path, mkpar=True)
 
-            class LOG:
-                @staticmethod
-                def ctx(**kwargs):
-                    pass
-
-                @staticmethod
-                def i(msg):
-                    print(f"INFO: {msg}")
-
-                @staticmethod
-                def clear():
-                    pass
-
-            class FO:
-                @staticmethod
-                def zip(zip_path, files, base="evidence"):
-                    # Simple ZIP creation
-                    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-                        for arc_name, source_path in files.items():
-                            zf.write(source_path, f"{base}/{arc_name}")
-                    return zip_path
-
-        LOG.ctx(op="package_evidence")
-        LOG.i(f"Packaging evidence into {zip_path}")
-
-        files: Dict[str, Path] = {}
-        with self._lock:
-            for vid, entries in self._meta.items():
+        with LOG.context(op="package_evidence"):
+            LOG.i(f"Packaging evidence into {zip_path}")
+            
+            files: Dict[str, Path] = {}
+            with self._lock:
+                meta_snapshot = {vid: list(entries) for vid, entries in self._meta.items()}
+                
+            for vid, entries in meta_snapshot.items():
                 for entry in entries:
                     source = self.base / vid / entry.filename
                     if source.exists():
                         files[f"{vid}/{entry.filename}"] = source
 
-        # Create temporary metadata file
-        tmp_meta = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
-        meta_path = Path(tmp_meta.name)
-        with tmp_meta:
-            json.dump(
-                {vid: [entry.as_dict() for entry in entries]
-                 for vid, entries in self._meta.items()},
-                tmp_meta,
-                indent=2,
-                ensure_ascii=False,
-            )
+            # Create temporary metadata file
+            tmp_meta = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
+            meta_path = Path(tmp_meta.name)
+            with tmp_meta:
+                json.dump(
+                    {
+                        vid: [entry.as_dict() for entry in entries]
+                        for vid, entries in meta_snapshot.items()
+                    },
+                    tmp_meta,
+                    indent=2,
+                    ensure_ascii=False,
+                )
 
-        files["meta.json"] = meta_path
+            files["meta.json"] = meta_path
 
-        try:
-            archive = FO.zip(zip_path, files, base="evidence")
-        finally:
-            with suppress(Exception):
-                meta_path.unlink()
+            try:
+                archive = FO.zip(zip_path, files, base="evidence")
+            finally:
+                with suppress(OSError):
+                    meta_path.unlink()
 
-        LOG.i(f"Evidence package created: {archive}")
-        LOG.clear()
-        return archive
+            LOG.i(f"Evidence package created: {archive}")
+            return archive
 
     # ----------------------------------------------------------------------- import pkg
     def import_package(self, package: Union[str, Path]) -> int:
@@ -446,109 +327,70 @@ class EvidenceMgr:
             - Rejects absolute paths
             - Rejects parent directory references (..)
         """
-        # Import dependencies
-        try:
-            from stig_assessor.xml.sanitizer import San
-            from stig_assessor.core.logging import LOG
-            from stig_assessor.exceptions import ValidationError
-            package = San.path(package, exist=True, file=True)
-        except ImportError:
-            package = Path(package)
-            if not package.exists():
-                raise FileNotFoundError(f"Package not found: {package}")
+        package = San.path(package, exist=True, file=True)
 
-            class ValidationError(Exception):
-                pass
+        with LOG.context(op="import_evidence_package", file=package.name):
+            LOG.i("Importing evidence package")
 
-            class San:
-                @staticmethod
-                def vuln(s):
-                    return str(s).strip()
+            extracted = 0
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_path = Path(tmp_dir)
 
-            class LOG:
-                @staticmethod
-                def ctx(**kwargs):
-                    pass
+                if hasattr(shutil, "unpack_archive") and sys.version_info >= (3, 12):
+                    shutil.unpack_archive(package, extract_dir=tmp_path, filter="data")
+                else:
+                    with zipfile.ZipFile(package, "r") as archive:
+                        for member in archive.namelist():
+                            member_path = Path(member)
+                            if member_path.is_absolute() or ".." in member_path.parts:
+                                raise ValidationError(f"Archive contains path traversal: {member}")
+                            target_path = (tmp_path / member).resolve()
+                            try:
+                                target_path.relative_to(tmp_path.resolve())
+                            except ValueError:
+                                raise ValidationError(f"Archive path escapes extraction directory: {member}")
+                        archive.extractall(tmp_path)
 
-                @staticmethod
-                def i(msg):
-                    print(f"INFO: {msg}")
+                # Find evidence directory
+                evidence_dir = tmp_path / "evidence"
+                if evidence_dir.exists():
+                    meta_file = evidence_dir / "meta.json"
+                else:
+                    evidence_dir = tmp_path
+                    meta_file = tmp_path / "meta.json"
 
-                @staticmethod
-                def clear():
-                    pass
+                # Load metadata
+                if meta_file.exists():
+                    meta_data = json.loads(meta_file.read_text(encoding="utf-8"))
+                else:
+                    meta_data = {}
 
-        LOG.ctx(op="import_evidence_package", file=package.name)
-        LOG.i("Importing evidence package")
-
-        extracted = 0
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_path = Path(tmp_dir)
-            with zipfile.ZipFile(package, "r") as archive:
-                # Security: Validate all archive members before extraction
-                # to prevent path traversal attacks (CVE-2007-4559)
-                for member in archive.namelist():
-                    # Normalize the path and check for traversal attempts
-                    member_path = Path(member)
-                    if member_path.is_absolute():
-                        raise ValidationError(f"Archive contains absolute path: {member}")
-
-                    # Check for parent directory references
-                    if ".." in member_path.parts:
-                        raise ValidationError(f"Archive contains path traversal: {member}")
-
-                    # Verify resolved path stays within extraction directory
-                    target_path = (tmp_path / member).resolve()
-                    try:
-                        target_path.relative_to(tmp_path.resolve())
-                    except ValueError:
-                        raise ValidationError(
-                            f"Archive path escapes extraction directory: {member}"
-                        )
-
-                # Safe to extract after validation
-                archive.extractall(tmp_path)
-
-            # Find evidence directory
-            evidence_dir = tmp_path / "evidence"
-            if evidence_dir.exists():
-                meta_file = evidence_dir / "meta.json"
-            else:
-                evidence_dir = tmp_path
-                meta_file = tmp_path / "meta.json"
-
-            # Load metadata
-            if meta_file.exists():
-                meta_data = json.loads(meta_file.read_text(encoding="utf-8"))
-            else:
-                meta_data = {}
-
-            # Import files
-            for vid_dir in evidence_dir.iterdir():
-                if not vid_dir.is_dir():
-                    continue
-                vid = vid_dir.name
-                try:
-                    vid = San.vuln(vid)
-                except Exception:
-                    continue
-                for file in vid_dir.iterdir():
-                    if not file.is_file():
+                # Import files
+                for vid_dir in evidence_dir.iterdir():
+                    if not vid_dir.is_dir():
                         continue
-                    description = ""
-                    category = "general"
-                    # Find metadata for this file
-                    for entry in meta_data.get(vid, []):
-                        if entry.get("filename") == file.name:
-                            description = entry.get("description", "")
-                            category = entry.get("category", "general")
-                            break
-                    self.import_file(vid, file, description=description, category=category)
-                    extracted += 1
+                    vid = vid_dir.name
+                    try:
+                        vid = San.vuln(vid)
+                    except ValidationError as vid_err:
+                        LOG.d(f"Invalid VID skipped during import: {vid_err}")
+                        continue
+                    for file in vid_dir.iterdir():
+                        if not file.is_file():
+                            continue
+                        description = ""
+                        category = "general"
+                        # Find metadata for this file
+                        for entry in meta_data.get(vid, []):
+                            if entry.get("filename") == file.name:
+                                description = entry.get("description", "")
+                                category = entry.get("category", "general")
+                                break
+                        self.import_file(vid, file, description=description, category=category)
+                        extracted += 1
 
-        LOG.i(f"Imported {extracted} evidence files from package")
-        LOG.clear()
-        return extracted
+            LOG.i(f"Imported {extracted} evidence files from package")
+            return extracted
 
     # ----------------------------------------------------------------------- summary
     def summary(self) -> Dict[str, Any]:
@@ -565,9 +407,7 @@ class EvidenceMgr:
         with self._lock:
             total_files = sum(len(entries) for entries in self._meta.values())
             total_size = sum(
-                entry.file_size
-                for entries in self._meta.values()
-                for entry in entries
+                entry.file_size for entries in self._meta.values() for entry in entries
             )
             return {
                 "vulnerabilities": len(self._meta),

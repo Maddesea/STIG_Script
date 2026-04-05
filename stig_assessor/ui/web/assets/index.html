@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STIG Assessor Command Center</title>
+    <meta name="description" content="Premium interface for STIG capabilities">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Premium Header -->
+    <header class="glass-header">
+        <div class="brand">
+            <div class="logo-orb"></div>
+            <h1>STIG Assessor</h1>
+        </div>
+        <div class="header-actions">
+            <span class="status-badge pulse-active"><span class="dot"></span> Active</span>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Interactive Tabs -->
+        <div class="tabs-container glass-panel">
+            <button class="tab-btn active" data-target="tab-generate">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                Generate CKL
+            </button>
+            <button class="tab-btn" data-target="tab-remediate">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                Apply Remediation
+            </button>
+            <button class="tab-btn" data-target="tab-merge">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                Merge Checklists
+            </button>
+        </div>
+
+        <!-- GENERATE TAB -->
+        <section id="tab-generate" class="tab-content active glass-panel">
+            <div class="hero-text">
+                <h2>Automated Generation</h2>
+                <p>Upload raw DISA STIG Benchmark XML for instant parsing and checklist instantiation.</p>
+            </div>
+
+            <form id="form-generate" class="dynamic-form">
+                <div class="upload-zone" id="dz-generate">
+                    <input type="file" id="file-generate" accept=".xml" class="hidden" required>
+                    <div class="upload-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    </div>
+                    <p class="highlight">Drag & Drop XCCDF XML</p>
+                    <p class="sub-text">or click to browse local files</p>
+                    <div class="file-name hidden"></div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Target Asset (Hostname)</label>
+                        <input type="text" id="gen-asset" class="glass-input" placeholder="SERVER-01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>IP Address</label>
+                        <input type="text" id="gen-ip" class="glass-input" placeholder="192.168.1.100">
+                    </div>
+                    <div class="form-group">
+                        <label>MAC Address</label>
+                        <input type="text" id="gen-mac" class="glass-input" placeholder="00:11:22:33:44:55">
+                    </div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <input type="text" id="gen-role" class="glass-input" placeholder="Database Server">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-glow">
+                        <span class="btn-text">Generate Checklist</span>
+                        <div class="spinner hidden"></div>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- REMEDIATE TAB -->
+        <section id="tab-remediate" class="tab-content glass-panel">
+            <div class="hero-text">
+                <h2>Continuous Remediation</h2>
+                <p>Merge extracted JSON findings natively into an existing .ckl file.</p>
+            </div>
+
+            <form id="form-remediate" class="dynamic-form">
+                <div class="grid-2">
+                    <div class="upload-zone" id="dz-rem-ckl">
+                        <input type="file" id="file-rem-ckl" accept=".ckl" class="hidden" required>
+                        <p class="highlight">Drop Target .ckl</p>
+                        <div class="file-name hidden"></div>
+                    </div>
+                    <div class="upload-zone" id="dz-rem-json">
+                        <input type="file" id="file-rem-json" accept=".json" class="hidden" required>
+                        <p class="highlight">Drop Results .json</p>
+                        <div class="file-name hidden"></div>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Finding Details Mode</label>
+                        <select id="rem-details-mode" class="glass-input">
+                            <option value="prepend">Prepend (Top)</option>
+                            <option value="append">Append (Bottom)</option>
+                            <option value="overwrite">Overwrite</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Comments Mode</label>
+                        <select id="rem-comment-mode" class="glass-input">
+                            <option value="prepend">Prepend (Top)</option>
+                            <option value="append">Append (Bottom)</option>
+                            <option value="overwrite">Overwrite</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-secondary btn-glow">
+                        <span class="btn-text">Apply Remediation</span>
+                        <div class="spinner hidden"></div>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- MERGE TAB -->
+        <section id="tab-merge" class="tab-content glass-panel">
+            <div class="hero-text">
+                <h2>Bulk Architecture Merge</h2>
+                <p>Combine multiple historical .ckl assets into a single comprehensive authoritative record.</p>
+            </div>
+
+            <form id="form-merge" class="dynamic-form">
+                <div class="upload-zone" id="dz-merge-base">
+                    <input type="file" id="file-merge-base" accept=".ckl" class="hidden" required>
+                    <p class="highlight">Drop Base Master .ckl</p>
+                    <div class="file-name hidden"></div>
+                </div>
+
+                <div class="upload-zone" id="dz-merge-hist" style="min-height: 120px;">
+                    <input type="file" id="file-merge-hist" accept=".ckl" multiple class="hidden" required>
+                    <p class="highlight">Drop Historical .ckls (Multiple Allowed)</p>
+                    <div class="file-name hidden"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="merge-preserve" checked>
+                        <span>Preserve Check History Trails</span>
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-accent btn-glow">
+                        <span class="btn-text">Merge Checklists</span>
+                        <div class="spinner hidden"></div>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Global Results Modal Overlay -->
+        <div id="results-modal" class="modal-overlay hidden">
+            <div class="modal-content glass-panel popup-anim">
+                <div class="modal-header">
+                    <h3>Operation Complete</h3>
+                    <button class="close-btn" id="close-modal">×</button>
+                </div>
+                
+                <p id="result-message" class="result-msg"></p>
+                
+                <div class="stats-grid" id="modal-stats"></div>
+                
+                <div id="error-log" class="error-console hidden"></div>
+
+                <div class="modal-actions">
+                    <a id="download-trigger" class="btn btn-success btn-glow">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Download Artifact
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

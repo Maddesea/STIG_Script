@@ -13,11 +13,12 @@ import hashlib
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Dict, Union
 
 # Import from modular package
 from stig_assessor.exceptions import ValidationError
 from stig_assessor.xml.sanitizer import San
+from stig_assessor.core.constants import Status
 
 
 @dataclass(order=True)
@@ -66,7 +67,7 @@ class Hist:
         try:
             self.stat = San.status(self.stat)
         except (ValidationError, ValueError):
-            self.stat = "Not_Reviewed"  # Default fallback
+            self.stat = Status.NOT_REVIEWED  # Default fallback
 
         # Normalize severity (with fallback to default)
         try:
@@ -78,7 +79,7 @@ class Hist:
         if not self.who:
             self.who = os.getenv("USER") or os.getenv("USERNAME") or "System"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> Dict[str, str]:
         """
         Serialize history entry to dictionary.
 
@@ -97,7 +98,7 @@ class Hist:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Hist":
+    def from_dict(cls, data: Dict[str, str]) -> "Hist":
         """
         Create history entry from dictionary.
 
@@ -120,7 +121,7 @@ class Hist:
             try:
                 # Handle ISO format with optional 'Z' suffix
                 ts = datetime.fromisoformat(ts_str.rstrip("Z"))
-            except Exception:
+            except ValueError:
                 pass  # Use default timestamp
 
         # Ensure timezone-aware
@@ -129,13 +130,13 @@ class Hist:
 
         return cls(
             ts=ts,
-            stat=data.get("stat", "Not_Reviewed"),
-            find=str(data.get("find", "")),
-            comm=str(data.get("comm", "")),
-            src=str(data.get("src", "unknown")),
-            chk=str(data.get("chk", "")) or "legacy",
-            sev=str(data.get("sev", "medium")),
-            who=str(data.get("who", "")),
+            stat=(data.get("stat") or Status.NOT_REVIEWED),
+            find=str(data.get("find") or ""),
+            comm=str(data.get("comm") or ""),
+            src=str(data.get("src") or "unknown"),
+            chk=(str(data.get("chk") or "legacy")),
+            sev=str(data.get("sev") or "medium"),
+            who=str(data.get("who") or ""),
         )
 
     def content_hash(self) -> str:
@@ -154,5 +155,6 @@ class Hist:
         except (UnicodeEncodeError, AttributeError):
             # Fallback for encoding errors
             import uuid
+
             digest = f"chk_{uuid.uuid4().hex[:6]}"
         return digest

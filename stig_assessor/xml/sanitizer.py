@@ -25,7 +25,7 @@ import re
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from stig_assessor.core.constants import IS_WINDOWS, MAX_FILE_SIZE
+from stig_assessor.core.constants import IS_WINDOWS, MAX_FILE_SIZE, Status
 from stig_assessor.core.logging import LOG
 from stig_assessor.exceptions import ValidationError
 from stig_assessor.xml.schema import Sch
@@ -149,7 +149,10 @@ class San:
                                             target_str = str(target_resolved)
                                             base_str = str(base_resolved)
                                             # Add separator to prevent matching "/foo" with "/foobar"
-                                            if not target_str.startswith(base_str + os.sep) and target_str != base_str:
+                                            if (
+                                                not target_str.startswith(base_str + os.sep)
+                                                and target_str != base_str
+                                            ):
                                                 raise ValidationError(
                                                     f"Symlink escape attempt detected: {parent}"
                                                 )
@@ -162,18 +165,21 @@ class San:
                                                     f"Symlink escape attempt detected: {parent}"
                                                 )
                                 except (ValueError, TypeError) as ve:
-                                    raise ValidationError(f"Symlink validation failed: {parent}: {ve}")
+                                    raise ValidationError(
+                                        f"Symlink validation failed: {parent}: {ve}"
+                                    )
                     except ValidationError:
                         raise
-                    except Exception:
+                    except (OSError, RuntimeError) as sl_eval_err:
                         # Symlink validation warning - logged but not fatal
+                        LOG.debug(f"Symlink validation ignored: {sl_eval_err}")
                         pass
 
             if len(str(path)) > San.MAX_PATH:
                 raise ValidationError(f"Path too long: {len(str(path))}")
 
             if mkpar:
-                path.parent.mkdir(parents=True, exist_ok=True)
+                path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
 
             if exist and not path.exists():
                 raise ValidationError(f"Not found: {path}")
@@ -194,8 +200,8 @@ class San:
             return path
         except ValidationError:
             raise
-        except Exception as exc:
-            raise ValidationError(f"Path validation failed for '{value}': {exc}")
+        except (OSError, ValueError, TypeError) as exc:
+            raise ValidationError(f"Path validation failed for '{value}': {exc}") from exc
 
     @staticmethod
     def asset(value: str) -> str:
@@ -314,13 +320,13 @@ class San:
             value: Status value to validate
 
         Returns:
-            Validated status value, or "Not_Reviewed" if input is empty
+            Validated status value, or `Status.NOT_REVIEWED` if input is empty
 
         Raises:
             ValidationError: If status value is not in valid set
         """
         if not value:
-            return "Not_Reviewed"
+            return Status.NOT_REVIEWED
         value = str(value).strip()
         if value not in Sch.STAT_VALS:
             raise ValidationError(f"Invalid status: {value}")
@@ -374,9 +380,11 @@ class San:
         if not isinstance(value, str):
             try:
                 value = str(value)
-            except Exception:
+            except (ValueError, TypeError) as str_conv_err:
                 # Cannot convert to string, return empty
-                LOG.warning(f"Failed to convert value to string for XML sanitization: {type(value)}")
+                LOG.warning(
+                    f"Failed to convert value to string for XML sanitization: {type(value)} ({str_conv_err})"
+                )
                 return ""
 
         # Remove control characters

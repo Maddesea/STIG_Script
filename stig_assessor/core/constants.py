@@ -11,7 +11,6 @@ import sys
 from enum import Enum
 from typing import FrozenSet
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # VERSION INFORMATION
 # ──────────────────────────────────────────────────────────────────────────────
@@ -20,6 +19,8 @@ VERSION = "8.0.0"
 BUILD_DATE = "2025-11-16"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
+STIG_VIEWER_3_VERSION = "3.3"
+SUPPORTED_FORMATS = frozenset([".ckl", ".cklb", ".xccdf", ".xml", ".zip"])
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -43,6 +44,9 @@ CHUNK_SIZE = 8192  # Bytes per read chunk
 MAX_RETRIES = 3  # Number of retry attempts for I/O operations
 RETRY_DELAY = 0.5  # Seconds between retries
 MAX_XML_SIZE = 500 * 1024 * 1024  # 500MB - maximum XML file size
+MAX_CKLB_SIZE = 150 * 1024 * 1024  # 150MB - maximum JSON CKLB size
+LARGE_EVIDENCE_THRESHOLD = 10 * 1024 * 1024  # 10MB - warning for large evidence
+MAX_LOG_SIZE_BYTES = 10 * 1024 * 1024  # 10MB max log rotation
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -70,6 +74,7 @@ MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB maximum file size
 MAX_HISTORY_ENTRIES = 200  # Maximum history entries per vulnerability
 MAX_FINDING_LENGTH = 65_000  # Maximum characters in finding details
 MAX_COMMENT_LENGTH = 32_000  # Maximum characters in comments
+TITLE_MAX_LONG = 300  # Maximum rule title length
 MAX_MERGE_FILES = 100  # Maximum number of files to merge at once
 MAX_VULNERABILITIES = 15_000  # Maximum vulnerabilities per checklist
 KEEP_BACKUPS = 30  # Number of backup files to retain
@@ -133,9 +138,9 @@ class Severity(str, Enum):
     - LOW = CAT III (minor findings)
     """
 
-    HIGH = "high"      # CAT I
+    HIGH = "high"  # CAT I
     MEDIUM = "medium"  # CAT II
-    LOW = "low"        # CAT III
+    LOW = "low"  # CAT III
 
     @classmethod
     def is_valid(cls, value: str) -> bool:

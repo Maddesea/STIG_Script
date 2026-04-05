@@ -6,9 +6,20 @@ from pathlib import Path
 from contextlib import suppress
 import threading
 import platform
+import tempfile
 import sys
 import os
-import tempfile
+
+from stig_assessor.core.constants import (
+    MAX_FILE_SIZE as _MAX_FILE_SIZE,
+    MAX_HISTORY_ENTRIES as _MAX_HISTORY_ENTRIES,
+    MAX_FINDING_LENGTH as _MAX_FINDING_LENGTH,
+    MAX_COMMENT_LENGTH as _MAX_COMMENT_LENGTH,
+    MAX_MERGE_FILES as _MAX_MERGE_FILES,
+    MAX_VULNERABILITIES as _MAX_VULNERABILITIES,
+    KEEP_BACKUPS as _KEEP_BACKUPS,
+    KEEP_LOGS as _KEEP_LOGS,
+)
 
 
 class Cfg:
@@ -44,14 +55,14 @@ class Cfg:
     BOILERPLATE_FILE: Optional[Path] = None
 
     # Limits and thresholds
-    MAX_FILE = 500 * 1024 * 1024  # 500 MB
-    MAX_HIST = 200
-    MAX_FIND = 65000
-    MAX_COMM = 32000
-    MAX_MERGE = 100
-    MAX_VULNS = 15000
-    KEEP_BACKUPS = 30
-    KEEP_LOGS = 15
+    MAX_FILE = _MAX_FILE_SIZE
+    MAX_HIST = _MAX_HISTORY_ENTRIES
+    MAX_FIND = _MAX_FINDING_LENGTH
+    MAX_COMM = _MAX_COMMENT_LENGTH
+    MAX_MERGE = _MAX_MERGE_FILES
+    MAX_VULNS = _MAX_VULNERABILITIES
+    KEEP_BACKUPS = _KEEP_BACKUPS
+    KEEP_LOGS = _KEEP_LOGS
 
     # History deduplication and compression constants
     DEDUP_CHECK_WINDOW = 20  # Check last N entries for duplicate prevention
@@ -75,7 +86,7 @@ class Cfg:
             # Find writable home directory
             candidates: List[Path] = []
 
-            with suppress(Exception):
+            with suppress(OSError):
                 candidates.append(Path.home())
 
             for env_var in ("USERPROFILE", "HOME"):
@@ -84,22 +95,26 @@ class Cfg:
                     candidates.append(Path(val))
 
             candidates.append(Path(tempfile.gettempdir()) / "stig_user")
-            with suppress(Exception):
+            with suppress(OSError):
                 candidates.append(Path.cwd() / ".stig_home")
 
             attempted_paths: List[str] = []
             for candidate in candidates:
-                attempted_paths.append(str(candidate))
                 try:
-                    candidate.mkdir(parents=True, exist_ok=True)
-                    tmp = candidate / f".stig_test_{os.getpid()}"
-                    tmp.write_text("ok", encoding="utf-8")
-                    tmp.unlink()
+                    candidate.mkdir(parents=True, exist_ok=True, mode=0o700)
+                    with tempfile.NamedTemporaryFile(
+                        dir=candidate, prefix=".stig_test_", delete=False
+                    ) as tmp:
+                        tmp_path = Path(tmp.name)
+                        tmp.write(b"ok")
+                    tmp_path.unlink()
                     cls.HOME = candidate
                     break
-                except (OSError, PermissionError, IOError):
+                except (OSError, PermissionError, IOError) as e:
+                    attempted_paths.append(f"{candidate} ({e})")
                     continue
-                except Exception:
+                except (RuntimeError, ValueError) as e:
+                    attempted_paths.append(f"{candidate} (Unexpected: {e})")
                     continue
 
             if not cls.HOME:
@@ -130,13 +145,16 @@ class Cfg:
             ]
 
             for directory in required:
-                directory.mkdir(parents=True, exist_ok=True)
-                tmp = directory / f".write_test_{os.getpid()}"
-                tmp.write_text("ok", encoding="utf-8")
-                tmp.unlink()
+                directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+                with tempfile.NamedTemporaryFile(
+                    dir=directory, prefix=".write_test_", delete=False
+                ) as tmp:
+                    tmp_path = Path(tmp.name)
+                    tmp.write(b"ok")
+                tmp_path.unlink()
 
             for directory in optional:
-                directory.mkdir(parents=True, exist_ok=True)
+                directory.mkdir(parents=True, exist_ok=True, mode=0o700)
 
             cls._done = True
 
@@ -158,13 +176,13 @@ class Cfg:
         for module in ("json", "hashlib", "pathlib", "logging", "zipfile", "csv", "uuid"):
             try:
                 __import__(module)
-            except Exception:
-                errs.append(f"Missing stdlib module: {module}")
+            except ImportError as e:
+                errs.append(f"Missing stdlib module: {module} ({e})")
 
         try:
             ET.Element("test")
-        except Exception:
-            errs.append("XML parser failed")
+        except (TypeError, ValueError, RuntimeError) as e:
+            errs.append(f"XML parser failed: {e}")
 
         if cls.APP_DIR and not os.access(cls.APP_DIR, os.W_OK):
             errs.append(f"No write permission: {cls.APP_DIR}")
@@ -178,6 +196,7 @@ class Cfg:
         Returns:
             Tuple of (backups_removed: int, logs_removed: int)
         """
+
         def clean(directory: Path, keep: int, pattern: str) -> int:
             if not directory or not directory.exists():
                 return 0
@@ -188,7 +207,7 @@ class Cfg:
                 reverse=True,
             )
             for old in files[keep:]:
-                with suppress(Exception):
+                with suppress(OSError):
                     old.unlink()
                     removed += 1
             return removed

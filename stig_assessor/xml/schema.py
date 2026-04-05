@@ -15,7 +15,7 @@ This module provides:
 from __future__ import annotations
 from typing import Dict, FrozenSet, Tuple
 
-from stig_assessor.core.constants import STIG_VIEWER_VERSION
+from stig_assessor.core.constants import STIG_VIEWER_VERSION, Status, Severity
 
 
 class Sch:
@@ -142,26 +142,15 @@ class Sch:
     XCCDF_SELECT = "select"
 
     # Valid values for status (STIG Viewer compatible)
-    STAT_VALS: FrozenSet[str] = frozenset([
-        "NotAFinding",
-        "Open",
-        "Not_Reviewed",
-        "Not_Applicable"
-    ])
+    STAT_VALS: FrozenSet[str] = Status.all_values()
 
     # Valid values for severity
-    SEV_VALS: FrozenSet[str] = frozenset(["high", "medium", "low"])
+    SEV_VALS: FrozenSet[str] = Severity.all_values()
 
     # Valid security markings
-    MARKS: FrozenSet[str] = frozenset([
-        "CUI",
-        "UNCLASSIFIED",
-        "SECRET",
-        "TOP SECRET",
-        "TS",
-        "S",
-        "U"
-    ])
+    MARKS: FrozenSet[str] = frozenset(
+        ["CUI", "UNCLASSIFIED", "SECRET", "TOP SECRET", "TS", "S", "U"]
+    )
 
     # Default values for optional/mandatory elements
     DEFS: Dict[str, str] = {
@@ -239,6 +228,6 @@ class Sch:
             >>> Sch.strip_ns("VULN")
             'VULN'
         """
-        if '}' in tag:
-            return tag.split('}', 1)[1]
+        if "}" in tag:
+            return tag.split("}", 1)[1]
         return tag

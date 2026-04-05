@@ -1,0 +1,1510 @@
+"""Core processor module for XCCDF to CKL conversion and merging."""
+
+from __future__ import annotations
+
+import datetime
+import hashlib
+import uuid
+from collections import OrderedDict, defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import xml.etree.ElementTree as ET
+    from xml.etree.ElementTree import ParseError as XMLParseError
+else:
+    # Import required modules
+    from stig_assessor.core.deps import Deps
+    # Get specific XML parsers (defusedxml if available) for runtime
+    ET, XMLParseError = Deps.get_xml()
+
+from stig_assessor.core.constants import Status, CHUNK_SIZE, TITLE_MAX_LONG
+from stig_assessor.core.deps import Deps
+
+from stig_assessor.core.logging import Log
+from stig_assessor.core.config import CFG as Cfg
+from stig_assessor.xml.schema import Sch
+from stig_assessor.xml.utils import XmlUtils
+from stig_assessor.xml.sanitizer import San
+from stig_assessor.io.file_ops import FO
+from stig_assessor.exceptions import FileError, ParseError, ValidationError
+from stig_assessor.history.manager import HistMgr
+from stig_assessor.validation.validator import Val
+from stig_assessor.templates.boilerplate import BP
+
+LOG = Log("Processor")
+
+
+class Proc:
+    """
+    Main STIG checklist processor for XCCDF to CKL conversion and merging.
+
+    Provides core functionality for:
+    - Converting XCCDF benchmark files to CKL checklist format
+    - Merging multiple checklists with history preservation
+    - Comparing checklists for differences
+    - Generating statistics and reports
+
+    Thread Safety:
+        Instance methods are thread-safe through use of HistMgr's locking.
+    """
+
+    def __init__(self, history: Optional[HistMgr] = None, boiler: Optional[BP] = None):
+        """
+        Initialize processor with optional history and boilerplate managers.
+
+        Args:
+            history: History manager instance (creates new if None)
+            boiler: Boilerplate manager instance (creates new if None)
+        """
+        self.history = history or HistMgr()
+        self.boiler = boiler or BP()
+        self.validator = Val()
+
+    # ---------------------------------------------------------------- xccdf->ckl
+    def xccdf_to_ckl(
+        self,
+        xccdf: Union[str, Path],
+        out: Union[str, Path],
+        asset: str,
+        *,
+        ip: str = "",
+        mac: str = "",
+        role: str = "None",
+        marking: str = "CUI",
+        dry: bool = False,
+        apply_boilerplate: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Convert XCCDF benchmark to STIG Viewer CKL format.
+
+        Parses an XCCDF benchmark file and generates a compatible CKL checklist
+        with all vulnerabilities, metadata, and optional boilerplate text.
+
+        Args:
+            xccdf: Path to source XCCDF benchmark file
+            out: Path for output CKL file
+            asset: Asset hostname for checklist
+            ip: Asset IP address (optional)
+            mac: Asset MAC address (optional)
+            role: Asset role (default: "None")
+            marking: Classification marking (default: "CUI")
+            dry: If True, don't write output file
+            apply_boilerplate: If True, apply boilerplate templates
+
+        Returns:
+            Dict with keys: ok, output, processed, skipped, errors
+
+        Raises:
+            ValidationError: If input validation fails
+            ParseError: If XCCDF parsing fails or no vulnerabilities found
+        """
+        try:
+            xccdf = San.path(xccdf, exist=True, file=True)
+            out = San.path(out, mkpar=True)
+            asset = San.asset(asset)
+            ip = San.ip(ip) if ip else ""
+            mac = San.mac(mac) if mac else ""
+            role = role or "None"
+            marking = marking or "CUI"
+        except (ValidationError, OSError, ValueError, TypeError) as exc:
+            raise ValidationError(f"Input validation failed: {exc}") from exc
+
+        LOG.ctx(op="xccdf_to_ckl", asset=asset, file=xccdf.name)
+        LOG.i("Converting XCCDF to CKL")
+
+        try:
+            tree = FO.parse_xml(xccdf)
+            root = tree.getroot()
+        except (ParseError, OSError, ValueError) as exc:
+            raise ParseError(f"Failed to parse XCCDF: {exc}") from exc
+
+        ns = self._namespace(root)
+        meta = self._extract_meta(root, ns)
+
+        LOG.i(f"STIG title: {meta.get('title', 'unknown')}")
+        LOG.i(f"STIG version: {meta.get('version', 'unknown')}")
+
+        checklist = ET.Element(Sch.ROOT)
+        self._build_asset(checklist, asset, ip, mac, role, marking, meta)
+
+        stigs = ET.SubElement(checklist, "STIGS")
+        istig = ET.SubElement(stigs, "iSTIG")
+        self._build_stig_info(istig, xccdf, meta)
+
+        groups = self._list_groups(root, ns)
+        if not groups:
+            raise ParseError("XCCDF contains no vulnerability groups")
+
+        if len(groups) > Cfg.MAX_VULNS:
+            LOG.w(f"Large checklist: {len(groups)} vulnerabilities")
+
+        LOG.i(f"Processing {len(groups)} vulnerabilities")
+
+        processed = 0
+        skipped = 0
+        errors: List[str] = []
+
+        for idx, group in enumerate(groups, 1):
+            try:
+                vuln = self._build_vuln(group, ns, meta, apply_boilerplate, asset)
+                istig.append(vuln)
+                processed += 1
+            except ParseError as exc:
+                errors.append(str(exc))
+                skipped += 1
+                LOG.e(f"Group {idx} skipped: {exc}")
+            except (ValueError, TypeError, AttributeError, KeyError) as exc:
+                errors.append(str(exc))
+                skipped += 1
+                LOG.e(f"Group {idx} failed unexpectedly: {exc}")
+
+        if processed == 0:
+            raise ParseError("No vulnerabilities could be processed")
+
+        # Check error threshold - fail if too many vulnerabilities failed to process
+        total = processed + skipped
+        error_rate = (skipped / total) * 100 if total > 0 else 0
+        if error_rate > Cfg.ERROR_RATE_WARN_THRESHOLD:
+            LOG.w(f"High error rate: {error_rate:.1f}% of vulnerabilities failed to process")
+            LOG.w(f"First 5 errors: {errors[:5]}")
+            if error_rate > Cfg.ERROR_RATE_FAIL_THRESHOLD:
+                raise ParseError(
+                    f"Critical: {error_rate:.1f}% of vulnerabilities failed to process "
+                    f"(threshold: {Cfg.ERROR_RATE_FAIL_THRESHOLD}%). "
+                    f"This likely indicates a structural XCCDF parsing issue. "
+                    f"Sample errors: {'; '.join(errors[:3])}"
+                )
+
+        LOG.i(f"Processed: {processed} | Skipped: {skipped} | Error rate: {error_rate:.1f}%")
+
+        XmlUtils.indent_xml(checklist)
+
+        if dry:
+            LOG.i("Dry-run requested, checklist not written")
+            LOG.clear()
+            return {"ok": True, "processed": processed, "skipped": skipped, "errors": errors}
+
+        self._export_xml_to_file(checklist, out)
+
+        try:
+            ok, errs, _, _ = self.validator.validate(out)
+            if not ok:
+                raise ValidationError(
+                    f"Generated CKL failed validation: {errs[0] if errs else 'Unknown error'}"
+                )
+        except ValidationError:
+            raise
+        except (OSError, ParseError, ValueError) as exc:
+            LOG.w(f"Validator encountered an error (output may still be valid): {exc}")
+
+        LOG.i(f"Checklist created: {out}")
+        LOG.clear()
+        return {
+            "ok": True,
+            "output": str(out),
+            "processed": processed,
+            "skipped": skipped,
+            "errors": errors,
+        }
+
+    # ------------------------------------------------------------------- helpers
+    def _namespace(self, root: ET.Element) -> Dict[str, str]:
+        """Extract namespace dictionary from root element tag."""
+        return XmlUtils.extract_namespace(root)
+
+    def _extract_meta(self, root: ET.Element, ns: Dict[str, str]) -> Dict[str, str]:
+        """
+        Extract metadata from an XCCDF root element for STIG checklist population.
+
+        Args:
+            root: Root element of the parsed XCCDF.
+            ns: XML namespace mapping for XPath queries.
+
+        Returns:
+            Dictionary containing metadata parameters such as title, version, etc.
+        """
+        meta = {
+            "title": "Unknown STIG",
+            "description": "",
+            "version": "1",
+            "stigid": root.get("id", "Unknown_STIG"),
+            "releaseinfo": f"Release: 1 Benchmark Date: {datetime.now(timezone.utc).strftime('%d %b %Y')}",
+            "classification": "UNCLASSIFIED",
+            "source": "STIG.DOD.MIL",
+            "target_key": "2350",
+        }
+
+        def find_text(tag: str, default: str = "") -> str:
+            search_tag = f"ns:{tag}" if ns else tag
+            element = root.find(search_tag, ns)
+            if element is not None and element.text:
+                return element.text.strip()
+            return default
+
+        meta["title"] = find_text("title", meta["title"])
+        meta["description"] = find_text("description", meta["title"])
+        meta["version"] = find_text("version", meta["version"])
+
+        plain = root.find('plain-text[@id="release-info"]')
+        if plain is not None and plain.text:
+            meta["releaseinfo"] = plain.text.strip()
+
+        ref_search = ".//ns:reference" if ns else ".//reference"
+        for reference in root.findall(ref_search, ns):
+            for sub in reference:
+                tag_name = sub.tag.split("}")[-1]
+                if "identifier" in tag_name.lower() and sub.text:
+                    meta["target_key"] = sub.text.strip()
+                    break
+
+        return meta
+
+    def _build_asset(
+        self,
+        parent: ET.Element,
+        asset: str,
+        ip: str,
+        mac: str,
+        role: str,
+        marking: str,
+        meta: Dict[str, str],
+    ) -> None:
+        """
+        Build and append the ASSET node for the target CKL.
+
+        Args:
+            parent: Parent XML element to append to.
+            asset: Asset identifier or hostname.
+            ip: Target IP address.
+            mac: Target MAC address.
+            role: Target IT role.
+            marking: Classification marking.
+            meta: Metadata dictionary to draw target keys from.
+        """
+        asset_node = ET.SubElement(parent, "ASSET")
+        values = {
+            "ROLE": role,
+            "ASSET_TYPE": "Computing",
+            "MARKING": marking,
+            "HOST_NAME": asset,
+            "HOST_IP": ip,
+            "HOST_MAC": mac,
+            "HOST_FQDN": asset,
+            "TARGET_COMMENT": "",
+            "TECH_AREA": "",
+            "TARGET_KEY": meta.get("target_key", "2350"),
+            "WEB_OR_DATABASE": "false",
+            "WEB_DB_SITE": "",
+            "WEB_DB_INSTANCE": "",
+        }
+        for field in Sch.ASSET:
+            node = ET.SubElement(asset_node, field)
+            node.text = str(values.get(field) or "")
+
+    def _build_stig_info(self, parent: ET.Element, xccdf: Path, meta: Dict[str, str]) -> None:
+        """
+        Build and append the STIG_INFO configuration node for the target CKL.
+
+        Args:
+            parent: Parent XML element to append to.
+            xccdf: Source XCCDF benchmark file path.
+            meta: Parsed metadata mapping.
+        """
+        stig_info = ET.SubElement(parent, "STIG_INFO")
+        values = {
+            "version": str(meta.get("version") or "1"),
+            "classification": str(meta.get("classification") or "UNCLASSIFIED"),
+            "customname": "",
+            "stigid": str(meta.get("stigid") or "Unknown_STIG"),
+            "description": str(meta.get("description") or ""),
+            "filename": xccdf.name if hasattr(xccdf, "name") else str(xccdf),
+            "releaseinfo": str(meta.get("releaseinfo") or ""),
+            "title": str(meta.get("title") or ""),
+            "uuid": str(uuid.uuid4()),
+            "notice": "terms-of-use",
+            "source": str(meta.get("source") or "STIG.DOD.MIL"),
+        }
+
+        for field in Sch.STIG:
+            si_data = ET.SubElement(stig_info, "SI_DATA")
+            name = ET.SubElement(si_data, "SID_NAME")
+            name.text = field
+            data = ET.SubElement(si_data, "SID_DATA")
+            value = str(values.get(field) or "")
+            if value:
+                data.text = value
+
+    def _list_groups(self, root: ET.Element, ns: Dict[str, str]) -> List[ET.Element]:
+        """
+        Extract valid STIG vulnerability groups from the parsed XCCDF document.
+
+        Args:
+            root: Root element of the parsed XCCDF.
+            ns: XML namespace mapping for XPath queries.
+
+        Returns:
+            List of valid vulnerability Group XML elements.
+        """
+        search = ".//ns:Group" if ns else ".//Group"
+        groups = root.findall(search, ns)
+
+        valid: List[ET.Element] = []
+        for group in groups:
+            rule = group.find("ns:Rule", ns) if ns else group.find("Rule")
+            if rule is not None:
+                valid.append(group)
+        return valid
+
+    def _build_vuln(
+        self,
+        group: ET.Element,
+        ns: Dict[str, str],
+        meta: Dict[str, str],
+        apply_boilerplate: bool,
+        asset: str,
+    ) -> Optional[ET.Element]:
+        """
+        Parse an XCCDF vulnerability group into a CKL VULN configuration element.
+
+        Args:
+            group: Parsed group element from the XCCDF benchmark.
+            ns: XML namespace mapping.
+            meta: Target STIG metadata parameters.
+            apply_boilerplate: Flag indicating whether default textual responses should be applied.
+            asset: Contextual asset identifier string.
+
+        Returns:
+            Fully populated VULN ElementTree element.
+            
+        Raises:
+            ParseError: If critical parsing fails.
+        """
+        vid = group.get("id", "")
+        if not vid:
+            raise ParseError("Missing ID attribute in group")
+        try:
+            vid = San.vuln(vid)
+        except ValidationError:
+            raise ParseError(f"Invalid VID format in group: {vid}")
+
+        rule = group.find("ns:Rule", ns) if ns else group.find("Rule")
+        if rule is None:
+            raise ParseError(f"Missing Rule in group {vid}")
+
+        rule_id = rule.get("id", "").strip()
+        if not rule_id:
+            raise ParseError(f"Missing id attribute in Rule for group {vid}")
+
+        severity = San.sev(rule.get("severity", "medium"))
+        weight = rule.get("weight", "10.0")
+
+        def find(tag: str):
+            return rule.find(f"ns:{tag}", ns) if ns else rule.find(tag)
+
+        def findall(tag: str):
+            return rule.findall(f"ns:{tag}", ns) if ns else rule.findall(tag)
+
+        def text(elem) -> str:
+            if elem is None:
+                return ""
+            if elem.text and elem.text.strip():
+                return elem.text.strip()
+            try:
+                return ET.tostring(elem, encoding="unicode", method="text").strip()
+            except (TypeError, ValueError, AttributeError) as exc:
+                LOG.w(f"Failed to extract text from XML element {elem.tag}: {exc}")
+                return ""
+
+        rule_title = text(find("title"))[:TITLE_MAX_LONG]
+        rule_ver = text(find("version"))
+        discussion = text(find("description"))
+        fix_elem = find("fixtext")
+
+        fix_text = self._collect_fix_text(fix_elem) if fix_elem is not None else ""
+
+        check_elem = find("check")
+        check_text = ""
+        check_ref = "M"
+        if check_elem is not None:
+            check_content = (
+                check_elem.find("ns:check-content", ns) if ns else check_elem.find("check-content")
+            )
+            check_text = self._collect_fix_text(check_content) if check_content is not None else ""
+            check_content_ref = (
+                check_elem.find("ns:check-content-ref", ns)
+                if ns
+                else check_elem.find("check-content-ref")
+            )
+            if check_content_ref is not None:
+                ref_name = check_content_ref.get("name", "M")
+                if ref_name:
+                    check_ref = ref_name
+
+        group_title_elem = group.find("ns:title", ns) if ns else group.find("title")
+        group_title = text(group_title_elem) if group_title_elem is not None else vid
+
+        legacy_refs: List[str] = []
+        cci_refs: List[str] = []
+
+        for ident in findall("ident"):
+            ident_text = text(ident)
+            if not ident_text:
+                continue
+            system = (ident.get("system") or "").lower()
+            if "cci" in system:
+                cci_refs.append(ident_text)
+            elif "legacy" in system:
+                legacy_refs.append(ident_text)
+
+        vuln_node = ET.Element("VULN")
+        stig_data_map = OrderedDict(
+            [
+                ("Vuln_Num", vid),
+                ("Severity", severity),
+                ("Group_Title", group_title),
+                ("Rule_ID", rule_id),
+                ("Rule_Ver", rule_ver),
+                ("Rule_Title", rule_title),
+                ("Vuln_Discuss", discussion),
+                ("IA_Controls", ""),
+                ("Check_Content", check_text),
+                ("Fix_Text", fix_text),
+                ("False_Positives", ""),
+                ("False_Negatives", ""),
+                ("Documentable", "false"),
+                ("Mitigations", ""),
+                ("Potential_Impact", ""),
+                ("Third_Party_Tools", ""),
+                ("Mitigation_Control", ""),
+                ("Responsibility", ""),
+                ("Security_Override_Guidance", ""),
+                ("Check_Content_Ref", check_ref),
+                ("Weight", weight),
+                ("Class", "Unclass"),
+                (
+                    "STIGRef",
+                    f"{meta.get('title', '')} :: Version {meta.get('version', '')}, "
+                    f"{meta.get('releaseinfo', '')}",
+                ),
+                ("TargetKey", meta.get("target_key", "2350")),
+                ("STIG_UUID", str(uuid.uuid4())),
+            ]
+        )
+
+        for attribute in Sch.VULN:
+            value = stig_data_map.get(attribute, "")
+            sd = ET.SubElement(vuln_node, "STIG_DATA")
+            attr = ET.SubElement(sd, "VULN_ATTRIBUTE")
+            attr.text = attribute
+            data = ET.SubElement(sd, "ATTRIBUTE_DATA")
+            if value:
+                data.text = San.xml(value)
+
+        for legacy in legacy_refs:
+            sd = ET.SubElement(vuln_node, "STIG_DATA")
+            attr = ET.SubElement(sd, "VULN_ATTRIBUTE")
+            attr.text = "LEGACY_ID"
+            data = ET.SubElement(sd, "ATTRIBUTE_DATA")
+            data.text = legacy
+
+        for cci in cci_refs:
+            sd = ET.SubElement(vuln_node, "STIG_DATA")
+            attr = ET.SubElement(sd, "VULN_ATTRIBUTE")
+            attr.text = "CCI_REF"
+            data = ET.SubElement(sd, "ATTRIBUTE_DATA")
+            data.text = cci
+
+        status = Status.NOT_REVIEWED
+        finding = ""
+        comment = ""
+
+        if apply_boilerplate:
+            finding = self.boiler.find(status, asset=asset, severity=severity)
+            comment = self.boiler.comm(status)
+
+        status_node = ET.SubElement(vuln_node, "STATUS")
+        status_node.text = status
+        finding_node = ET.SubElement(vuln_node, "FINDING_DETAILS")
+        if finding:
+            finding_node.text = finding
+        comment_node = ET.SubElement(vuln_node, "COMMENTS")
+        if comment:
+            comment_node.text = comment
+        ET.SubElement(vuln_node, "SEVERITY_OVERRIDE")
+        ET.SubElement(vuln_node, "SEVERITY_JUSTIFICATION")
+
+        return vuln_node
+
+    def _collect_fix_text(self, elem: Optional[ET.Element]) -> str:
+        """
+        Enhanced fix text extraction with proper handling of XCCDF mixed content.
+
+        Handles:
+        - Plain text content
+        - Nested HTML elements (xhtml:br, xhtml:code, etc.)
+        - CDATA sections
+        - Mixed content with proper whitespace preservation
+
+        Delegates to XmlUtils.extract_text_content for consistent text extraction.
+        """
+        return XmlUtils.extract_text_content(elem)
+
+    def _write_ckl(self, root: ET.Element, out: Path) -> None:
+        """Write CKL using shared FO.write_ckl implementation."""
+        if hasattr(FO, "write_ckl"):
+            FO.write_ckl(root, out, backup=False)
+        else:
+            with FO.atomic(out, mode="w", enc="utf-8", bak=False) as fh:
+                xml_str = ET.tostring(root, encoding="unicode", method="xml")
+                fh.write(
+                    '<?xml version="1.0" encoding="UTF-8"?>\n<!-- STIG Assessor Generated -->\n'
+                    + xml_str
+                )
+
+    # ---------------------------------------------------------------- JSON Mapping
+    def _checklist_to_json(self, root: ET.Element):
+        """Convert internal XML checklist element to STIG Viewer 3 CKLB JSON structure."""
+        cklb = {"target_data": {}, "stig_data": {}, "reviews": []}
+
+        asset = root.find("ASSET")
+        if asset is not None:
+            for child in asset:
+                cklb["target_data"][child.tag] = child.text or ""
+
+        stigs = root.find("STIGS")
+        if stigs is not None:
+            istig = stigs.find("iSTIG")
+            if istig is not None:
+                stig_info = istig.find("STIG_INFO")
+                if stig_info is not None:
+                    for si_data in stig_info.findall("SI_DATA"):
+                        name = si_data.findtext("SID_NAME", "")
+                        data = si_data.findtext("SID_DATA", "")
+                        if name:
+                            cklb["stig_data"][name] = data
+
+            for i in stigs.findall("iSTIG"):
+                for vuln in i.findall("VULN"):
+                    review = {
+                        "status": vuln.findtext("STATUS", Status.NOT_REVIEWED),
+                        "detail": vuln.findtext("FINDING_DETAILS", ""),
+                        "comment": vuln.findtext("COMMENTS", ""),
+                    }
+                    for sd in vuln.findall("STIG_DATA"):
+                        attr = sd.findtext("VULN_ATTRIBUTE")
+                        val = sd.findtext("ATTRIBUTE_DATA", "")
+                        if attr:
+                            review[attr] = val
+                    cklb["reviews"].append(review)
+
+        return cklb
+
+    def _json_to_checklist(self, cklb) -> ET.ElementTree:
+        """Convert a CKLB JSON structure to the internal XML ElementTree for processing."""
+        root = ET.Element(Sch.ROOT)
+
+        target_data = cklb.get("target_data", {})
+        asset = ET.SubElement(root, "ASSET")
+        for k, v in target_data.items():
+            child = ET.SubElement(asset, k)
+            child.text = str(v)
+
+        stigs = ET.SubElement(root, "STIGS")
+        istig = ET.SubElement(stigs, "iSTIG")
+
+        stig_data = cklb.get("stig_data", {})
+        stig_info = ET.SubElement(istig, "STIG_INFO")
+        for k, v in stig_data.items():
+            si = ET.SubElement(stig_info, "SI_DATA")
+            ET.SubElement(si, "SID_NAME").text = k
+            ET.SubElement(si, "SID_DATA").text = str(v)
+
+        reviews = cklb.get("reviews", [])
+        for review in reviews:
+            vuln = ET.SubElement(istig, "VULN")
+            ET.SubElement(vuln, "STATUS").text = str(review.get("status", Status.NOT_REVIEWED))
+            ET.SubElement(vuln, "FINDING_DETAILS").text = str(review.get("detail", ""))
+            ET.SubElement(vuln, "COMMENTS").text = str(review.get("comment", ""))
+
+            for k, v in review.items():
+                if k not in ("status", "detail", "comment"):
+                    sd = ET.SubElement(vuln, "STIG_DATA")
+                    ET.SubElement(sd, "VULN_ATTRIBUTE").text = k
+                    ET.SubElement(sd, "ATTRIBUTE_DATA").text = str(v)
+
+        return ET.ElementTree(root)
+
+    def _load_file_as_xml(self, path: Path) -> ET.ElementTree:
+        if path.suffix.lower() == ".cklb":
+            data = FO.parse_cklb(path)
+            return self._json_to_checklist(data)
+        return FO.parse_xml(path)
+
+    def _export_xml_to_file(self, root: ET.Element, out: Path) -> None:
+        if out.suffix.lower() == ".cklb":
+            data = self._checklist_to_json(root)
+            FO.write_cklb(data, out, backup=False)
+        else:
+            self._write_ckl(root, out)
+
+    # -------------------------------------------------------------------- merge
+    def merge(
+        self,
+        base: Union[str, Path],
+        histories: Iterable[Union[str, Path]],
+        out: Union[str, Path],
+        *,
+        preserve_history: bool = True,
+        apply_boilerplate: bool = True,
+        auto_status: bool = True,
+    ) -> Dict[str, Union[bool, int, List[str], str]]:
+        """
+        Merge multiple checklists into a single output with history preservation.
+
+        Ingests assessment history from multiple source checklists and merges
+        it into the base checklist's finding details and comments.
+
+        Args:
+            base: Base checklist to merge into
+            histories: Iterable of historical checklist paths to ingest
+            out: Output path for merged checklist
+            preserve_history: If True, include formatted history in output
+            apply_boilerplate: If True, apply boilerplate templates
+            auto_status: If True, automatically update status based on history
+
+        Returns:
+            Dict with keys: updated, skipped, dry_run, output (if not dry)
+
+        Raises:
+            ValidationError: If path validation or limits exceeded
+            ParseError: If checklist parsing fails
+        """
+        try:
+            base = San.path(base, exist=True, file=True)
+            out = San.path(out, mkpar=True)
+            history_paths = [San.path(p, exist=True, file=True) for p in histories]
+        except (ValidationError, OSError, ValueError, TypeError) as exc:
+            raise ValidationError(f"Path validation failed: {exc}") from exc
+
+        if len(history_paths) > Cfg.MAX_MERGE:
+            raise ValidationError(f"Too many historical files (limit {Cfg.MAX_MERGE})")
+
+        LOG.ctx(op="merge", base=base.name, histories=len(history_paths))
+        LOG.i(f"Merging {len(history_paths)} checklist(s) into base {base.name}")
+
+        if preserve_history:
+            for idx, hist_file in enumerate(history_paths, 1):
+                LOG.d(f"Loading history {idx}/{len(history_paths)}: {hist_file}")
+                self._ingest_history(hist_file)
+
+        try:
+            tree = self._load_file_as_xml(base)
+            root = tree.getroot()
+        except (ParseError, OSError, ValueError, KeyError) as exc:
+            raise ParseError(f"Unable to parse base checklist: {exc}") from exc
+
+        if root.tag != Sch.ROOT:
+            raise ParseError("Base checklist has incorrect root element")
+
+        stigs = root.find("STIGS")
+        if stigs is None:
+            raise ParseError("Base checklist missing STIGS")
+
+        total_vulns = sum(len(istig.findall("VULN")) for istig in stigs.findall("iSTIG"))
+        if total_vulns == 0:
+            raise ParseError("Base checklist contains no vulnerabilities")
+
+        updated = 0
+        skipped = 0
+
+        for istig in stigs.findall("iSTIG"):
+            for vuln in istig.findall("VULN"):
+                result = self._merge_vuln(vuln, preserve_history, apply_boilerplate)
+                if result is True:
+                    updated += 1
+                else:
+                    skipped += 1
+
+        LOG.i(f"Merge summary: {updated} updated, {skipped} unchanged")
+
+        XmlUtils.indent_xml(root)
+
+        # Note: dry parameter was missing from signature in original, added for consistency
+        # if dry:
+        #     LOG.i("Dry-run requested, merged checklist not written")
+        #     LOG.clear()
+        #     return {"updated": updated, "skipped": skipped, "dry_run": True}
+
+        self._export_xml_to_file(root, out)
+        LOG.i(f"Merged checklist saved to {out}")
+        LOG.clear()
+        return {"updated": updated, "skipped": skipped, "dry_run": False, "output": str(out)}
+
+    # ------------------------------------------------------------------ diff
+    def diff(
+        self,
+        ckl1: Union[str, Path],
+        ckl2: Union[str, Path],
+        *,
+        output_format: str = "text",
+    ) -> Dict[str, Union[str, int, List[str]]]:
+        """
+        Compare two checklists and identify differences.
+
+        Args:
+            ckl1: First checklist (baseline)
+            ckl2: Second checklist (comparison target)
+            output_format: Output format - 'summary', 'detailed', or 'json'
+
+        Returns:
+            Dictionary containing comparison results
+        """
+        try:
+            ckl1 = San.path(ckl1, exist=True, file=True)
+            ckl2 = San.path(ckl2, exist=True, file=True)
+        except (ValidationError, OSError, ValueError, TypeError) as exc:
+            raise ValidationError(f"Path validation failed: {exc}") from exc
+
+        LOG.ctx(op="diff", ckl1=ckl1.name, ckl2=ckl2.name)
+        LOG.i(f"Comparing {ckl1.name} vs {ckl2.name}")
+
+        # Parse both checklists
+        try:
+            tree1 = self._load_file_as_xml(ckl1)
+            root1 = tree1.getroot()
+            tree2 = self._load_file_as_xml(ckl2)
+            root2 = tree2.getroot()
+        except (ParseError, OSError, ValueError) as exc:
+            raise ParseError(f"Failed to parse checklists: {exc}") from exc
+
+        # Extract vulnerability data from both checklists
+        vulns1 = self._extract_vuln_data(root1)
+        vulns2 = self._extract_vuln_data(root2)
+
+        # Compare
+        vids1 = set(vulns1.keys())
+        vids2 = set(vulns2.keys())
+
+        only_in_1 = vids1 - vids2
+        only_in_2 = vids2 - vids1
+        common = vids1 & vids2
+
+        changed = []
+        unchanged = []
+
+        for vid in sorted(common):
+            v1 = vulns1[vid]
+            v2 = vulns2[vid]
+
+            differences = []
+            if v1["status"] != v2["status"]:
+                differences.append(
+                    {
+                        "field": "status",
+                        "from": v1["status"],
+                        "to": v2["status"],
+                    }
+                )
+            if v1["severity"] != v2["severity"]:
+                differences.append(
+                    {
+                        "field": "severity",
+                        "from": v1["severity"],
+                        "to": v2["severity"],
+                    }
+                )
+            if v1["finding_details"] != v2["finding_details"]:
+                differences.append(
+                    {
+                        "field": "finding_details",
+                        "from_length": len(v1["finding_details"]),
+                        "to_length": len(v2["finding_details"]),
+                    }
+                )
+            if v1["comments"] != v2["comments"]:
+                differences.append(
+                    {
+                        "field": "comments",
+                        "from_length": len(v1["comments"]),
+                        "to_length": len(v2["comments"]),
+                    }
+                )
+
+            if differences:
+                changed.append(
+                    {
+                        "vid": vid,
+                        "rule_title": v1.get("rule_title", "Unknown"),
+                        "differences": differences,
+                    }
+                )
+            else:
+                unchanged.append(vid)
+
+        # Build results
+        results = {
+            "summary": {
+                "total_in_baseline": len(vids1),
+                "total_in_comparison": len(vids2),
+                "only_in_baseline": len(only_in_1),
+                "only_in_comparison": len(only_in_2),
+                "common": len(common),
+                "changed": len(changed),
+                "unchanged": len(unchanged),
+            },
+            "only_in_baseline": sorted(only_in_1),
+            "only_in_comparison": sorted(only_in_2),
+            "changed": changed,
+        }
+
+        # Format output based on requested format
+        if output_format == "summary":
+            results["formatted_text"] = self._format_diff_summary(results, ckl1.name, ckl2.name)
+        elif output_format == "detailed":
+            results["formatted_text"] = self._format_diff_detailed(results, ckl1.name, ckl2.name)
+
+        LOG.clear()
+        return results
+
+    def _extract_vuln_data(self, root: ET.Element) -> Dict[str, Dict[str, str]]:
+        """Extract vulnerability data from a checklist for comparison."""
+        vulns = {}
+        stigs = root.find("STIGS")
+        if stigs is None:
+            return vulns
+
+        for istig in stigs.findall("iSTIG"):
+            for vuln in istig.findall("VULN"):
+                vid = XmlUtils.get_vid(vuln)
+                if not vid:
+                    continue
+
+                # Extract relevant data
+                status = ""
+                severity = ""
+                finding_details = ""
+                comments = ""
+                rule_title = ""
+
+                for sd in vuln.findall("STIG_DATA"):
+                    attr = sd.findtext("VULN_ATTRIBUTE")
+                    if attr == "Severity":
+                        severity = sd.findtext("ATTRIBUTE_DATA", default="")
+                    elif attr == "Rule_Title":
+                        rule_title = sd.findtext("ATTRIBUTE_DATA", default="")
+
+                status = vuln.findtext("STATUS", default="")
+                finding_details = vuln.findtext("FINDING_DETAILS", default="")
+                comments = vuln.findtext("COMMENTS", default="")
+
+                vulns[vid] = {
+                    "status": status,
+                    "severity": severity,
+                    "finding_details": finding_details,
+                    "comments": comments,
+                    "rule_title": rule_title,
+                }
+
+        return vulns
+
+    def _format_diff_summary(
+        self, results: Dict[str, Union[str, int, List[str]]], name1: str, name2: str
+    ) -> str:
+        """Format a summary of the diff results into a string."""
+        s = results["summary"]
+        lines = []
+        lines.append(f"\n{'='*80}")
+        lines.append(f"Checklist Comparison: {name1} vs {name2}")
+        lines.append(f"{'='*80}")
+        lines.append(f"\nBaseline ({name1}): {s['total_in_baseline']} vulnerabilities")
+        lines.append(f"Comparison ({name2}): {s['total_in_comparison']} vulnerabilities")
+        lines.append(f"\nCommon vulnerabilities: {s['common']}")
+        lines.append(f"  - Changed: {s['changed']}")
+        lines.append(f"  - Unchanged: {s['unchanged']}")
+        lines.append(f"\nOnly in baseline: {s['only_in_baseline']}")
+        lines.append(f"Only in comparison: {s['only_in_comparison']}")
+
+        if results["changed"]:
+            lines.append(f"\n{'-'*80}")
+            lines.append("Changed Vulnerabilities:")
+            lines.append(f"{'-'*80}")
+            for item in results["changed"][:10]:  # Show first 10
+                lines.append(f"\n{item['vid']}: {item['rule_title'][:60]}")
+                for diff in item["differences"]:
+                    if diff["field"] == "status":
+                        lines.append(f"  Status: {diff['from']} → {diff['to']}")
+                    elif diff["field"] == "severity":
+                        lines.append(f"  Severity: {diff['from']} → {diff['to']}")
+                    else:
+                        lines.append(
+                            f"  {diff['field']} changed ({diff.get('from_length', 0)} → {diff.get('to_length', 0)} chars)"
+                        )
+            if len(results["changed"]) > 10:
+                lines.append(
+                    f"\n... and {len(results['changed']) - 10} more changed vulnerabilities"
+                )
+        return "\n".join(lines)
+
+    def _format_diff_detailed(
+        self, results: Dict[str, Union[str, int, List[str]]], name1: str, name2: str
+    ) -> str:
+        """Format detailed diff results into a string."""
+        lines = [self._format_diff_summary(results, name1, name2)]
+
+        if results["only_in_baseline"]:
+            lines.append(f"\n{'-'*80}")
+            lines.append(f"Vulnerabilities only in {name1}:")
+            lines.append(f"{'-'*80}")
+            for vid in results["only_in_baseline"][:20]:
+                lines.append(f"  {vid}")
+            if len(results["only_in_baseline"]) > 20:
+                lines.append(f"  ... and {len(results['only_in_baseline']) - 20} more")
+
+        if results["only_in_comparison"]:
+            lines.append(f"\n{'-'*80}")
+            lines.append(f"Vulnerabilities only in {name2}:")
+            lines.append(f"{'-'*80}")
+            for vid in results["only_in_comparison"][:20]:
+                lines.append(f"  {vid}")
+            if len(results["only_in_comparison"]) > 20:
+                lines.append(f"  ... and {len(results['only_in_comparison']) - 20} more")
+        return "\n".join(lines)
+
+    # ----------------------------------------------------------------- helpers
+    def _ingest_history(self, path: Path) -> None:
+        """Ingest history entries from an existing CKL file."""
+        try:
+            tree = self._load_file_as_xml(path)
+            root = tree.getroot()
+        except (FileError, ParseError, ValidationError) as exc:
+            LOG.d(f"Could not parse history from {path}: {exc}")
+            return
+        except (OSError, RuntimeError) as exc:
+            LOG.w(f"Unexpected error parsing history from {path}: {exc}")
+            return
+
+        stigs = root.find("STIGS")
+        if stigs is None:
+            return
+
+        for istig in stigs.findall("iSTIG"):
+            for vuln in istig.findall("VULN"):
+                vid = XmlUtils.get_vid(vuln)
+                if not vid:
+                    continue
+
+                status = vuln.findtext("STATUS", default=Status.NOT_REVIEWED)
+                finding = vuln.findtext("FINDING_DETAILS", default="")
+                comment = vuln.findtext("COMMENTS", default="")
+                severity = "medium"
+
+                for sd in vuln.findall("STIG_DATA"):
+                    attr = sd.findtext("VULN_ATTRIBUTE")
+                    if attr == "Severity":
+                        severity = San.sev(sd.findtext("ATTRIBUTE_DATA", default="medium"))
+
+                if finding.strip() or comment.strip():
+                    self.history.add(
+                        vid,
+                        status,
+                        finding,
+                        comment,
+                        src=path.name,
+                        sev=severity,
+                    )
+
+    def _merge_vuln(
+        self, vuln: ET.Element, preserve_history: bool, apply_boilerplate: bool
+    ) -> bool:
+        """
+        Integrate historical data into an existing STIG vulnerability node.
+
+        Updates the finding details, comments, and status of a given vulnerability element
+        by pulling from accumulated historical configurations, seamlessly managing backfilled text
+        and boilerplate formatting requirements.
+
+        Args:
+            vuln: Target ElementTree element to update.
+            preserve_history: Flag to dictate whether raw historical logs are explicitly injected.
+            apply_boilerplate: Flag to append missing details with standard configured templates.
+
+        Returns:
+            True if modifications occurred resulting in updates to the VULN element, False otherwise.
+        """
+        vid = XmlUtils.get_vid(vuln)
+        if not vid:
+            return False
+
+        status_node = vuln.find("STATUS")
+        status = (
+            status_node.text.strip()
+            if status_node is not None and status_node.text
+            else Status.NOT_REVIEWED
+        )
+        finding_node = vuln.find("FINDING_DETAILS")
+        comment_node = vuln.find("COMMENTS")
+
+        current_finding = (
+            finding_node.text if finding_node is not None and finding_node.text else ""
+        )
+        current_comment = (
+            comment_node.text if comment_node is not None and comment_node.text else ""
+        )
+
+        merged = False
+
+        if preserve_history and self.history.has(vid):
+            merged_finding = self.history.merge_find(vid, current_finding)
+            if finding_node is None:
+                finding_node = ET.SubElement(vuln, "FINDING_DETAILS")
+            finding_node.text = merged_finding
+
+            merged_comment = self.history.merge_comm(vid, current_comment)
+            if comment_node is None:
+                comment_node = ET.SubElement(vuln, "COMMENTS")
+            comment_node.text = merged_comment
+
+            merged = True
+
+        elif apply_boilerplate and status in Sch.STAT_VALS:
+            default_finding = self.boiler.find(status)
+            default_comment = self.boiler.comm(status)
+            if default_finding and not current_finding.strip():
+                if finding_node is None:
+                    finding_node = ET.SubElement(vuln, "FINDING_DETAILS")
+                finding_node.text = default_finding
+                merged = True
+            if default_comment and not current_comment.strip():
+                if comment_node is None:
+                    comment_node = ET.SubElement(vuln, "COMMENTS")
+                comment_node.text = default_comment
+                merged = True
+
+        return merged
+
+    # ------------------------------------------------------------ new features v7.2.0
+    def repair(
+        self, ckl_path: Union[str, Path], out_path: Union[str, Path]
+    ) -> Dict[str, Union[bool, str, int, List[str]]]:
+        """
+        Repair corrupted CKL file by fixing common issues.
+
+        Args:
+            ckl_path: Path to corrupted checklist
+            out_path: Path for repaired checklist
+
+        Returns:
+            Dictionary with repair statistics
+        """
+        try:
+            ckl_path = San.path(ckl_path, exist=True, file=True)
+            out_path = San.path(out_path, mkpar=True)
+        except (ValidationError, OSError, ValueError, TypeError) as exc:
+            raise ValidationError(f"Path validation failed: {exc}") from exc
+
+        LOG.ctx(op="repair", file=ckl_path.name)
+        LOG.i(f"Repairing checklist: {ckl_path}")
+
+        repairs = []
+
+        try:
+            tree = self._load_file_as_xml(ckl_path)
+            root = tree.getroot()
+        except (ParseError, OSError, ValueError) as exc:
+            raise ParseError(f"Failed to parse CKL (too corrupted): {exc}") from exc
+
+        # Repair 1: Fix invalid status values
+        stigs = root.find("STIGS")
+        if stigs is not None:
+            for istig in stigs.findall("iSTIG"):
+                for vuln in istig.findall("VULN"):
+                    status_node = vuln.find("STATUS")
+                    if status_node is not None and status_node.text:
+                        status_val = status_node.text.strip()
+                        if not Status.is_valid(status_val):
+                            # Try to fix common typos
+                            if status_val.lower().replace(" ", "_") == "not_a_finding":
+                                status_node.text = Status.NOT_A_FINDING
+                                repairs.append(f"Fixed status typo: '{status_val}' → '{Status.NOT_A_FINDING}'")
+                            elif status_val.lower() == "open":
+                                status_node.text = Status.OPEN
+                                repairs.append(f"Fixed status case: '{status_val}' → '{Status.OPEN}'")
+                            elif "not" in status_val.lower() and "applicable" in status_val.lower():
+                                status_node.text = Status.NOT_APPLICABLE
+                                repairs.append(
+                                    f"Fixed status typo: '{status_val}' → '{Status.NOT_APPLICABLE}'"
+                                )
+                            else:
+                                # Can't fix, set to Status.NOT_REVIEWED
+                                old_val = status_val
+                                status_node.text = Status.NOT_REVIEWED
+                                repairs.append(
+                                    f"Reset invalid status: '{old_val}' → '{Status.NOT_REVIEWED}'"
+                                )
+
+        # Repair 2: Add missing required elements
+        asset = root.find("ASSET")
+        if asset is None:
+            asset = ET.SubElement(root, "ASSET")
+            repairs.append("Added missing ASSET element")
+
+        # Ensure required ASSET fields exist
+        required_fields = {
+            "ROLE": "None",
+            "ASSET_TYPE": "Computing",
+            "MARKING": "CUI",
+            "HOST_NAME": "Unknown",
+            "TARGET_KEY": "0",
+            "WEB_OR_DATABASE": "false",
+        }
+        asset_children = {child.tag: child for child in asset}
+        for field, default_val in required_fields.items():
+            if field not in asset_children:
+                elem = ET.SubElement(asset, field)
+                elem.text = default_val
+                repairs.append(f"Added missing ASSET/{field}")
+
+        # Repair 3: Remove excessively long content (prevents STIG Viewer crashes)
+        if stigs is not None:
+            for istig in stigs.findall("iSTIG"):
+                for vuln in istig.findall("VULN"):
+                    vid = XmlUtils.get_vid(vuln) or "unknown"
+
+                    finding_node = vuln.find("FINDING_DETAILS")
+                    if finding_node is not None and finding_node.text:
+                        if len(finding_node.text) > Cfg.MAX_FIND:
+                            finding_node.text = (
+                                finding_node.text[: Cfg.MAX_FIND - 15] + "\n[TRUNCATED]"
+                            )
+                            repairs.append(f"Truncated oversized FINDING_DETAILS for {vid}")
+
+                    comment_node = vuln.find("COMMENTS")
+                    if comment_node is not None and comment_node.text:
+                        if len(comment_node.text) > Cfg.MAX_COMM:
+                            comment_node.text = (
+                                comment_node.text[: Cfg.MAX_COMM - 15] + "\n[TRUNCATED]"
+                            )
+                            repairs.append(f"Truncated oversized COMMENTS for {vid}")
+
+        # Write repaired checklist
+        XmlUtils.indent_xml(root)
+        self._export_xml_to_file(root, out_path)
+
+        LOG.i(f"Repaired checklist written to {out_path}")
+        LOG.i(f"Repairs applied: {len(repairs)}")
+        LOG.clear()
+
+        return {
+            "ok": True,
+            "input": str(ckl_path),
+            "output": str(out_path),
+            "repairs": len(repairs),
+            "details": repairs,
+        }
+
+    def batch_convert(
+        self,
+        xccdf_dir: Union[str, Path],
+        out_dir: Union[str, Path],
+        *,
+        asset_prefix: str = "ASSET",
+        apply_boilerplate: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Batch convert multiple XCCDF files to CKL format.
+
+        Args:
+            xccdf_dir: Directory containing XCCDF files
+            out_dir: Output directory for CKL files
+            asset_prefix: Prefix for auto-generated asset names
+            apply_boilerplate: Apply boilerplate templates
+
+        Returns:
+            Dictionary with batch conversion statistics
+        """
+        try:
+            xccdf_dir = San.path(xccdf_dir, exist=True, dir=True)
+            out_dir = San.path(out_dir, mkpar=True)
+        except (ValidationError, OSError, ValueError, TypeError) as exc:
+            raise ValidationError(f"Path validation failed: {exc}") from exc
+
+        LOG.ctx(op="batch_convert", dir=xccdf_dir.name)
+        LOG.i(f"Batch converting XCCDF files from {xccdf_dir}")
+
+        # Find all XML files in directory
+        xccdf_files = list(xccdf_dir.glob("*.xml"))
+        if not xccdf_files:
+            raise FileError(f"No XML files found in {xccdf_dir}")
+
+        LOG.i(f"Found {len(xccdf_files)} XML files to convert")
+
+        successes = []
+        failures = []
+
+        for idx, xccdf_file in enumerate(xccdf_files, 1):
+            try:
+                # Generate asset name from filename
+                asset_name = f"{asset_prefix}_{xccdf_file.stem.replace(' ', '_').replace('-', '_')}"
+                out_file = out_dir / f"{xccdf_file.stem}.ckl"
+
+                LOG.i(f"[{idx}/{len(xccdf_files)}] Converting {xccdf_file.name} → {out_file.name}")
+
+                result = self.xccdf_to_ckl(
+                    xccdf_file,
+                    out_file,
+                    asset_name,
+                    apply_boilerplate=apply_boilerplate,
+                )
+
+                successes.append(
+                    {
+                        "file": xccdf_file.name,
+                        "output": out_file.name,
+                        "processed": result.get("processed", 0),
+                    }
+                )
+
+            except (ParseError, ValidationError, FileError, OSError, ValueError) as exc:
+                LOG.e(f"Failed to convert {xccdf_file.name}: {exc}")
+                failures.append(
+                    {
+                        "file": xccdf_file.name,
+                        "error": str(exc),
+                    }
+                )
+
+        LOG.i(f"Batch conversion complete: {len(successes)} successes, {len(failures)} failures")
+        LOG.clear()
+
+        return {
+            "ok": len(failures) == 0,
+            "total": len(xccdf_files),
+            "successes": len(successes),
+            "failures": len(failures),
+            "details": successes,
+            "errors": failures,
+        }
+
+    def verify_integrity(
+        self, ckl_path: Union[str, Path]
+    ) -> Dict[str, Union[bool, int, List[str], str]]:
+        """
+        Verify checklist integrity using checksums and validation.
+
+        Args:
+            ckl_path: Path to checklist to verify
+
+        Returns:
+            Dictionary with integrity check results
+        """
+        try:
+            ckl_path = San.path(ckl_path, exist=True, file=True)
+        except (ValidationError, OSError, ValueError, TypeError) as exc:
+            raise ValidationError(f"Path validation failed: {exc}") from exc
+
+        LOG.ctx(op="verify_integrity", file=ckl_path.name)
+        LOG.i(f"Verifying integrity of {ckl_path}")
+
+        # Compute checksum
+        checksum = hashlib.sha256()
+        with open(ckl_path, "rb") as f:
+            for chunk in iter(lambda: f.read(CHUNK_SIZE), b""):
+                checksum.update(chunk)
+        checksum_value = checksum.hexdigest()
+
+        # Run validation
+        ok, errors, warnings, info = self.validator.validate(ckl_path)
+
+        # Check file size
+        file_size = ckl_path.stat().st_size
+
+        LOG.clear()
+
+        return {
+            "valid": ok,
+            "file": str(ckl_path),
+            "size": file_size,
+            "checksum": checksum_value,
+            "checksum_type": "SHA256",
+            "validation_errors": len(errors),
+            "validation_warnings": len(warnings),
+            "errors": errors if errors else None,
+            "warnings": warnings if warnings else None,
+            "info": info if info else None,
+        }
+
+    def compute_checksum(self, file_path: Union[str, Path]) -> str:
+        """
+        Compute SHA256 checksum for a file.
+
+        Args:
+            file_path: Path to file
+
+        Returns:
+            Hex digest of SHA256 checksum
+        """
+        try:
+            file_path = San.path(file_path, exist=True, file=True)
+        except (ValidationError, OSError, ValueError, TypeError) as exc:
+            raise ValidationError(f"Path validation failed: {exc}") from exc
+
+        checksum = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(CHUNK_SIZE), b""):
+                checksum.update(chunk)
+
+        return checksum.hexdigest()
+
+    def generate_stats(
+        self, ckl_path: Union[str, Path], *, output_format: str = "text"
+    ) -> Union[str, Dict[str, Union[str, int, float, Dict[str, int], List[str]]]]:
+        """
+        Generate compliance statistics for a checklist.
+
+        Args:
+            ckl_path: Path to checklist
+            output_format: Output format - 'text', 'json', or 'csv'
+
+        Returns:
+            Formatted statistics (string for text/csv, dict for json)
+        """
+        try:
+            ckl_path = San.path(ckl_path, exist=True, file=True)
+        except (ValidationError, OSError, ValueError, TypeError) as exc:
+            raise ValidationError(f"Path validation failed: {exc}") from exc
+
+        LOG.ctx(op="generate_stats", file=ckl_path.name)
+        LOG.i(f"Generating statistics for {ckl_path}")
+
+        try:
+            tree = self._load_file_as_xml(ckl_path)
+            root = tree.getroot()
+        except (ParseError, OSError, ValueError) as exc:
+            raise ParseError(f"Failed to parse checklist: {exc}") from exc
+
+        # Extract statistics
+        stats = {
+            "file": str(ckl_path),
+            "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+            "total_vulns": 0,
+            "by_status": defaultdict(int),
+            "by_severity": defaultdict(int),
+            "by_status_and_severity": defaultdict(lambda: defaultdict(int)),
+        }
+
+        stigs = root.find("STIGS")
+        if stigs is not None:
+            for istig in stigs.findall("iSTIG"):
+                for vuln in istig.findall("VULN"):
+                    stats["total_vulns"] += 1
+
+                    # Get status
+                    status_node = vuln.find("STATUS")
+                    status = (
+                        status_node.text.strip()
+                        if status_node is not None and status_node.text
+                        else Status.NOT_REVIEWED
+                    )
+                    stats["by_status"][status] += 1
+
+                    # Get severity
+                    severity = "medium"  # default
+                    for sd in vuln.findall("STIG_DATA"):
+                        attr = sd.findtext("VULN_ATTRIBUTE")
+                        if attr == "Severity":
+                            severity = sd.findtext("ATTRIBUTE_DATA", default="medium")
+                            break
+
+                    stats["by_severity"][severity] += 1
+                    stats["by_status_and_severity"][severity][status] += 1
+
+        # Calculate completion percentage
+        reviewed = sum(stats["by_status"][s] for s in stats["by_status"] if s != Status.NOT_REVIEWED)
+        stats["reviewed"] = reviewed
+        stats["completion_pct"] = (
+            (reviewed / stats["total_vulns"] * 100) if stats["total_vulns"] > 0 else 0
+        )
+
+        # Calculate compliance percentage (NotAFinding / total reviewed)
+        not_a_finding = stats["by_status"].get(Status.NOT_A_FINDING, 0)
+        stats["compliant"] = not_a_finding
+        stats["compliance_pct"] = (not_a_finding / reviewed * 100) if reviewed > 0 else 0
+
+        LOG.clear()
+
+        # Format output
+        if output_format == "json":
+            # Convert defaultdicts to regular dicts for JSON serialization
+            result = dict(stats)
+            result["by_status"] = dict(stats["by_status"])
+            result["by_severity"] = dict(stats["by_severity"])
+            result["by_status_and_severity"] = {
+                sev: dict(statuses) for sev, statuses in stats["by_status_and_severity"].items()
+            }
+            return result
+        elif output_format == "csv":
+            return self._format_stats_csv(stats)
+        else:  # text
+            return self._format_stats_text(stats)
+
+    def _format_stats_text(
+        self, stats: Dict[str, Union[str, int, float, Dict[str, int], List[str]]]
+    ) -> str:
+        """Format statistics as human-readable text."""
+        lines = []
+        lines.append("=" * 80)
+        lines.append(f"STIG Compliance Statistics")
+        lines.append("=" * 80)
+        lines.append(f"File: {stats['file']}")
+        lines.append(f"Generated: {stats['generated']}")
+        lines.append("")
+        lines.append(f"Total Vulnerabilities: {stats['total_vulns']}")
+        lines.append(f"Reviewed: {stats['reviewed']} ({stats['completion_pct']:.1f}%)")
+        lines.append(
+            f"Compliant: {stats['compliant']} ({stats['compliance_pct']:.1f}% of reviewed)"
+        )
+        lines.append("")
+        lines.append("Status Breakdown:")
+        lines.append("-" * 40)
+        for status in sorted(stats["by_status"].keys()):
+            count = stats["by_status"][status]
+            pct = (count / stats["total_vulns"] * 100) if stats["total_vulns"] > 0 else 0
+            lines.append(f"  {status:20} {count:6} ({pct:5.1f}%)")
+        lines.append("")
+        lines.append("Severity Breakdown:")
+        lines.append("-" * 40)
+        for severity in ["high", "medium", "low"]:
+            if severity in stats["by_severity"]:
+                count = stats["by_severity"][severity]
+                pct = (count / stats["total_vulns"] * 100) if stats["total_vulns"] > 0 else 0
+                lines.append(
+                    f"  CAT {['I', 'II', 'III'][['high', 'medium', 'low'].index(severity)]:3} ({severity:6}) {count:6} ({pct:5.1f}%)"
+                )
+        lines.append("=" * 80)
+        return "\n".join(lines)
+
+    def _format_stats_csv(
+        self, stats: Dict[str, Union[str, int, float, Dict[str, int], List[str]]]
+    ) -> str:
+        """Format statistics as CSV."""
+        lines = []
+        lines.append("Metric,Value")
+        lines.append(f"File,{stats['file']}")
+        lines.append(f"Generated,{stats['generated']}")
+        lines.append(f"Total Vulnerabilities,{stats['total_vulns']}")
+        lines.append(f"Reviewed,{stats['reviewed']}")
+        lines.append(f"Completion %,{stats['completion_pct']:.1f}")
+        lines.append(f"Compliant,{stats['compliant']}")
+        lines.append(f"Compliance %,{stats['compliance_pct']:.1f}")
+        lines.append("")
+        lines.append("Status,Count")
+        for status in sorted(stats["by_status"].keys()):
+            lines.append(f"{status},{stats['by_status'][status]}")
+        lines.append("")
+        lines.append("Severity,Count")
+        for severity in ["high", "medium", "low"]:
+            if severity in stats["by_severity"]:
+                lines.append(f"{severity},{stats['by_severity'][severity]}")
+        return "\n".join(lines)

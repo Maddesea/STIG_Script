@@ -9,13 +9,12 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Optional, List
 
+
 from stig_assessor.xml.sanitizer import San
-from stig_assessor.xml.schema import Sch
 from stig_assessor.core.logging import LOG
 from stig_assessor.exceptions import ValidationError
 
-
-EXCESSIVE_NEWLINE_RE = re.compile(r'\n\s*\n\s*\n+')
+EXCESSIVE_NEWLINE_RE = re.compile(r"\n\s*\n\s*\n+")
 
 
 class XmlUtils:
@@ -60,6 +59,13 @@ class XmlUtils:
                 elem.tail = indent
 
     @staticmethod
+    def extract_namespace(root: ET.Element) -> dict[str, str]:
+        """Extract namespace dictionary from root element tag."""
+        if "}" in root.tag:
+            return {"ns": root.tag.split("}")[0].strip("{")}
+        return {}
+
+    @staticmethod
     def get_vid(vuln: ET.Element) -> Optional[str]:
         """
         Extract Vulnerability ID (VID) from VULN element.
@@ -80,16 +86,51 @@ class XmlUtils:
             >>> print(vid)
             V-123456
         """
-        for sd in vuln.findall("STIG_DATA"):
-            attr = sd.findtext("VULN_ATTRIBUTE")
-            if attr == "Vuln_Num":
-                vid = sd.findtext("ATTRIBUTE_DATA")
-                if vid:
-                    try:
-                        return San.vuln(vid.strip())
-                    except ValidationError as exc:
-                        LOG.d(f"Invalid VID format: {vid.strip()}: {exc}")
+        vid = vuln.findtext(".//STIG_DATA[VULN_ATTRIBUTE='Vuln_Num']/ATTRIBUTE_DATA")
+        if vid:
+            try:
+                return San.vuln(vid.strip())
+            except ValidationError as exc:
+                LOG.d(f"Invalid VID format: {vid.strip()}: {exc}")
         return None
+
+    @staticmethod
+    def build_vuln_index(root: ET.Element) -> dict[str, ET.Element]:
+        """
+        Build an O(1) lookup dictionary mapping VID -> VULN element.
+
+        Performs a single pass over all VULN elements in the checklist,
+        extracting VIDs and creating a dictionary for constant-time lookups.
+        This replaces the O(n) linear scan per-VID pattern used during
+        merge and update operations.
+
+        Args:
+            root: Root element of a parsed CKL checklist
+
+        Returns:
+            Dictionary mapping vulnerability IDs to their VULN elements.
+            Duplicate VIDs are logged as warnings; last occurrence wins.
+
+        Example:
+            >>> tree = ET.parse("checklist.ckl")
+            >>> index = XmlUtils.build_vuln_index(tree.getroot())
+            >>> vuln = index.get("V-123456")
+        """
+        index: dict[str, ET.Element] = {}
+        stigs = root.find("STIGS")
+        if stigs is None:
+            return index
+
+        for istig in stigs.findall("iSTIG"):
+            for vuln in istig.findall("VULN"):
+                vid = XmlUtils.get_vid(vuln)
+                if vid:
+                    if vid in index:
+                        LOG.d(f"Duplicate VID in checklist: {vid}")
+                    index[vid] = vuln
+
+        return index
+
 
     @staticmethod
     def collect_text(elem: ET.Element, xpath: str, default: str = "", join_with: str = "\n") -> str:
@@ -164,15 +205,16 @@ class XmlUtils:
 
             if parts:
                 # Join with newlines to preserve command structure
-                result = '\n'.join(parts)
+                result = "\n".join(parts)
                 # Clean up excessive blank lines but keep structure
-                result = EXCESSIVE_NEWLINE_RE.sub('\n\n', result)
+                result = EXCESSIVE_NEWLINE_RE.sub("\n\n", result)
                 return result.strip()
-        except Exception as exc:
+        except (TypeError, ValueError, AttributeError) as exc:
             LOG.d(f"itertext() extraction failed: {exc}")
 
         # Method 2: Manual traversal for complex mixed content
         try:
+
             def extract_text_recursive(element: ET.Element) -> List[str]:
                 texts = []
                 if element.text:
@@ -191,10 +233,10 @@ class XmlUtils:
 
             parts = extract_text_recursive(elem)
             if parts:
-                result = '\n'.join(parts)
-                result = EXCESSIVE_NEWLINE_RE.sub('\n\n', result)
+                result = "\n".join(parts)
+                result = EXCESSIVE_NEWLINE_RE.sub("\n\n", result)
                 return result.strip()
-        except Exception as exc:
+        except (TypeError, ValueError, AttributeError) as exc:
             LOG.d(f"Recursive extraction failed: {exc}")
 
         # Method 3: Direct text attribute (simple elements only)

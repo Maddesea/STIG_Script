@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from typing import Any, Dict
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 import threading
 import logging
 import logging.handlers
@@ -53,17 +53,19 @@ class Log:
         from stig_assessor.core.config import Cfg
 
         # Console handler
-        with suppress(Exception):
+        with suppress(OSError):
             console = logging.StreamHandler(sys.stderr)
             console.setLevel(logging.WARNING)
             console.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
             self.log.addHandler(console)
 
         # File handler
-        with suppress(Exception):
+        from stig_assessor.core.constants import MAX_LOG_SIZE_BYTES
+
+        with suppress(OSError):
             file_handler = logging.handlers.RotatingFileHandler(
                 str(Cfg.LOG_DIR / f"{self.name}.log"),
-                maxBytes=10 * 1024 * 1024,
+                maxBytes=MAX_LOG_SIZE_BYTES,
                 backupCount=5,
                 encoding="utf-8",
                 delay=True,
@@ -88,14 +90,26 @@ class Log:
         if hasattr(self._ctx, "data"):
             self._ctx.data.clear()
 
+    @contextmanager
+    def context(self, **kw: Any):
+        """Contextually manage log metadata to prevent state leakages."""
+        old_data = getattr(self._ctx, "data", {}).copy()
+        try:
+            self.ctx(**kw)
+            yield
+        finally:
+            if hasattr(self._ctx, "data"):
+                self._ctx.data.clear()
+                self._ctx.data.update(old_data)
+
     def _context_str(self) -> str:
         """Get context string for log messages."""
         try:
             data = getattr(self._ctx, "data", {})
             if data:
                 return "[" + ", ".join(f"{k}={v}" for k, v in data.items()) + "] "
-        except Exception:
-            # Silently ignore context extraction failures in logging helper
+        except (AttributeError, TypeError, RuntimeError):
+            # Gracefully handle context failures - logging should not fail
             pass
         return ""
 
@@ -103,9 +117,9 @@ class Log:
         """Internal logging method."""
         try:
             getattr(self.log, level)(self._context_str() + str(message), exc_info=exc)
-        except Exception:
+        except (TypeError, AttributeError, OSError, ValueError) as fallback_exc:
             # Fallback to stderr if logging system fails
-            print(f"[{level.upper()}] {message}", file=sys.stderr)
+            print(f"[{level.upper()}] {message} (Log Failed: {fallback_exc})", file=sys.stderr)
 
     def d(self, msg: str) -> None:
         """Log debug message."""

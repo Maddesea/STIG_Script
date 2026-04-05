@@ -46,8 +46,9 @@ Deps.warn_if_unsafe()
 
 try:
     Cfg.init()
-except Exception as e:
+except (RuntimeError, OSError, ValueError) as e:
     import sys
+
     print(f"FATAL: Config initialization failed: {e}", file=sys.stderr)
     sys.exit(1)
 

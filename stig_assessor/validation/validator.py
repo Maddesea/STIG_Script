@@ -11,9 +11,10 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
+import xml.etree.ElementTree as ET
 
 # Import from our package
-from stig_assessor.exceptions import ValidationError
+from stig_assessor.exceptions import ValidationError, ParseError
 from stig_assessor.core.constants import Status, Severity
 from stig_assessor.xml.schema import Sch
 from stig_assessor.xml.sanitizer import San
@@ -38,14 +39,16 @@ class Val:
     """
 
     # Required ASSET fields per STIG Viewer 2.18 schema
-    REQUIRED_ASSET_FIELDS = frozenset([
-        "ROLE",
-        "ASSET_TYPE",
-        "MARKING",
-        "HOST_NAME",
-        "TARGET_KEY",
-        "WEB_OR_DATABASE",
-    ])
+    REQUIRED_ASSET_FIELDS = frozenset(
+        [
+            "ROLE",
+            "ASSET_TYPE",
+            "MARKING",
+            "HOST_NAME",
+            "TARGET_KEY",
+            "WEB_OR_DATABASE",
+        ]
+    )
 
     def validate(self, path: Union[str, Path]) -> Tuple[bool, List[str], List[str], List[str]]:
         """
@@ -75,14 +78,18 @@ class Val:
         # Validate path exists and is a file
         try:
             path = San.path(path, exist=True, file=True)
+            suffix = Path(path).suffix.lower()
         except (ValidationError, FileNotFoundError, ValueError) as exc:
             return False, [str(exc)], [], []
+
+        if suffix == ".cklb":
+            return self._validate_cklb(path)
 
         # Parse XML
         try:
             tree = FO.parse_xml(path)
             root = tree.getroot()
-        except Exception as exc:
+        except (ParseError, OSError, ValueError) as exc:
             return False, [f"Unable to parse XML: {exc}"], [], []
 
         # Validate root element
@@ -108,12 +115,54 @@ class Val:
 
         return len(errors) == 0, errors, warnings_, info
 
-    def _validate_asset(
-        self,
-        asset,
-        errors: List[str],
-        warnings_: List[str]
-    ) -> None:
+    def _validate_cklb(self, path: Path) -> Tuple[bool, List[str], List[str], List[str]]:
+        """Validate a CKLB JSON file structure."""
+        errors: List[str] = []
+        warnings_: List[str] = []
+        info: List[str] = []
+
+        try:
+            data = FO.parse_cklb(path)
+        except (ParseError, OSError, ValueError) as exc:
+            return False, [f"Unable to parse CKLB JSON: {exc}"], [], []
+
+        if not isinstance(data, dict):
+            return False, ["Root CKLB must be a JSON object"], [], []
+
+        target_data = data.get("target_data", {})
+        if not target_data:
+            errors.append("Missing target_data in CKLB")
+
+        stig_data = data.get("stig_data", {})
+        if not stig_data:
+            errors.append("Missing stig_data in CKLB")
+
+        reviews = data.get("reviews", [])
+        if not isinstance(reviews, list):
+            errors.append("reviews must be a list")
+
+        info.append(f"Total vulnerabilities: {len(reviews) if isinstance(reviews, list) else 0}")
+
+        if isinstance(reviews, list):
+            status_counts: Dict[str, int] = defaultdict(int)
+            for review in reviews:
+                status = review.get("status", "")
+                status_counts[status] += 1
+                if status and not Status.is_valid(status):
+                    errors.append(f"Invalid STATUS value '{status}'")
+
+            reviewed = sum(
+                count for stat, count in status_counts.items() if stat not in (Status.NOT_REVIEWED, "")
+            )
+            if len(reviews) > 0:
+                pct = reviewed * 100 / len(reviews)
+                info.append(f"Reviewed: {reviewed}/{len(reviews)} ({pct:.1f}%)")
+            for stat, count in sorted(status_counts.items()):
+                info.append(f"  {stat or '[empty]'}: {count}")
+
+        return len(errors) == 0, errors, warnings_, info
+
+    def _validate_asset(self, asset: ET.Element, errors: List[str], warnings_: List[str]) -> None:
         """
         Validate ASSET element for required fields and valid values.
 
@@ -127,9 +176,7 @@ class Val:
             errors: List to append critical errors
             warnings_: List to append non-critical warnings
         """
-        values: Dict[str, str] = {
-            child.tag: (child.text or "") for child in asset
-        }
+        values: Dict[str, str] = {child.tag: (child.text or "") for child in asset}
 
         # Check required fields
         for field in self.REQUIRED_ASSET_FIELDS:
@@ -158,10 +205,7 @@ class Val:
         if asset_type and asset_type not in valid_types:
             warnings_.append(f"Non-standard ASSET_TYPE: {asset_type}")
 
-    def _validate_stigs(
-        self,
-        stigs
-    ) -> Tuple[List[str], List[str], List[str]]:
+    def _validate_stigs(self, stigs: ET.Element) -> Tuple[List[str], List[str], List[str]]:
         """
         Validate STIGS element and all contained vulnerabilities.
 
@@ -197,18 +241,12 @@ class Val:
             total_vulns += len(vulns)
 
             for vuln_idx, vuln in enumerate(vulns, 1):
-                self._validate_vuln(
-                    vuln, idx, vuln_idx, errors, warnings_, status_counts
-                )
+                self._validate_vuln(vuln, idx, vuln_idx, errors, warnings_, status_counts)
 
         # Generate info statistics
         info.append(f"Total vulnerabilities: {total_vulns}")
         if total_vulns:
-            reviewed = sum(
-                status_counts[s]
-                for s in status_counts
-                if s not in ("Not_Reviewed", "")
-            )
+            reviewed = sum(status_counts[s] for s in status_counts if s not in (Status.NOT_REVIEWED, ""))
             pct = reviewed * 100 / total_vulns
             info.append(f"Reviewed: {reviewed}/{total_vulns} ({pct:.1f}%)")
             for status, count in sorted(status_counts.items()):
@@ -218,12 +256,12 @@ class Val:
 
     def _validate_vuln(
         self,
-        vuln,
+        vuln: ET.Element,
         istig_idx: int,
         vuln_idx: int,
         errors: List[str],
         warnings_: List[str],
-        status_counts: Dict[str, int]
+        status_counts: Dict[str, int],
     ) -> None:
         """
         Validate a single VULN element.
@@ -270,9 +308,7 @@ class Val:
                     f"Should be one of: {', '.join(sorted(Severity.all_values()))}"
                 )
         else:
-            warnings_.append(
-                f"iSTIG #{istig_idx}, VULN {vuln_id}: Missing Severity"
-            )
+            warnings_.append(f"iSTIG #{istig_idx}, VULN {vuln_id}: Missing Severity")
 
     def _get_vuln_attribute(self, vuln, attr_name: str) -> Optional[str]:
         """
@@ -296,10 +332,7 @@ class Val:
                     return val_elem.text
         return None
 
-    def validate_strict(
-        self,
-        path: Union[str, Path]
-    ) -> None:
+    def validate_strict(self, path: Union[str, Path]) -> None:
         """
         Validate a CKL file strictly, raising an exception on any error.
 
@@ -316,10 +349,10 @@ class Val:
         if not is_valid:
             raise ValidationError(
                 f"Validation failed with {len(errors)} error(s): {'; '.join(errors)}",
-                ctx={"path": str(path), "errors": errors, "warnings": warnings_}
+                ctx={"path": str(path), "errors": errors, "warnings": warnings_},
             )
 
-    def validate_xml_structure(self, root) -> Tuple[bool, List[str]]:
+    def validate_xml_structure(self, root: ET.Element) -> Tuple[bool, List[str]]:
         """
         Validate basic XML structure without file operations.
 

@@ -245,7 +245,7 @@ class TestFileOperations(unittest.TestCase):
         }
 
         result = FO.zip(zip_path, files)
-        self.assertEqual(result, zip_path)
+        self.assertEqual(result.resolve(), zip_path.resolve())
         self.assertTrue(zip_path.exists())
 
         # Verify ZIP contents

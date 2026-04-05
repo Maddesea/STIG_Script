@@ -72,7 +72,7 @@ def test_zip_creation():
 
         result = FO.zip(zip_path, files)
         assert result.exists(), "ZIP not created"
-        assert result == zip_path, "ZIP path mismatch"
+        assert result.resolve() == zip_path.resolve(), "ZIP path mismatch"
         print("✓ ZIP creation successful")
 
 

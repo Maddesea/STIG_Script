@@ -17,14 +17,14 @@ class Deps:
     @classmethod
     def check(cls) -> None:
         """Check for available optional dependencies."""
-        with suppress(Exception):
+        with suppress(ImportError):
             from defusedxml import ElementTree as DET
             from io import StringIO
 
             DET.parse(StringIO("<test/>"))
             cls.HAS_DEFUSEDXML = True
 
-        with suppress(Exception):
+        with suppress(ImportError, Exception):
             import tkinter
 
             r = tkinter.Tk()
@@ -34,12 +34,12 @@ class Deps:
             gc.collect()
             cls.HAS_TKINTER = True
 
-        with suppress(Exception):
+        with suppress(ImportError):
             import fcntl  # noqa: F401
 
             cls.HAS_FCNTL = True
 
-        with suppress(Exception):
+        with suppress(ImportError):
             import msvcrt  # noqa: F401
 
             cls.HAS_MSVCRT = True
@@ -47,12 +47,16 @@ class Deps:
     @classmethod
     def get_xml(cls):
         """Get XML parser (preferring defusedxml for security)."""
+        import xml.etree.ElementTree as ET  # noqa: N813
+        from xml.etree.ElementTree import ParseError as XMLParseError
+
         if cls.HAS_DEFUSEDXML:
-            from defusedxml import ElementTree as ET
-            from defusedxml.ElementTree import ParseError as XMLParseError
-        else:
-            import xml.etree.ElementTree as ET  # noqa: N813
-            from xml.etree.ElementTree import ParseError as XMLParseError
+            import defusedxml.ElementTree as DET
+
+            # Patch parsing methods to secure implementations while keeping ET builders
+            ET.parse = DET.parse
+            ET.fromstring = DET.fromstring
+            ET.XMLParser = DET.XMLParser
 
         return ET, XMLParseError
 

@@ -10,7 +10,7 @@ Team: 9 - Evidence Management
 from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Dict, Union
 from contextlib import suppress
 
 
@@ -38,7 +38,7 @@ class EvidenceMeta:
     category: str = "general"
     who: str = "System"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> Dict[str, Union[str, int]]:
         """Convert to dictionary for JSON serialization.
 
         Returns:
@@ -56,7 +56,7 @@ class EvidenceMeta:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EvidenceMeta":
+    def from_dict(cls, data: Dict[str, Union[str, int]]) -> "EvidenceMeta":
         """Create from dictionary (JSON deserialization).
 
         Args:
@@ -69,18 +69,8 @@ class EvidenceMeta:
             ValidationError: If data is invalid
         """
         # Import dependencies here to avoid circular imports
-        try:
-            from stig_assessor.xml.sanitizer import San
-            from stig_assessor.exceptions import ValidationError
-        except ImportError:
-            # Fallback for when dependencies aren't available yet
-            class ValidationError(Exception):
-                pass
-
-            class San:
-                @staticmethod
-                def vuln(s):
-                    return str(s).strip()
+        from stig_assessor.xml.sanitizer import San
+        from stig_assessor.exceptions import ValidationError
 
         if not isinstance(data, dict):
             raise ValidationError("Evidence metadata must be object")
@@ -90,7 +80,7 @@ class EvidenceMeta:
         imported_str = data.get("imported")
 
         if imported_str:
-            with suppress(Exception):
+            with suppress(ValueError, AttributeError):
                 imported = datetime.fromisoformat(imported_str.rstrip("Z"))
 
         if imported.tzinfo is None:
@@ -98,11 +88,11 @@ class EvidenceMeta:
 
         return cls(
             vid=vid,
-            filename=str(data.get("filename", "")),
+            filename=str(data.get("filename") or ""),
+            file_hash=str(data.get("hash") or ""),
+            file_size=int(data.get("size") or 0),
+            description=str(data.get("description") or ""),
+            category=str(data.get("category") or "general"),
+            who=str(data.get("who") or "System"),
             imported=imported,
-            file_hash=str(data.get("hash", "")),
-            file_size=int(data.get("size", 0)),
-            description=str(data.get("description", "")),
-            category=str(data.get("category", "general")),
-            who=str(data.get("who", "System")),
         )

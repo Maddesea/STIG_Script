@@ -120,9 +120,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Generator, IO, Iterable, List, Optional, Tuple, Union
 from enum import Enum
 
-# Filter only specific warnings that are expected in air-gapped environments
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="xml")
-warnings.filterwarnings("ignore", category=ResourceWarning)
+# Warning suppression removed per audit #15 to enable detection of outdated dependencies
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CONSTANTS
@@ -427,7 +425,7 @@ def retry(
                     raise InterruptedError("Shutdown requested")
                 try:
                     return func(*args, **kwargs)
-                except exceptions as err:
+                except tuple(exceptions) as err:
                     last_err = err
                     if attempt < attempts:
                         time.sleep(wait)
@@ -498,12 +496,15 @@ class Deps:
 
     @classmethod
     def get_xml(cls) -> Tuple[Any, type]:
+        import xml.etree.ElementTree as ET  # noqa: N813
+        from xml.etree.ElementTree import ParseError as XMLParseError
+
         if cls.HAS_DEFUSEDXML:
-            from defusedxml import ElementTree as ET
-            from defusedxml.ElementTree import ParseError as XMLParseError
-        else:
-            import xml.etree.ElementTree as ET  # noqa: N813
-            from xml.etree.ElementTree import ParseError as XMLParseError
+            import defusedxml.ElementTree as DET
+            # Patch parsing methods to secure implementations while keeping ET builders
+            ET.parse = DET.parse
+            ET.fromstring = DET.fromstring
+            ET.XMLParser = DET.XMLParser
 
         return ET, XMLParseError
 
@@ -671,13 +672,13 @@ class Cfg:
         for module in ("json", "hashlib", "pathlib", "logging", "zipfile", "csv", "uuid"):
             try:
                 __import__(module)
-            except Exception:
-                errs.append(f"Missing stdlib module: {module}")
+            except Exception as e:
+                errs.append(f"Missing stdlib module: {module} ({e})")
 
         try:
             ET.Element("test")
-        except Exception:
-            errs.append("XML parser failed")
+        except Exception as e:
+            errs.append(f"XML parser failed: {e}")
 
         if cls.APP_DIR and not os.access(cls.APP_DIR, os.W_OK):
             errs.append(f"No write permission: {cls.APP_DIR}")
@@ -820,8 +821,8 @@ class Log:
         """
         try:
             getattr(self.log, level)(self._context_str() + str(message), exc_info=exc)
-        except Exception:
-            print(f"[{level.upper()}] {message}", file=sys.stderr)
+        except Exception as exc_info:
+            print(f"[{level.upper()}] {message} (Log Failed: {exc_info})", file=sys.stderr)
 
     def d(self, msg: str) -> None:
         """Log a DEBUG message. Use for detailed diagnostic information."""
@@ -2875,6 +2876,16 @@ class Proc:
         return XmlUtils.extract_namespace(root)
 
     def _extract_meta(self, root: ET.Element, ns: Dict[str, str]) -> Dict[str, str]:
+        """
+        Extract metadata from an XCCDF root element for STIG checklist population.
+
+        Args:
+            root: Root element of the parsed XCCDF.
+            ns: XML namespace mapping for XPath queries.
+
+        Returns:
+            Dictionary containing metadata parameters such as title, version, etc.
+        """
         meta = {
             "title": "Unknown STIG",
             "description": "",
@@ -2913,7 +2924,7 @@ class Proc:
 
     def _build_asset(
         self,
-        parent,
+        parent: ET.Element,
         asset: str,
         ip: str,
         mac: str,
@@ -2921,6 +2932,18 @@ class Proc:
         marking: str,
         meta: Dict[str, str],
     ) -> None:
+        """
+        Build and append the ASSET node for the target CKL.
+
+        Args:
+            parent: Parent XML element to append to.
+            asset: Asset identifier or hostname.
+            ip: Target IP address.
+            mac: Target MAC address.
+            role: Target IT role.
+            marking: Classification marking.
+            meta: Metadata dictionary to draw target keys from.
+        """
         asset_node = ET.SubElement(parent, "ASSET")
         values = {
             "ROLE": role,
@@ -2941,7 +2964,15 @@ class Proc:
             node = ET.SubElement(asset_node, field)
             node.text = values.get(field, "")
 
-    def _build_stig_info(self, parent, xccdf: Path, meta: Dict[str, str]) -> None:
+    def _build_stig_info(self, parent: ET.Element, xccdf: Path, meta: Dict[str, str]) -> None:
+        """
+        Build and append the STIG_INFO configuration node for the target CKL.
+
+        Args:
+            parent: Parent XML element to append to.
+            xccdf: Source XCCDF benchmark file path.
+            meta: Parsed metadata mapping.
+        """
         stig_info = ET.SubElement(parent, "STIG_INFO")
         values = {
             "version": meta.get("version", "1"),
@@ -2966,7 +2997,17 @@ class Proc:
             if value:
                 data.text = value
 
-    def _list_groups(self, root, ns: Dict[str, str]) -> List[Any]:
+    def _list_groups(self, root: ET.Element, ns: Dict[str, str]) -> List[ET.Element]:
+        """
+        Extract valid STIG vulnerability groups from the parsed XCCDF document.
+
+        Args:
+            root: Root element of the parsed XCCDF.
+            ns: XML namespace mapping for XPath queries.
+
+        Returns:
+            List of valid vulnerability Group XML elements.
+        """
         search = ".//ns:Group" if ns else ".//Group"
         groups = root.findall(search, ns)
         valid: List[Any] = []
@@ -2978,12 +3019,25 @@ class Proc:
 
     def _build_vuln(
         self,
-        group,
+        group: ET.Element,
         ns: Dict[str, str],
         meta: Dict[str, str],
         apply_boilerplate: bool,
         asset: str,
-    ):
+    ) -> Optional[ET.Element]:
+        """
+        Parse an XCCDF vulnerability group into a CKL VULN configuration element.
+
+        Args:
+            group: Parsed group element from the XCCDF benchmark.
+            ns: XML namespace mapping.
+            meta: Target STIG metadata parameters.
+            apply_boilerplate: Flag indicating whether default textual responses should be applied.
+            asset: Contextual asset identifier string.
+
+        Returns:
+            Fully populated VULN ElementTree element or None if parsing fails.
+        """
         vid = group.get("id", "")
         if not vid:
             return None
@@ -3361,7 +3415,7 @@ class Proc:
         LOG.clear()
         return results
 
-    def _extract_vuln_data(self, root) -> Dict[str, Dict[str, str]]:
+    def _extract_vuln_data(self, root: ET.Element) -> Dict[str, Dict[str, str]]:
         """Extract vulnerability data from a checklist for comparison."""
         vulns = {}
         stigs = root.find("STIGS")
@@ -3498,6 +3552,21 @@ class Proc:
                     )
 
     def _merge_vuln(self, vuln: ET.Element, preserve_history: bool, apply_boilerplate: bool) -> bool:
+        """
+        Integrate historical data into an existing STIG vulnerability node.
+
+        Updates the finding details, comments, and status of a given vulnerability element
+        by pulling from accumulated historical configurations, seamlessly managing backfilled text
+        and boilerplate formatting requirements.
+
+        Args:
+            vuln: Target ElementTree element to update.
+            preserve_history: Flag to dictate whether raw historical logs are explicitly injected.
+            apply_boilerplate: Flag to append missing details with standard configured templates.
+
+        Returns:
+            True if modifications occurred resulting in updates to the VULN element, False otherwise.
+        """
         vid = XmlUtils.get_vid(vuln)
         if not vid:
             return False
@@ -4501,9 +4570,10 @@ class FixExt:
             handle.write("\n".join(lines))
 
         if not Cfg.IS_WIN:
-            with suppress(Exception):
+            try:
                 os.chmod(path, 0o750)
-
+            except OSError as err:
+                LOG.w(f"Could not safely set executable permissions on {path} (Check context rights): {err}")
         LOG.i(f"Bash remediation script generated: {path} ({len(fixes)} fixes)")
 
     def to_powershell(self, path: Union[str, Path], severity_filter: Optional[List[str]] = None, dry_run: bool = False) -> None:
@@ -4675,11 +4745,33 @@ class FixResPro:
 
         try:
             content = FO.read(path)
-            payload = json.loads(content)
+            
+            # Auto-detect CSV format via file extension
+            if str(path).lower().endswith(".csv"):
+                import csv
+                import io
+                reader = csv.DictReader(io.StringIO(content))
+                entries = []
+                for row in reader:
+                    # Map CSV columns to expected JSON-like dict schema
+                    entry = {
+                        "vid": row.get("vid") or row.get("Vuln_ID", ""),
+                        "ok": row.get("ok", "false").lower() in ("true", "1", "yes", "success"),
+                        "msg": row.get("msg", ""),
+                        "output": row.get("out", ""),
+                        "error": row.get("err", ""),
+                    }
+                    if "ts" in row or "timestamp" in row:
+                        entry["ts"] = row.get("ts") or row.get("timestamp")
+                    entries.append(entry)
+                payload = entries
+                LOG.i("Detected CSV remediation results format")
+            else:
+                payload = json.loads(content)
         except json.JSONDecodeError as exc:
             raise ParseError(f"Invalid JSON in {path.name}: {exc}") from exc
         except Exception as exc:
-            raise ParseError(f"Cannot read {path.name}: {exc}") from exc
+            raise ParseError(f"Cannot parse {path.name}: {exc}") from exc
 
         imported = 0
         skipped = 0
@@ -4986,7 +5078,9 @@ class EvidenceMgr:
             for vid, entries in data.items():
                 try:
                     vid = San.vuln(vid)
-                except Exception:
+                except Exception as vid_err:
+                    import logging
+                    getattr(logging, 'debug', print)(f"Invalid VID skipped during import: {vid_err}")
                     continue
                 self._meta[vid] = []
                 for entry in entries:
@@ -5199,7 +5293,8 @@ class EvidenceMgr:
                 vid = vid_dir.name
                 try:
                     vid = San.vuln(vid)
-                except Exception:
+                except ValidationError as exc:
+                    LOG.w(f"Skipping invalid vulnerability directory '{vid_dir.name}': {exc}")
                     continue
                 for file in vid_dir.iterdir():
                     if not file.is_file():
@@ -5913,6 +6008,7 @@ if Deps.HAS_TKINTER:
                     except Exception as e:
                         LOG.e(f"Error processing queue item: {e}", exc=True)
             except queue.Empty:
+                # No pending UI updates from workers; this is a normal resting state
                 pass
 
             self.root.after(200, self._process_queue)
@@ -6183,8 +6279,8 @@ if Deps.HAS_TKINTER:
                 return
             try:
                 San.vuln(vid)
-            except Exception:
-                messagebox.showerror("Invalid Vuln ID", "Please enter a valid Vuln ID (e.g. V-12345).")
+            except Exception as _val_err:
+                messagebox.showerror("Invalid Vuln ID", f"Please enter a valid Vuln ID (e.g. V-12345). ({_val_err})")
                 return
             path = filedialog.askopenfilename(title="Select evidence file")
             if not path:
@@ -6455,6 +6551,19 @@ def ensure_default_boilerplates() -> None:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    """
+    Main execution entry point and CLI parsing logic.
+
+    Initializes application dependencies, performs configuration self-checks,
+    constructs the argparse interface, and handles dispatching workflows
+    based on the parsed command-line arguments or launches the GUI context.
+
+    Args:
+        argv: Optional list of command-line arguments. Uses sys.argv if None.
+
+    Returns:
+        Exit code integer (0 for success, non-zero for failure).
+    """
     ensure_default_boilerplates()
     ok, err_list = Cfg.check()
     if not ok:

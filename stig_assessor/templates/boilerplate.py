@@ -15,6 +15,8 @@ from pathlib import Path
 from xml.etree.ElementTree import Element
 import json
 
+from stig_assessor.core.constants import Status
+
 
 class BP:
     """
@@ -26,9 +28,9 @@ class BP:
     Thread-safe: No (load at startup)
     """
 
-    _instance: Optional['BP'] = None
+    _instance: Optional["BP"] = None
 
-    def __new__(cls) -> 'BP':
+    def __new__(cls) -> "BP":
         """Singleton implementation."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -36,7 +38,7 @@ class BP:
 
     def __init__(self):
         """Initialize template manager."""
-        if hasattr(self, '_initialized'):
+        if hasattr(self, "_initialized"):
             return
 
         # Import here to avoid circular dependencies during module load
@@ -62,7 +64,7 @@ class BP:
             content = FO.read(self.template_file)
             self.templates = json.loads(content)
             LOG.i(f"Loaded {len(self.templates)} boilerplate templates")
-        except Exception as e:
+        except (OSError, ValueError, TypeError) as e:
             LOG.e(f"Failed to load boilerplate: {e}")
             self._load_defaults()
 
@@ -77,7 +79,7 @@ class BP:
                 f.write(content)
             with FO.atomic(self.template_file, bak=False) as handle:
                 json.dump(self.templates, handle, indent=2, ensure_ascii=False)
-        except Exception as e:
+        except (OSError, ValueError, TypeError) as e:
             raise FileError(f"Failed to save boilerplate: {e}")
 
     def get(self, vid: str, status: str) -> Optional[str]:
@@ -165,17 +167,17 @@ class BP:
     def _load_defaults(self) -> None:
         """Load default boilerplate templates."""
         self.templates = {
-            # Example defaults - can be customized
             "V-*": {
-                "NotAFinding": "This control is satisfied. Evidence: [describe evidence]",
-                "Not_Applicable": "This control does not apply because: [justification]",
-                "Open": "This control is not satisfied. Findings: [describe issue]"
+                Status.NOT_A_FINDING: "This control is satisfied. Evidence: [describe evidence]",
+                Status.NOT_APPLICABLE: "This control does not apply because: [justification]",
+                Status.OPEN: "This control is not satisfied. Findings: [describe issue]",
             }
         }
 
     def list_all(self) -> Dict[str, Dict[str, str]]:
         """Get all templates."""
         import copy
+
         return copy.deepcopy(self.templates)
 
 

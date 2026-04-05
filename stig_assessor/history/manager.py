@@ -19,7 +19,6 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Dict, List, Union
 from pathlib import Path
-from contextlib import suppress
 
 # Import from local models module
 from .models import Hist
@@ -57,6 +56,7 @@ class HistMgr:
     def __init__(self):
         """Initialize history manager with empty storage."""
         self._h: Dict[str, List[Hist]] = defaultdict(list)
+        self._seen: Dict[str, set] = defaultdict(set)
         self._lock = threading.RLock()
 
     def add(
@@ -108,18 +108,9 @@ class HistMgr:
                 LOG.w(f"Failed to compute digest for {vid}, using fallback: {exc}")
                 digest = f"chk_{uuid.uuid4().hex[:6]}"
 
-            # Check for duplicates
-            # Performance optimization: check recent entries first
-            recent_entries = self._h[vid][-Cfg.DEDUP_CHECK_WINDOW:]
-            if any(entry.chk == digest for entry in recent_entries):
+            # Check for duplicates in O(1) time
+            if digest in self._seen[vid]:
                 return False
-
-            # If history is longer than window, check older entries too
-            if len(self._h[vid]) > Cfg.DEDUP_CHECK_WINDOW:
-                older_entries = self._h[vid][:-Cfg.DEDUP_CHECK_WINDOW]
-                if any(entry.chk == digest for entry in older_entries):
-                    LOG.d(f"Duplicate found in older history for {vid}")
-                    return False
 
             # Set default username if not provided
             if not who:
@@ -140,6 +131,7 @@ class HistMgr:
             # Use bisect.insort for O(n) insertion instead of O(n log n) sort
             # History entries are ordered by timestamp (Hist dataclass has order=True)
             bisect.insort(self._h[vid], entry)
+            self._seen[vid].add(digest)
 
             # Compress if history exceeds maximum
             if len(self._h[vid]) > Cfg.MAX_HIST:
@@ -162,9 +154,9 @@ class HistMgr:
             return
 
         # Keep head and tail entries, compress middle
-        head = entries[:Cfg.HIST_COMPRESS_HEAD]
-        tail = entries[-Cfg.HIST_COMPRESS_TAIL:]
-        middle = entries[Cfg.HIST_COMPRESS_HEAD:-Cfg.HIST_COMPRESS_TAIL]
+        head = entries[: Cfg.HIST_COMPRESS_HEAD]
+        tail = entries[-Cfg.HIST_COMPRESS_TAIL :]
+        middle = entries[Cfg.HIST_COMPRESS_HEAD : -Cfg.HIST_COMPRESS_TAIL]
 
         if middle:
             # Create compressed entry representing middle entries
@@ -317,8 +309,7 @@ class HistMgr:
                     "nentries": sum(len(vals) for vals in self._h.values()),
                 },
                 "history": {
-                    vid: [entry.as_dict() for entry in entries]
-                    for vid, entries in self._h.items()
+                    vid: [entry.as_dict() for entry in entries] for vid, entries in self._h.items()
                 },
             }
 
@@ -346,32 +337,40 @@ class HistMgr:
         path = San.path(path, exist=True, file=True)
         try:
             payload = json.loads(FO.read(path))
-        except Exception:
-            raise ParseError("Invalid history JSON")
+        except (json.JSONDecodeError, OSError) as exc:
+            raise ParseError(f"Invalid history JSON: {exc}") from exc
 
         imported = 0
         with self._lock:
             history_data = payload.get("history", {})
             for vid, entries in history_data.items():
+                if not isinstance(entries, list):
+                    continue
+                entries = entries[:50]  # Cap history size per VID
+
                 # Validate VID
                 try:
                     vid = San.vuln(vid)
-                except Exception:
+                except ValidationError as exc:
+                    LOG.w(f"Skipping malformed VID '{vid}': {exc}")
                     continue
 
                 # Import entries
                 slot = self._h[vid]
-                for entry_data in entries:
+                seen_slot = self._seen[vid]
+                for entry_data in entries[:50]:
                     try:
                         entry = Hist.from_dict(entry_data)
-                    except Exception:
+                    except (KeyError, ValueError, TypeError) as exc:
+                        LOG.w(f"Skipping malformed history entry in {vid}: {exc}")
                         continue
 
                     # Skip duplicates
-                    if any(existing.chk == entry.chk for existing in slot):
+                    if entry.chk in seen_slot:
                         continue
 
                     slot.append(entry)
+                    seen_slot.add(entry.chk)
                     imported += 1
 
                 # Sort entries by timestamp

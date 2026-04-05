@@ -20,7 +20,7 @@ import zipfile
 from contextlib import contextmanager, suppress
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Generator, IO, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, IO, List, Optional, Tuple, Union
 
 # XML imports
 try:
@@ -48,13 +48,13 @@ from stig_assessor.core.deps import Deps
 # Import from XML foundation (Team 2)
 from stig_assessor.xml.sanitizer import San
 
-
 AMPERSAND_RE = re.compile(r"&(?!(amp|lt|gt|quot|apos);)")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # RETRY DECORATOR
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def retry(
     attempts: int = MAX_RETRIES,
@@ -72,7 +72,7 @@ def retry(
                     raise InterruptedError("Shutdown requested")
                 try:
                     return func(*args, **kwargs)
-                except exceptions as err:
+                except tuple(exceptions) as err:
                     last_err = err
                     if attempt < attempts:
                         time.sleep(wait)
@@ -91,6 +91,7 @@ def retry(
 # FILE OPERATIONS CLASS
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class FO:
     """Safe file operations with atomic writes, backup management, and encoding detection.
 
@@ -101,7 +102,9 @@ class FO:
     @staticmethod
     @contextmanager
     @retry()
-    def atomic(target: Union[str, Path], mode: str = "w", enc: str = "utf-8", bak: bool = True) -> Generator[IO, None, None]:
+    def atomic(
+        target: Union[str, Path], mode: str = "w", enc: str = "utf-8", bak: bool = True
+    ) -> Generator[IO, None, None]:
         """Atomic file write with automatic rollback on failure.
 
         Args:
@@ -149,7 +152,7 @@ class FO:
                 if not Cfg.IS_WIN:
                     os.fsync(fh.fileno())
                 else:
-                    with suppress(Exception):
+                    with suppress(OSError):
                         fh.flush()
                         os.fsync(fh.fileno())
             finally:
@@ -167,20 +170,26 @@ class FO:
                         break
                     except PermissionError:
                         if attempt < max_attempts - 1:
-                            time.sleep(0.1 * (2 ** attempt))  # Exponential backoff: 0.1, 0.2, 0.4, 0.8s
+                            time.sleep(
+                                0.1 * (2**attempt)
+                            )  # Exponential backoff: 0.1, 0.2, 0.4, 0.8s
                         else:
-                            LOG.w(f"Could not delete target file after {max_attempts} attempts, replace may fail")
+                            LOG.w(
+                                f"Could not delete target file after {max_attempts} attempts, replace may fail"
+                            )
 
             # Perform atomic replace with final retry for Windows file locking
             try:
                 tmp_path.replace(target)
             except OSError as e:
                 # Safely check for Windows error code 32 (file in use)
-                winerror = getattr(e, 'winerror', None)
+                winerror = getattr(e, "winerror", None)
                 if Cfg.IS_WIN and winerror == 32:
                     LOG.d("Replace failed due to file lock, retrying with delay")
                     time.sleep(1.0)  # One final longer delay
-                    tmp_path.replace(target)  # Final attempt, let exception propagate if still fails
+                    tmp_path.replace(
+                        target
+                    )  # Final attempt, let exception propagate if still fails
                 else:
                     raise
             tmp_path = None
@@ -190,10 +199,10 @@ class FO:
 
         except Exception as exc:
             if fh:
-                with suppress(Exception):
+                with suppress(OSError):
                     fh.close()
             if tmp_path and tmp_path.exists():
-                with suppress(Exception):
+                with suppress(OSError):
                     tmp_path.unlink()
             if backup_path and backup_path.exists():
                 try:
@@ -202,25 +211,30 @@ class FO:
                     shutil.copy2(str(backup_path), str(target))
                     LOG.i(f"Restored from backup: {backup_path}")
                 except Exception as rollback_err:
-                    LOG.c(f"CRITICAL: Rollback failed! Manual recovery needed. Backup: {backup_path}", exc=True)
-                    raise FileError(f"Atomic write failed AND rollback failed: {exc}. Backup at: {backup_path}") from rollback_err
-            raise FileError(f"Atomic write failed: {exc}")
+                    LOG.c(
+                        f"CRITICAL: Rollback failed! Manual recovery needed. Backup: {backup_path}",
+                        exc=True,
+                    )
+                    raise FileError(
+                        f"Atomic write failed AND rollback failed: {exc}. Backup at: {backup_path}"
+                    ) from rollback_err
+            raise FileError(f"Atomic write failed: {exc}") from exc
         finally:
             if tmp_path and tmp_path.exists():
-                with suppress(Exception):
+                with suppress(OSError):
                     tmp_path.unlink()
 
     @staticmethod
     def _clean_baks(stem: str) -> None:
         """Remove old backups, keeping only the most recent ones."""
-        with suppress(Exception):
+        with suppress(OSError):
             backups = sorted(
                 Cfg.BACKUP_DIR.glob(f"{stem}_*.bak"),
                 key=lambda p: p.stat().st_mtime,
                 reverse=True,
             )
             for old in backups[Cfg.KEEP_BACKUPS :]:
-                with suppress(Exception):
+                with suppress(OSError):
                     old.unlink()
 
     @staticmethod
@@ -307,16 +321,27 @@ class FO:
                     f"Install defusedxml (pip install defusedxml) or use a smaller file. "
                     f"Without defusedxml, only files under {LARGE_FILE_THRESHOLD / 1024 / 1024:.1f}MB can be parsed."
                 )
-            LOG.w("Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious")
+            LOG.w(
+                "Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious"
+            )
 
         try:
-            return ET.parse(str(path))
+            parser = None
+            if not Deps.HAS_DEFUSEDXML:
+                try:
+                    # Attempt to disable entity expansion in fallback parser (supported in some builds)
+                    parser = ET.XMLParser(resolve_entities=False)
+                except TypeError:
+                    parser = None
+            return ET.parse(str(path), parser=parser) if parser else ET.parse(str(path))
         except XMLParseError as err:
             LOG.e(f"XML parse error: {err}")
             try:
                 # Only read full file if it's reasonably sized
                 if file_size > LARGE_FILE_THRESHOLD:
-                    LOG.w(f"Large file ({file_size} bytes) requires entity sanitization, may be slow")
+                    LOG.w(
+                        f"Large file ({file_size} bytes) requires entity sanitization, may be slow"
+                    )
 
                 content = FO.read(path)
                 content = AMPERSAND_RE.sub("&amp;", content)
@@ -326,18 +351,65 @@ class FO:
                     tmp.write(content)
                     tmp_name = tmp.name
                 try:
-                    tree = ET.parse(tmp_name)
+                    tree = ET.parse(tmp_name, parser=parser) if parser else ET.parse(tmp_name)
                     LOG.i("XML parsed successfully after entity sanitisation")
                     return tree
                 finally:
-                    with suppress(Exception):
+                    with suppress(OSError):
                         os.unlink(tmp_name)
-            except Exception as inner:
+            except (OSError, XMLParseError) as inner:
                 raise ParseError(f"XML parse failed: {inner}")
 
     @staticmethod
+    def parse_cklb(path: Union[str, Path]) -> Dict[str, Any]:
+        """Parse CKLB JSON file with security checks and validation.
+
+        Args:
+            path: JSON file path
+
+        Returns:
+            Parsed JSON as dictionary
+
+        Raises:
+            ValidationError: If file is too large
+            ParseError: If JSON cannot be parsed
+        """
+        import json
+
+        from stig_assessor.core.constants import MAX_CKLB_SIZE
+
+        path = San.path(path, exist=True, file=True)
+        file_size = path.stat().st_size
+        if file_size > MAX_CKLB_SIZE:
+            raise ValidationError(f"CKLB file too large: {file_size} bytes (max: {MAX_CKLB_SIZE})")
+
+        try:
+            content = FO.read(path)
+            return json.loads(content)
+        except json.JSONDecodeError as err:
+            raise ParseError(f"CKLB JSON parse failed: {err}")
+        except (FileError, OSError) as err:
+            raise ParseError(f"Error reading CKLB: {err}")
+
+    @staticmethod
+    def write_cklb(data: Dict[str, Any], path: Union[str, Path], backup: bool = False) -> None:
+        """Write dictionary to CKLB JSON file atomically.
+
+        Args:
+            data: Dictionary to write
+            path: Output file path
+            backup: Create backup before writing
+        """
+        import json
+
+        with FO.atomic(path, mode="w", enc="utf-8", bak=backup) as handle:
+            json.dump(data, handle, indent=2, ensure_ascii=False)
+
+    @staticmethod
     @retry(attempts=2)
-    def zip(out_path: Union[str, Path], files: Dict[str, Union[str, Path]], base: Optional[str] = None) -> Path:
+    def zip(
+        out_path: Union[str, Path], files: Dict[str, Union[str, Path]], base: Optional[str] = None
+    ) -> Path:
         """Create ZIP archive with atomic write.
 
         Args:
@@ -368,7 +440,7 @@ class FO:
                         final_arcname = f"{base}/{arcname}" if base else arcname
                         archive.write(str(source_path), arcname=final_arcname)
                         added += 1
-                    except Exception as exc:
+                    except (OSError, ValueError, zipfile.BadZipFile, ValidationError) as exc:
                         LOG.w(f"Skipping {arcname}: {exc}")
                         failed_files.append(f"{arcname} ({exc})")
 
@@ -389,7 +461,7 @@ class FO:
             return out_path
         finally:
             if tmp_zip and tmp_zip.exists():
-                with suppress(Exception):
+                with suppress(OSError):
                     tmp_zip.unlink()
 
 

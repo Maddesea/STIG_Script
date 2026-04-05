@@ -1,9 +1,6 @@
 """Core processor module.
 
 Provides XCCDF to CKL conversion, merging, and diff functionality.
-"""Main processor modules.
-
-This package contains the core XCCDF to CKL conversion and merge operations.
 """
 
 from __future__ import annotations
