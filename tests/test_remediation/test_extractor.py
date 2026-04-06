@@ -22,7 +22,7 @@ class TestFixExt(unittest.TestCase):
         import shutil
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
-    @unittest.skip("Requires full modular system to be in place")
+
     def test_extractor_initialization(self):
         """Test FixExt initialization."""
         from stig_assessor.remediation import FixExt
@@ -39,10 +39,10 @@ class TestFixExt(unittest.TestCase):
         """)
 
         extractor = FixExt(self.test_xccdf)
-        self.assertEqual(extractor.xccdf, self.test_xccdf)
+        self.assertEqual(extractor.xccdf.resolve(), self.test_xccdf.resolve())
         self.assertEqual(len(extractor.fixes), 0)
 
-    @unittest.skip("Requires full modular system to be in place")
+
     def test_extract_fixes(self):
         """Test extracting fixes from XCCDF."""
         from stig_assessor.remediation import FixExt
@@ -108,25 +108,61 @@ class TestFixExt(unittest.TestCase):
 class TestFixExtExport(unittest.TestCase):
     """Test FixExt export functionality."""
 
-    @unittest.skip("Requires full modular system to be in place")
+    def setUp(self):
+        self.test_dir = tempfile.mkdtemp()
+        self.test_xccdf = Path(self.test_dir) / "test_benchmark.xml"
+        self.test_xccdf.write_text("""<?xml version="1.0"?>
+        <Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1">
+            <Group id="V-123456">
+                <title>Test Group</title>
+                <Rule id="SV-123456r1_rule" severity="high">
+                    <title>Configure permissions</title>
+                    <fixtext>Run the following command: chmod 755 /etc/test</fixtext>
+                </Rule>
+            </Group>
+        </Benchmark>
+        """)
+        from stig_assessor.remediation import FixExt
+        self.extractor = FixExt(self.test_xccdf)
+        self.extractor.extract()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.test_dir, ignore_errors=True)
+
     def test_export_to_json(self):
         """Test JSON export."""
-        pass
+        out_json = Path(self.test_dir) / "out.json"
+        self.extractor.to_json(out_json)
+        self.assertTrue(out_json.exists())
+        import json
+        content = json.loads(out_json.read_text())
+        self.assertIn("fixes", content)
+        self.assertGreater(len(content["fixes"]), 0)
 
-    @unittest.skip("Requires full modular system to be in place")
     def test_export_to_csv(self):
         """Test CSV export."""
-        pass
+        out_csv = Path(self.test_dir) / "out.csv"
+        self.extractor.to_csv(out_csv)
+        self.assertTrue(out_csv.exists())
+        self.assertIn("Vuln_ID", out_csv.read_text())
 
-    @unittest.skip("Requires full modular system to be in place")
     def test_export_to_bash(self):
         """Test Bash script generation."""
-        pass
+        out_sh = Path(self.test_dir) / "out.sh"
+        self.extractor.to_bash(out_sh)
+        self.assertTrue(out_sh.exists())
+        self.assertIn("#!/usr/bin/env bash", out_sh.read_text())
 
-    @unittest.skip("Requires full modular system to be in place")
     def test_export_to_powershell(self):
         """Test PowerShell script generation."""
-        pass
+        # For powershell we need a windows fix
+        from stig_assessor.remediation.models import Fix
+        self.extractor.fixes.append(Fix(vid="V-999", rule_id="1", severity="medium", title="t", group_title="g", fix_text="test", fix_command="Set-Item", platform="windows"))
+        out_ps1 = Path(self.test_dir) / "out.ps1"
+        self.extractor.to_powershell(out_ps1)
+        self.assertTrue(out_ps1.exists())
+        self.assertIn("#requires -RunAsAdministrator", out_ps1.read_text())
 
 
 if __name__ == "__main__":

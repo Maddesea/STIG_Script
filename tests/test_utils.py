@@ -9,7 +9,6 @@ This module provides:
 - Shared test utilities
 """
 
-import pytest
 import tempfile
 import shutil
 from pathlib import Path
@@ -21,25 +20,6 @@ import xml.etree.ElementTree as ET
 # Test Data Fixtures
 # ============================================================================
 
-@pytest.fixture
-def temp_dir() -> Generator[Path, None, None]:
-    """Create a temporary directory for test files.
-
-    Yields:
-        Path to temporary directory
-
-    Cleanup:
-        Automatically removes directory after test
-    """
-    tmp = Path(tempfile.mkdtemp(prefix="stig_test_"))
-    try:
-        yield tmp
-    finally:
-        if tmp.exists():
-            shutil.rmtree(tmp, ignore_errors=True)
-
-
-@pytest.fixture
 def sample_xccdf_content() -> str:
     """Generate sample XCCDF benchmark content for testing.
 
@@ -87,7 +67,6 @@ def sample_xccdf_content() -> str:
 </Benchmark>"""
 
 
-@pytest.fixture
 def sample_ckl_content() -> str:
     """Generate sample CKL checklist content for testing.
 
@@ -155,7 +134,6 @@ def sample_ckl_content() -> str:
 </CHECKLIST>"""
 
 
-@pytest.fixture
 def sample_xccdf_file(temp_dir: Path, sample_xccdf_content: str) -> Path:
     """Create a temporary XCCDF file for testing.
 
@@ -171,7 +149,6 @@ def sample_xccdf_file(temp_dir: Path, sample_xccdf_content: str) -> Path:
     return xccdf_file
 
 
-@pytest.fixture
 def sample_ckl_file(temp_dir: Path, sample_ckl_content: str) -> Path:
     """Create a temporary CKL file for testing.
 
@@ -187,7 +164,6 @@ def sample_ckl_file(temp_dir: Path, sample_ckl_content: str) -> Path:
     return ckl_file
 
 
-@pytest.fixture
 def sample_remediation_json() -> str:
     """Generate sample remediation results JSON for testing.
 
@@ -215,38 +191,6 @@ def sample_remediation_json() -> str:
 # ============================================================================
 # Mock Object Fixtures
 # ============================================================================
-
-@pytest.fixture
-def mock_logger(monkeypatch):
-    """Create a mock logger that captures log messages.
-
-    Usage:
-        def test_something(mock_logger):
-            # Your test code
-            assert "Expected message" in mock_logger.messages
-    """
-    class MockLogger:
-        def __init__(self):
-            self.messages = []
-
-        def debug(self, msg, **kwargs):
-            self.messages.append(("DEBUG", msg))
-
-        def info(self, msg, **kwargs):
-            self.messages.append(("INFO", msg))
-
-        def warning(self, msg, **kwargs):
-            self.messages.append(("WARNING", msg))
-
-        def error(self, msg, **kwargs):
-            self.messages.append(("ERROR", msg))
-
-        def critical(self, msg, **kwargs):
-            self.messages.append(("CRITICAL", msg))
-
-    logger = MockLogger()
-    return logger
-
 
 # ============================================================================
 # Test Utilities
@@ -349,21 +293,4 @@ def assert_valid_ckl_structure(ckl_path: Path) -> bool:
     return True
 
 
-# ============================================================================
-# Pytest Configuration
-# ============================================================================
-
-def pytest_configure(config):
-    """Configure custom pytest markers."""
-    config.addinivalue_line(
-        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
-    )
-    config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests"
-    )
-    config.addinivalue_line(
-        "markers", "performance: marks tests as performance benchmarks"
-    )
-    config.addinivalue_line(
-        "markers", "gui: marks tests that require GUI (tkinter)"
-    )
+# end of test_utils.py

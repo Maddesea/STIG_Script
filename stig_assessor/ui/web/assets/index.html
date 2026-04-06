@@ -6,7 +6,7 @@
     <title>STIG Assessor Command Center</title>
     <meta name="description" content="Premium interface for STIG capabilities">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Air-Gapped: No external CDN dependencies. System fonts used natively. -->
 </head>
 <body>
     <!-- Premium Header -->
@@ -42,13 +42,29 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                 Boilerplates
             </button>
+            <button class="tab-btn" data-target="tab-extract">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+                Extract Fixes
+            </button>
+            <button class="tab-btn" data-target="tab-diff">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"></path><path d="M4 21v-5h5"></path><polyline points="21 3 10 14"></polyline><polyline points="3 21 14 10"></polyline></svg>
+                Compare Checklists
+            </button>
             <button class="tab-btn" data-target="tab-analytics">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
                 Analytics
             </button>
+            <button class="tab-btn" data-target="tab-dashboard">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
+                Dashboard
+            </button>
             <button class="tab-btn" data-target="tab-evidence">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 Evidence
+            </button>
+            <button class="tab-btn" data-target="tab-drift">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                Drift Analysis
             </button>
         </div>
 
@@ -183,6 +199,93 @@
             </form>
         </section>
 
+        <!-- EXTRACT TAB -->
+        <section id="tab-extract" class="tab-content glass-panel">
+            <div class="hero-text">
+                <h2>Extract Fixes & Automations</h2>
+                <p>Generate JSON, CSV, Bash, and PowerShell scripts from an XCCDF or CKL file to automate remediation.</p>
+            </div>
+            
+            <form id="form-extract" class="dynamic-form">
+                <div class="upload-zone" id="dz-extract" style="margin-bottom: 2rem;">
+                    <input type="file" id="file-extract" accept=".xml,.ckl" class="hidden" required>
+                    <div class="upload-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </div>
+                    <p class="highlight">Drop XCCDF or CKL</p>
+                    <div class="file-name hidden"></div>
+                </div>
+
+                <div class="settings-panel" style="margin-bottom: 2rem; background: rgba(0,0,0,0.1); padding: 15px; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div>
+                            <label style="font-weight: 600; margin-bottom: 4px; display: block;">Enable Registry Rollbacks</label>
+                            <span style="font-size: 0.85rem; color: var(--tx-muted);">Generate automatic pre-flight registry backups (`reg export`) during PowerShell remediation.</span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="extract-rollbacks">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+                        <div>
+                            <label style="font-weight: 600; margin-bottom: 4px; display: block;">Generate Ansible Playbook</label>
+                            <span style="font-size: 0.85rem; color: var(--tx-muted);">Generate native Ansible playbooks (`remediate.yml`) for Linux/Unix generic endpoints.</span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="extract-ansible" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-secondary btn-glow">
+                        <span class="btn-text">Generate Remediations Loop</span>
+                        <div class="spinner hidden"></div>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- DIFF TAB -->
+        <section id="tab-diff" class="tab-content glass-panel">
+            <div class="hero-text">
+                <h2>Compare Checklists</h2>
+                <p>Diff two checklists to instantly spot regressions, unapplied fixes, or new findings.</p>
+            </div>
+
+            <form id="form-diff" class="dynamic-form">
+                <div class="grid-2">
+                    <div class="upload-zone" id="dz-diff-1">
+                        <input type="file" id="file-diff-1" accept=".ckl" class="hidden" required>
+                        <p class="highlight">Drop Old/Base .ckl</p>
+                        <div class="file-name hidden"></div>
+                    </div>
+                    <div class="upload-zone" id="dz-diff-2">
+                        <input type="file" id="file-diff-2" accept=".ckl" class="hidden" required>
+                        <p class="highlight">Drop New/Target .ckl</p>
+                        <div class="file-name hidden"></div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-info btn-glow">
+                        <span class="btn-text">Analyze Differences</span>
+                        <div class="spinner hidden"></div>
+                    </button>
+                </div>
+            </form>
+            
+            <div id="diff-results" class="hidden" style="margin-top: 2rem;">
+                <h3 style="margin-bottom: 1rem;">Diff Summary</h3>
+                <div class="stats-grid" id="diff-metrics" style="margin-bottom: 1.5rem;"></div>
+                <div class="table-wrapper" style="background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid var(--border-glass); padding: 15px;">
+                    <pre id="diff-code" style="font-family: monospace; white-space: pre-wrap; margin:0; outline:none; max-height: 400px; overflow-y: auto;"></pre>
+                </div>
+            </div>
+        </section>
+
         <!-- BOILERPLATES TAB -->
         <section id="tab-boilerplates" class="tab-content glass-panel">
             <div class="hero-text">
@@ -243,6 +346,25 @@
                 .bp-list li:hover { background: rgba(255,255,255,0.05); }
                 .bp-list li.selected { background: rgba(0, 240, 255, 0.15); color: #fff; font-weight: 600; border-left: 3px solid #00f0ff; }
             </style>
+        </section>
+
+        <!-- DASHBOARD TAB -->
+        <section id="tab-dashboard" class="tab-content glass-panel">
+            <div class="hero-text">
+                <h2>Visual Compliance Dashboards</h2>
+                <p>Drop a generated .ckl file to dynamically render native SVG visual charts.</p>
+            </div>
+
+            <div class="upload-zone" id="dz-dashboard" style="min-height: 120px; margin-bottom: 2rem;">
+                <input type="file" id="file-dashboard" accept=".ckl" class="hidden">
+                <p class="highlight">Analyze Output .ckl for Visuals</p>
+                <div class="file-name hidden"></div>
+            </div>
+
+            <div id="svg-dashboard-container" class="hidden" style="width: 100%; display: flex; flex-direction: column; align-items: center; padding: 20px; background: rgba(0,0,0,0.1); border-radius: 12px; border: 1px solid var(--border-glass);">
+                <h3 style="margin-bottom: 20px;">Compliance Posture</h3>
+                <div id="svg-canvas" style="width: 100%; max-width: 800px; height: 400px;"></div>
+            </div>
         </section>
 
         <!-- ANALYTICS TAB -->
@@ -352,6 +474,51 @@
             </style>
         </section>
 
+        <!-- DRIFT ANALYSIS TAB -->
+        <section id="tab-drift" class="tab-content glass-panel">
+            <div class="hero-text">
+                <h2>History & Drift Analysis</h2>
+                <p>Track checklist history in the SQLite database and visualize configuration drift between assessments over time.</p>
+            </div>
+
+            <div class="grid-2">
+                <!-- Submit CKL for History Tracking -->
+                <div style="background: rgba(0,0,0,0.1); padding: 20px; border-radius: 12px; border: 1px solid var(--border-glass);">
+                    <h3 style="margin-bottom: 1rem;">Track Checklist History</h3>
+                    <p style="font-size: 0.9rem; color: var(--tx-muted); margin-bottom: 1.5rem;">Upload a completed checklist to record its status into the centralized SQLite history engine.</p>
+                    <div class="upload-zone" id="dz-track" style="min-height: 120px;">
+                        <input type="file" id="file-track" accept=".ckl" class="hidden">
+                        <p class="highlight">Drop .ckl to Track</p>
+                        <div class="file-name hidden"></div>
+                    </div>
+                </div>
+
+                <!-- Query Asset Drift -->
+                <div style="background: rgba(0,0,0,0.1); padding: 20px; border-radius: 12px; border: 1px solid var(--border-glass);">
+                    <h3 style="margin-bottom: 1rem;">Analyze Asset Drift</h3>
+                    <p style="font-size: 0.9rem; color: var(--tx-muted); margin-bottom: 1.5rem;">Calculate the configuration drift of an asset by comparing its latest assessment against the previous run.</p>
+                    <form id="form-drift">
+                        <div class="input-group" style="margin-bottom: 1.5rem;">
+                            <label>Asset Name</label>
+                            <input type="text" id="drift-asset" class="glass-input" placeholder="e.g. SERVER-01" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-glow" style="width: 100%;">
+                            <span class="btn-text">Compute Drift</span>
+                            <div class="spinner hidden"></div>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Drift Results Dashboard -->
+            <div id="drift-results" class="hidden" style="margin-top: 2rem;">
+                <h3 style="margin-bottom: 1rem; text-align: center;">Drift Metrics Dashboard</h3>
+                <div class="stats-grid" id="drift-metrics">
+                    <!-- JS populated metric cards -->
+                </div>
+            </div>
+        </section>
+
         <!-- Global Results Modal Overlay -->
         <div id="results-modal" class="modal-overlay hidden">
             <div class="modal-content glass-panel popup-anim">
@@ -377,6 +544,13 @@
 
         <!-- Toast Container -->
         <div id="toast-container" class="toast-container"></div>
+
+        <!-- Version Footer -->
+        <footer class="app-footer">
+            <span class="footer-divider"></span>
+            STIG Assessor &mdash; Air-Gapped Command Center
+            <span class="footer-divider"></span>
+        </footer>
 
     </main>
 

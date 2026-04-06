@@ -505,29 +505,41 @@ class Deps:
             ET.parse = DET.parse
             ET.fromstring = DET.fromstring
             ET.XMLParser = DET.XMLParser
+        else:
+            class SafeXMLParser(ET.XMLParser):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    
+                    if hasattr(self, 'parser'):
+                        self.parser.EntityDeclHandler = self._forbid_entity
+                        self.parser.ExternalEntityRefHandler = self._forbid_external
+                        
+                def _forbid_entity(self, entityName, is_parameter_entity, value, base, systemId, publicId, notationName):
+                    raise ValueError(f"XML Entity Processing (Billion Laughs) is forbidden for security: '{entityName}'")
+                    
+                def _forbid_external(self, context, base, systemId, publicId):
+                    raise ValueError(f"External XML Entity Reference (XXE) is forbidden for security: '{systemId}'")
+
+            def safe_parse(source, parser=None):
+                if parser is None: parser = SafeXMLParser()
+                tree = ET.ElementTree()
+                tree.parse(source, parser)
+                return tree
+
+            def safe_fromstring(text, parser=None):
+                if parser is None: parser = SafeXMLParser()
+                parser.feed(text)
+                return parser.close()
+
+            ET.parse = safe_parse
+            ET.fromstring = safe_fromstring
+            ET.XMLParser = SafeXMLParser
 
         return ET, XMLParseError
 
 
 Deps.check()
 ET, XMLParseError = Deps.get_xml()
-
-# Warn if defusedxml is not available (security risk)
-if not Deps.HAS_DEFUSEDXML:
-    warning_msg = """
-╔════════════════════════════════════════════════════════════╗
-║ SECURITY WARNING: defusedxml not installed                ║
-║                                                            ║
-║ Using unsafe XML parser vulnerable to XXE/billion laughs  ║
-║ attacks. This is NOT recommended for DoD production use.  ║
-║                                                            ║
-║ Install with: pip install defusedxml                      ║
-║                                                            ║
-║ DoD systems MUST NOT use unsafe parser with untrusted     ║
-║ XCCDF/CKL files from external sources.                    ║
-╚════════════════════════════════════════════════════════════╝
-"""
-    print(warning_msg, file=sys.stderr)
 
 if Deps.HAS_TKINTER:
     import tkinter as tk

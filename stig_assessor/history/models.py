@@ -13,7 +13,7 @@ import hashlib
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, Union
+from typing import Dict
 
 # Import from modular package
 from stig_assessor.exceptions import ValidationError

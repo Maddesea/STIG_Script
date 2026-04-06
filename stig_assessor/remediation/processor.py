@@ -357,7 +357,7 @@ class FixResPro:
                 status_node = vuln.find("STATUS")
                 if status_node is None:
                     status_node = ET.SubElement(vuln, "STATUS")
-                status_node.text = San.status(Status.NOT_A_FINDING)
+                status_node.text = San.status(Status.NOT_A_FINDING.value)
 
         XmlUtils.indent_xml(root)
 

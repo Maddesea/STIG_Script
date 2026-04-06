@@ -29,7 +29,7 @@ from stig_assessor.core.logging import LOG
 from stig_assessor.core.constants import CHUNK_SIZE, LARGE_EVIDENCE_THRESHOLD
 from stig_assessor.xml.sanitizer import San
 from stig_assessor.io.file_ops import FO
-from stig_assessor.exceptions import ValidationError, FileError
+from stig_assessor.exceptions import ValidationError
 
 
 SAFE_FILENAME_RE = re.compile(r"[^\w.-]")

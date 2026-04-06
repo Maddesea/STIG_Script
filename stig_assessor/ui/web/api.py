@@ -7,17 +7,19 @@ from typing import List
 
 from stig_assessor.core.state import GLOBAL_STATE
 from stig_assessor.processor.processor import Proc
+from stig_assessor.remediation.extractor import FixExt
 from stig_assessor.remediation.processor import FixResPro
 from stig_assessor.evidence.manager import EVIDENCE
+import shutil
 
 
 def _decode_to_temp(b64_str: str, suffix: str) -> Path:
-    if not b64_str:
-        raise ValueError(f"Missing file content for {suffix}")
+    if not isinstance(b64_str, str) or not b64_str.strip():
+        raise ValueError(f"Missing or invalid file content payload for {suffix}")
     try:
         content_bytes = base64.b64decode(b64_str)
     except Exception as e:
-        raise ValueError(f"Invalid base64 encoding: {e}")
+        raise ValueError(f"Malformed base64 encoding: {e}")
     
     tf = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
     path = Path(tf.name)
@@ -38,9 +40,12 @@ def _cleanup_paths(paths: List[Path]) -> None:
     for path in paths:
         if path and path.exists():
             try:
-                path.unlink()
+                if path.is_dir():
+                    shutil.rmtree(path, ignore_errors=True)
+                else:
+                    path.unlink()
                 GLOBAL_STATE.remove_temp(path)
-            except Exception:
+            except OSError:
                 pass
 
 
@@ -283,6 +288,150 @@ def handle_evidence_package(payload: dict) -> dict:
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+def handle_extract_fixes(payload: dict) -> dict:
+    b64_content = payload.get("content_b64", "")
+    filename = payload.get("filename", "upload.xml")
+    
+    in_path = None
+    zip_path = None
+    dir_path = Path(tempfile.mkdtemp())
+    GLOBAL_STATE.add_temp(dir_path)
+    
+    enable_rollbacks = payload.get("enable_rollbacks", False)
+    
+    try:
+        ext = Path(filename).suffix
+        in_path = _decode_to_temp(b64_content, ext)
+        
+        extractor = FixExt(str(in_path))
+        extractor.extract()
+        
+        extractor.to_json(dir_path / "fixes.json")
+        extractor.to_csv(dir_path / "fixes.csv")
+        extractor.to_bash(dir_path / "remediate.sh")
+        extractor.to_powershell(dir_path / "remediate.ps1", enable_rollbacks=enable_rollbacks)
+        
+        if payload.get("do_ansible", True):
+            extractor.to_ansible(dir_path / "remediate.yml")
+
+        
+        zip_path_str = shutil.make_archive(str(dir_path) + "_archive", 'zip', str(dir_path))
+        zip_path = Path(zip_path_str)
+        GLOBAL_STATE.add_temp(zip_path)
+        
+        b64_out = _encode_from_temp(zip_path)
+        
+        return {
+            "status": "success",
+            "package_b64": b64_out,
+            "filename": filename.replace(ext, "_fixes.zip"),
+            "stats": extractor.stats_summary()
+        }
+    finally:
+        _cleanup_paths([in_path, zip_path])
+        try:
+            shutil.rmtree(dir_path)
+        except Exception:
+            pass
+
+def handle_diff(payload: dict) -> dict:
+    ckl1_b64 = payload.get("ckl1_b64", "")
+    ckl2_b64 = payload.get("ckl2_b64", "")
+    ckl1_path = None
+    ckl2_path = None
+    
+    try:
+        ckl1_path = _decode_to_temp(ckl1_b64, ".ckl")
+        ckl2_path = _decode_to_temp(ckl2_b64, ".ckl")
+        
+        proc = Proc()
+        result = proc.diff(str(ckl1_path), str(ckl2_path), output_format="json")
+        return {
+            "status": "success",
+            "diff_data": result
+        }
+    finally:
+        _cleanup_paths([ckl1_path, ckl2_path])
+
+def handle_stats(payload: dict) -> dict:
+    ckl_b64 = payload.get("ckl_b64", "")
+    ckl_path = None
+    
+    try:
+        ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+        proc = Proc()
+        result = proc.generate_stats(str(ckl_path), output_format="json")
+        return {
+            "status": "success",
+            "stats_data": result
+        }
+    finally:
+        _cleanup_paths([ckl_path])
+
+
+def handle_track_ckl(payload: dict) -> dict:
+    ckl_b64 = payload.get("ckl_b64", "")
+    ckl_path = None
+    
+    try:
+        ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+        proc = Proc()
+        if not proc.history.db:
+            return {"status": "error", "message": "SQLite History DB is not initialized."}
+            
+        tree = proc._load_file_as_xml(ckl_path)
+        root = tree.getroot()
+        vulns = proc._extract_vuln_data(root)
+        asset_elem = root.find(".//HOST_NAME")
+        asset_name = asset_elem.text if asset_elem is not None else "Unknown"
+        
+        results = []
+        for vid, vdata in vulns.items():
+            results.append({
+                "vid": vid,
+                "status": vdata.get("status", "Not_Reviewed"),
+                "severity": vdata.get("severity", "medium"),
+                "find": vdata.get("finding_details", ""),
+                "comm": vdata.get("comments", "")
+            })
+        
+        db_id = proc.history.db.save_assessment(asset_name, "web_import.ckl", "STIG", results)
+        return {
+            "status": "success",
+            "message": f"Successfully ingested {len(results)} findings into database.",
+            "data": {"assessment_id": db_id, "asset_name": asset_name}
+        }
+    finally:
+        _cleanup_paths([ckl_path])
+
+
+def handle_show_drift(payload: dict) -> dict:
+    asset_name = payload.get("asset_name", "").strip()
+    if not asset_name:
+        return {"status": "error", "message": "Asset name is required"}
+        
+    proc = Proc()
+    if not proc.history.db:
+        return {"status": "error", "message": "SQLite History DB is not initialized."}
+        
+    with proc.history.db._get_conn() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM assessments WHERE asset_name = ? ORDER BY timestamp DESC LIMIT 1', (asset_name,))
+        row = cursor.fetchone()
+        if not row:
+            return {"status": "error", "message": f"No assessments found for asset '{asset_name}'"}
+        latest_id = row[0]
+        
+    drift = proc.history.db.get_drift(asset_name, latest_id)
+    if "error" in drift:
+        return {"status": "error", "message": drift["error"]}
+        
+    return {
+        "status": "success",
+        "data": drift
+    }
+
+
 def route_request(path: str, payload: dict) -> dict:
     """Route the request to the appropriate handler."""
     handlers = {
@@ -296,6 +445,11 @@ def route_request(path: str, payload: dict) -> dict:
         "/api/v1/evidence/summary": handle_evidence_summary,
         "/api/v1/evidence/import": handle_evidence_import,
         "/api/v1/evidence/package": handle_evidence_package,
+        "/api/v1/extract": handle_extract_fixes,
+        "/api/v1/diff": handle_diff,
+        "/api/v1/stats": handle_stats,
+        "/api/v1/track_ckl": handle_track_ckl,
+        "/api/v1/show_drift": handle_show_drift,
     }
 
     if path not in handlers:
@@ -303,6 +457,8 @@ def route_request(path: str, payload: dict) -> dict:
 
     try:
         return handlers[path](payload)
+    except ValueError as ve:
+        return {"status": "error", "message": f"Validation Error: {str(ve)}"}
     except Exception as e:
-        # Extract traceback if STIGError or general error
-        return {"status": "error", "message": str(e)}
+        import traceback
+        return {"status": "error", "message": f"Internal Error: {str(e)}", "details": traceback.format_exc()}

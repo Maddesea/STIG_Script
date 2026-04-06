@@ -62,6 +62,12 @@ class BP:
 
         try:
             content = FO.read(self.template_file)
+            if not content.strip():
+                LOG.i("Boilerplate file is empty, using defaults")
+                self._load_defaults()
+                self.save()
+                return
+                
             raw_templates = json.loads(content)
             
             migrated = False
@@ -125,7 +131,7 @@ class BP:
                         self.templates[vid][status] = value
             self.save()
             LOG.i(f"Imported boilerplates from {path}")
-        except Exception as e:
+        except (json.JSONDecodeError, OSError, TypeError, ValueError, KeyError) as e:
             LOG.e(f"Import boilerplate failed: {e}")
 
     def _resolve(self, vid: str, status: str, field: str, **kwargs) -> Optional[str]:
@@ -215,15 +221,15 @@ class BP:
         """Load default boilerplate templates."""
         self.templates = {
             "V-*": {
-                Status.NOT_A_FINDING: {
+                Status.NOT_A_FINDING.value: {
                     "finding_details": "This control is satisfied. Evidence: {asset}",
                     "comments": "Reviewed by automated script."
                 },
-                Status.NOT_APPLICABLE: {
+                Status.NOT_APPLICABLE.value: {
                     "finding_details": "This control does not apply because: [justification]",
                     "comments": "Not applicable to {asset} configuration."
                 },
-                Status.OPEN: {
+                Status.OPEN.value: {
                     "finding_details": "This control is not satisfied. Findings: [describe issue]",
                     "comments": "Remediation pending for {asset}."
                 }

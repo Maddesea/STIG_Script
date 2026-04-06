@@ -53,6 +53,7 @@ class Cfg:
     FIX_DIR: Optional[Path] = None
     EXPORT_DIR: Optional[Path] = None
     BOILERPLATE_FILE: Optional[Path] = None
+    HISTORY_DB_FILE: Optional[Path] = None
 
     # Limits and thresholds
     MAX_FILE = _MAX_FILE_SIZE
@@ -133,6 +134,7 @@ class Cfg:
             cls.FIX_DIR = cls.APP_DIR / "fixes"
             cls.EXPORT_DIR = cls.APP_DIR / "exports"
             cls.BOILERPLATE_FILE = cls.TEMPLATE_DIR / "boilerplate.json"
+            cls.HISTORY_DB_FILE = cls.APP_DIR / "history.sqlite"
 
             # Create required directories
             required = [cls.APP_DIR, cls.LOG_DIR, cls.BACKUP_DIR]

@@ -52,51 +52,51 @@ class TestBPBasicOperations(unittest.TestCase):
 
     def test_set_and_get(self):
         """Test setting and getting templates."""
-        self.bp.set("V-12345", "NotAFinding", "Test template text")
-        result = self.bp.get("V-12345", "NotAFinding")
+        self.bp.set("V-12345", "NotAFinding", "Test template text", "Comment text")
+        result = self.bp.get_finding("V-12345", "NotAFinding")
         self.assertEqual(result, "Test template text")
 
     def test_get_nonexistent_vid(self):
         """Test getting template for non-existent VID."""
-        result = self.bp.get("V-99999", "NotAFinding")
+        result = self.bp.get_finding("V-99999", "NotAFinding")
         self.assertIsNone(result)
 
     def test_get_nonexistent_status(self):
         """Test getting template for non-existent status."""
-        self.bp.set("V-12345", "NotAFinding", "Test")
-        result = self.bp.get("V-12345", "Open")
+        self.bp.set("V-12345", "NotAFinding", "Test", "Comment text")
+        result = self.bp.get_finding("V-12345", "Open")
         self.assertIsNone(result)
 
     def test_set_multiple_statuses(self):
         """Test setting multiple statuses for same VID."""
-        self.bp.set("V-12345", "NotAFinding", "NAF text")
-        self.bp.set("V-12345", "Open", "Open text")
-        self.assertEqual(self.bp.get("V-12345", "NotAFinding"), "NAF text")
-        self.assertEqual(self.bp.get("V-12345", "Open"), "Open text")
+        self.bp.set("V-12345", "NotAFinding", "NAF text", "Comment text")
+        self.bp.set("V-12345", "Open", "Open text", "Comment text")
+        self.assertEqual(self.bp.get_finding("V-12345", "NotAFinding"), "NAF text")
+        self.assertEqual(self.bp.get_finding("V-12345", "Open"), "Open text")
 
     def test_set_overwrites(self):
         """Test that set overwrites existing template."""
-        self.bp.set("V-12345", "NotAFinding", "Original")
-        self.bp.set("V-12345", "NotAFinding", "Updated")
-        self.assertEqual(self.bp.get("V-12345", "NotAFinding"), "Updated")
+        self.bp.set("V-12345", "NotAFinding", "Original", "Comment text")
+        self.bp.set("V-12345", "NotAFinding", "Updated", "Comment text")
+        self.assertEqual(self.bp.get_finding("V-12345", "NotAFinding"), "Updated")
 
     def test_delete_specific_status(self):
         """Test deleting specific status."""
-        self.bp.set("V-12345", "NotAFinding", "NAF")
-        self.bp.set("V-12345", "Open", "Open")
+        self.bp.set("V-12345", "NotAFinding", "NAF", "Comment text")
+        self.bp.set("V-12345", "Open", "Open", "Comment text")
         result = self.bp.delete("V-12345", "NotAFinding")
         self.assertTrue(result)
-        self.assertIsNone(self.bp.get("V-12345", "NotAFinding"))
-        self.assertEqual(self.bp.get("V-12345", "Open"), "Open")
+        self.assertIsNone(self.bp.get_finding("V-12345", "NotAFinding"))
+        self.assertEqual(self.bp.get_finding("V-12345", "Open"), "Open")
 
     def test_delete_all_statuses(self):
         """Test deleting all statuses for VID."""
-        self.bp.set("V-12345", "NotAFinding", "NAF")
-        self.bp.set("V-12345", "Open", "Open")
+        self.bp.set("V-12345", "NotAFinding", "NAF", "Comment text")
+        self.bp.set("V-12345", "Open", "Open", "Comment text")
         result = self.bp.delete("V-12345")
         self.assertTrue(result)
-        self.assertIsNone(self.bp.get("V-12345", "NotAFinding"))
-        self.assertIsNone(self.bp.get("V-12345", "Open"))
+        self.assertIsNone(self.bp.get_finding("V-12345", "NotAFinding"))
+        self.assertIsNone(self.bp.get_finding("V-12345", "Open"))
 
     def test_delete_nonexistent_vid(self):
         """Test deleting non-existent VID."""
@@ -105,13 +105,13 @@ class TestBPBasicOperations(unittest.TestCase):
 
     def test_delete_nonexistent_status(self):
         """Test deleting non-existent status."""
-        self.bp.set("V-12345", "NotAFinding", "NAF")
+        self.bp.set("V-12345", "NotAFinding", "NAF", "Comment text")
         result = self.bp.delete("V-12345", "Open")
         self.assertFalse(result)
 
     def test_delete_last_status_removes_vid(self):
         """Test that deleting last status removes VID entry."""
-        self.bp.set("V-12345", "NotAFinding", "NAF")
+        self.bp.set("V-12345", "NotAFinding", "NAF", "Comment text")
         self.bp.delete("V-12345", "NotAFinding")
         self.assertNotIn("V-12345", self.bp.templates)
 
@@ -171,7 +171,7 @@ class TestBPLoadSave(unittest.TestCase):
         bp2.template_file = self.temp_file
         bp2.load()
 
-        self.assertEqual(bp2.get("V-12345", "NotAFinding"), "Unicode: 日本語 ñ")
+        self.assertEqual(bp2.get_finding("V-12345", "NotAFinding"), "Unicode: 日本語 ñ")
 
     def test_load_missing_file_uses_defaults(self):
         """Test that loading missing file uses defaults."""
@@ -218,8 +218,9 @@ class TestBPDefaults(unittest.TestCase):
 
         for vid, statuses in bp.templates.items():
             for status, text in statuses.items():
-                self.assertIsInstance(text, str)
-                self.assertGreater(len(text), 0)
+                self.assertIsInstance(text, dict)
+                self.assertIn("finding_details", text)
+                self.assertIn("comments", text)
 
 
 class TestBPApplyToVuln(unittest.TestCase):
@@ -241,7 +242,7 @@ class TestBPApplyToVuln(unittest.TestCase):
         vuln.append(finding)
 
         # Set template
-        self.bp.set("V-12345", "NotAFinding", "Template text")
+        self.bp.set("V-12345", "NotAFinding", "Template text", "Comment text")
 
         # Apply template
         result = self.bp.apply_to_vuln(vuln, "V-12345", "NotAFinding")
@@ -258,7 +259,7 @@ class TestBPApplyToVuln(unittest.TestCase):
         finding.text = "Existing text"
         vuln.append(finding)
 
-        self.bp.set("V-12345", "NotAFinding", "Template text")
+        self.bp.set("V-12345", "NotAFinding", "Template text", "Comment text")
 
         result = self.bp.apply_to_vuln(vuln, "V-12345", "NotAFinding")
 
@@ -283,7 +284,7 @@ class TestBPApplyToVuln(unittest.TestCase):
         """Test applying when FINDING_DETAILS element missing."""
         vuln = Element("VULN")
 
-        self.bp.set("V-12345", "NotAFinding", "Template text")
+        self.bp.set("V-12345", "NotAFinding", "Template text", "Comment text")
 
         result = self.bp.apply_to_vuln(vuln, "V-12345", "NotAFinding")
 
@@ -322,23 +323,23 @@ class TestBPEdgeCases(unittest.TestCase):
     def test_empty_string_template(self):
         """Test setting empty string as template."""
         bp = BP()
-        bp.set("V-12345", "NotAFinding", "")
-        result = bp.get("V-12345", "NotAFinding")
+        bp.set("V-12345", "NotAFinding", "", "Comment text")
+        result = bp.get_finding("V-12345", "NotAFinding")
         self.assertEqual(result, "")
 
     def test_large_template(self):
         """Test handling large template text."""
         bp = BP()
         large_text = "X" * 100000  # 100KB of text
-        bp.set("V-12345", "NotAFinding", large_text)
-        result = bp.get("V-12345", "NotAFinding")
+        bp.set("V-12345", "NotAFinding", large_text, "Comment text")
+        result = bp.get_finding("V-12345", "NotAFinding")
         self.assertEqual(len(result), 100000)
 
     def test_special_characters_in_vid(self):
         """Test VID with special characters."""
         bp = BP()
-        bp.set("V-12345-SPECIAL", "NotAFinding", "Test")
-        result = bp.get("V-12345-SPECIAL", "NotAFinding")
+        bp.set("V-12345-SPECIAL", "NotAFinding", "Test", "Comment text")
+        result = bp.get_finding("V-12345-SPECIAL", "NotAFinding")
         self.assertEqual(result, "Test")
 
 

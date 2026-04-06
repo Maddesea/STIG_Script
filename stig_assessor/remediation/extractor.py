@@ -23,6 +23,7 @@ from stig_assessor.core.constants import VERSION
 from stig_assessor.xml.sanitizer import San
 from stig_assessor.io.file_ops import FO
 from stig_assessor.xml.utils import XmlUtils
+from stig_assessor.exceptions import ParseError
 
 
 EXCESSIVE_NEWLINE_RE = re.compile(r"\n\s*\n\s*\n+")
@@ -259,15 +260,11 @@ class FixExt:
             tree = FO.parse_xml(self.xccdf)
             root = tree.getroot()
         except (ParseError, OSError, ValueError) as exc:
-            from stig_assessor.exceptions import ParseError
-
             raise ParseError(f"Unable to parse XCCDF: {exc}") from exc
 
         self.ns = self._namespace(root)
         groups = self._groups(root)
         if not groups:
-            from stig_assessor.exceptions import ParseError
-
             raise ParseError("No vulnerability groups found in XCCDF")
 
         self.stats["total_groups"] = len(groups)
@@ -668,8 +665,8 @@ class FixExt:
 set -euo pipefail
 
 DRY_RUN=%{dry_run}
-LOG_FILE="stig_fix_$(date +%Y%m%d_%H%M%S).log"
-RESULT_FILE="stig_results_$(date +%Y%m%d_%H%M%S).json"
+LOG_FILE="stig_fix_$$(date +%%Y%%m%%d_%%H%%M%%S).log"
+RESULT_FILE="stig_results_$$(date +%%Y%%m%%d_%%H%%M%%S).json"
 
 echo "Remediation started" | tee -a "$LOG_FILE"
 declare -i PASS=0 FAIL=0 SKIP=0
@@ -679,7 +676,7 @@ record_result() {
   local vid="$1"
   local ok="$2"
   local msg="$3"
-  RESULTS+=('{"vid":"'"$vid"'","ok":'"$ok"',"msg":"'"${msg//\\"/\\\\\\"}"'","ts":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}')
+  RESULTS+=('{"vid":"'"$vid"'","ok":'"$ok"',"msg":"'"${msg//\\"/\\\\\\"}"'","ts":"'"$$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)"'"}')
 }
 """)
 
@@ -755,6 +752,7 @@ record_result "%{vid}" true "dry_run"
         path: Union[str, Path],
         severity_filter: Optional[List[str]] = None,
         dry_run: bool = False,
+        enable_rollbacks: bool = False,
     ) -> None:
         """
         Generate PowerShell remediation script.
@@ -763,6 +761,7 @@ record_result "%{vid}" true "dry_run"
             path: Output .ps1 file path
             severity_filter: List of severity levels to include
             dry_run: Generate dry-run script (uses -WhatIf)
+            enable_rollbacks: If True, generate registry rollback exports before executing fixes.
         """
         path = San.path(path, mkpar=True)
         fixes = [
@@ -782,12 +781,14 @@ record_result "%{vid}" true "dry_run"
         header_tmpl = PsTemplate("""#requires -RunAsAdministrator
 # Generated: %{dt}
 # Mode: %{mode}
+# Rollbacks Enabled: %{rollbacks}
 
 $$ErrorActionPreference = 'Stop'
 $$DryRun = %{dry_run}
 $$Log = "stig_fix_$$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
 $$Results = @()
 Start-Transcript -Path $$Log -Append | Out-Null
+%{rollback_block}
 
 function Add-Result([string]$$Vid, [bool]$$Success, [string]$$Message) {
     $$Results += [pscustomobject]@{
@@ -798,10 +799,27 @@ function Add-Result([string]$$Vid, [bool]$$Success, [string]$$Message) {
     }
 }
 """)
+        rollback_block = ""
+        if enable_rollbacks and not dry_run:
+            rollback_block = """
+Write-Host "Creating pre-flight Registry Backups for HKLM\\Software and HKLM\\System..."
+$$RollbackDir = "stig_rollback_$$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+New-Item -ItemType Directory -Force -Path $$RollbackDir | Out-Null
+try {
+    cmd /c "reg export HKLM\\SOFTWARE `\"$$RollbackDir\\HKLM_SOFTWARE.reg`\" /y >nul 2>&1"
+    cmd /c "reg export HKLM\\SYSTEM `\"$$RollbackDir\\HKLM_SYSTEM.reg`\" /y >nul 2>&1"
+    Write-Host "Registry backup created at $$RollbackDir"
+} catch {
+    Write-Warning "Failed to create registry backup: $$($$_.Exception.Message)"
+}
+"""
+
         lines: List[str] = [
             header_tmpl.substitute(
                 dt=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'),
                 mode='DRY RUN' if dry_run else 'LIVE',
+                rollbacks='YES' if enable_rollbacks else 'NO',
+                rollback_block=rollback_block,
                 dry_run='$$true' if dry_run else '$$false'
             )
         ]
@@ -856,6 +874,75 @@ Continue
             handle.write("\n".join(lines))
 
         LOG.i(f"PowerShell remediation script generated: {path} ({len(fixes)} fixes)")
+
+    def to_ansible(
+        self,
+        path: Union[str, Path],
+        severity_filter: Optional[List[str]] = None,
+        dry_run: bool = False,
+    ) -> None:
+        """
+        Generate Ansible remediation playbook.
+
+        Args:
+            path: Output .yml file path
+            severity_filter: List of severity levels to include
+            dry_run: Generate dry-run playbooks using the debug module
+        """
+        path = San.path(path, mkpar=True)
+        fixes = [
+            fix
+            for fix in self.fixes
+            if fix.fix_command
+            and fix.platform in ("linux", "generic")
+            and (not severity_filter or fix.severity in severity_filter)
+        ]
+        if not fixes:
+            LOG.w("No Linux/generic fixes with commands found for Ansible")
+            return
+
+        lines: List[str] = [
+            "---",
+            "# Auto-generated STIG Remediation Playbook",
+            f"# Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
+            f"# Mode: {'DRY RUN' if dry_run else 'LIVE'}",
+            "",
+            "- name: Validate and Remediate STIG Findings",
+            "  hosts: all",
+            "  become: yes",
+            "  tasks:",
+        ]
+
+        for idx, fix in enumerate(fixes, 1):
+            title_escaped = fix.title[:60].replace('"', '\\"')
+            if dry_run:
+                # Just debug print
+                indented_cmd = "\n".join(f"          {line}" for line in fix.fix_command.splitlines())
+                lines.extend([
+                    f"    - name: \"[{idx}/{len(fixes)}] [DRY-RUN] {fix.vid} - {title_escaped}\"",
+                    "      ansible.builtin.debug:",
+                    "        msg: |",
+                    "          Would execute:",
+                    indented_cmd,
+                    ""
+                ])
+            else:
+                indented_cmd = "\n".join(f"        {line}" for line in fix.fix_command.splitlines())
+                lines.extend([
+                    f"    - name: \"[{idx}/{len(fixes)}] {fix.vid} - {title_escaped}\"",
+                    "      ansible.builtin.shell: |",
+                    indented_cmd,
+                    "      register: stig_fix_" + fix.vid.replace("-", "_").lower(),
+                    "      ignore_errors: true",
+                    "      tags:",
+                    f"        - {fix.vid.lower()}",
+                    ""
+                ])
+
+        with FO.atomic(path) as handle:
+            handle.write("\n".join(lines) + "\n")
+
+        LOG.i(f"Ansible remediation playbook generated: {path} ({len(fixes)} fixes)")
 
     def stats_summary(self) -> Dict[str, Any]:
         """

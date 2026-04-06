@@ -70,7 +70,8 @@ def format_color(text: str, color: str) -> str:
     return text
 
 
-from stig_assessor.core.config import Cfg, APP_NAME, VERSION
+from stig_assessor.core.config import Cfg
+from stig_assessor.core.constants import APP_NAME, VERSION
 from stig_assessor.core.logging import LOG
 from stig_assessor.core.deps import Deps
 from stig_assessor.core.state import GlobalState
@@ -229,7 +230,13 @@ COMMON USE-CASES (Windows Operations):
         "--no-ps", action="store_true", help="Do not export PowerShell script"
     )
     extract_group.add_argument(
+        "--no-ansible", action="store_true", help="Do not export Ansible playbook"
+    )
+    extract_group.add_argument(
         "--script-dry-run", action="store_true", help="Generate scripts in dry-run mode"
+    )
+    extract_group.add_argument(
+        "--enable-rollbacks", action="store_true", help="Generate pre-flight registry backups"
     )
 
     result_group = parser.add_argument_group("Apply Remediation Results")
@@ -273,6 +280,8 @@ COMMON USE-CASES (Windows Operations):
     history_group = parser.add_argument_group("History Management")
     history_group.add_argument("--export-history", help="Export history JSON")
     history_group.add_argument("--import-history", help="Import history JSON")
+    history_group.add_argument("--track-ckl", help="Ingest a completed checklist into the SQLite DB")
+    history_group.add_argument("--show-drift", help="Asset name to show compliance drift for")
 
     bp_group = parser.add_argument_group("Boilerplate Management")
     bp_group.add_argument("--bp-list", action="store_true", help="List all boilerplates")
@@ -362,7 +371,7 @@ COMMON USE-CASES (Windows Operations):
                 out_path = str(xccdf_path.with_name(f"{args.asset}_{xccdf_path.stem}.ckl"))
                 LOG.i(f"Auto-resolved output path: {out_path}")
 
-            with Spinner(f"Converting XCCDF to CKL..."):
+            with Spinner("Converting XCCDF to CKL..."):
                 result = proc.xccdf_to_ckl(
                     args.xccdf,
                     out_path,
@@ -377,8 +386,8 @@ COMMON USE-CASES (Windows Operations):
             print(format_color(json.dumps(result, indent=2, ensure_ascii=False), "green"))
             return 0
 
-        if args.merge:
-            if not args.base:
+        if getattr(args, 'merge', False):
+            if not getattr(args, 'base', None):
                 args.base = prompt_missing("Please enter the path to the base checklist")
             if not args.histories:
                 hist = prompt_missing("Please enter historical checklists (space-separated)")
@@ -405,7 +414,7 @@ COMMON USE-CASES (Windows Operations):
             print(format_color(json.dumps(result, indent=2, ensure_ascii=False), "green"))
             return 0
 
-        if args.diff:
+        if getattr(args, 'diff', None):
             ckl1, ckl2 = args.diff
             result = proc.diff(ckl1, ckl2, output_format=args.diff_format)
             if args.diff_format == "json":
@@ -414,7 +423,7 @@ COMMON USE-CASES (Windows Operations):
                 print(result.get("formatted_text", ""))
             return 0
 
-        if args.extract:
+        if getattr(args, 'extract', None):
             extract_outdir = args.outdir
             if not extract_outdir:
                 extract_path = Path(args.extract)
@@ -434,7 +443,13 @@ COMMON USE-CASES (Windows Operations):
                 if not args.no_bash:
                     extractor.to_bash(outdir / "remediate.sh", dry_run=args.script_dry_run)
                 if not args.no_ps:
-                    extractor.to_powershell(outdir / "Remediate.ps1", dry_run=args.script_dry_run)
+                    extractor.to_powershell(
+                        outdir / "Remediate.ps1",
+                        dry_run=args.script_dry_run,
+                        enable_rollbacks=args.enable_rollbacks
+                    )
+                if not args.no_ansible:
+                    extractor.to_ansible(outdir / "remediate.yml", dry_run=args.script_dry_run)
 
             print(
                 format_color(
@@ -494,7 +509,7 @@ COMMON USE-CASES (Windows Operations):
 
             if not processor.results:
                 print(
-                    format_color(f"[ERROR] No valid results loaded from any file", "red"),
+                    format_color("[ERROR] No valid results loaded from any file", "red"),
                     file=sys.stderr,
                 )
                 return 1
@@ -572,6 +587,63 @@ COMMON USE-CASES (Windows Operations):
         if args.import_history:
             count = proc.history.imp(args.import_history)
             print(f"Imported {count} history entries")
+            return 0
+
+        if args.track_ckl:
+            if not proc.history.db:
+                print(format_color("ERROR: SQLite History DB is not initialized.", "red"), file=sys.stderr)
+                return 1
+            # Simple ingest by extracting vulns
+            try:
+                tree = proc._load_file_as_xml(Path(args.track_ckl))
+                root = tree.getroot()
+                vulns = proc._extract_vuln_data(root)
+                asset_elem = root.find(".//HOST_NAME")
+                asset_name = asset_elem.text if asset_elem is not None else "Unknown"
+                
+                results = []
+                for vid, vdata in vulns.items():
+                    results.append({
+                        "vid": vid,
+                        "status": vdata.get("status", "Not_Reviewed"),
+                        "severity": vdata.get("severity", "medium"),
+                        "find": vdata.get("finding_details", ""),
+                        "comm": vdata.get("comments", "")
+                    })
+                
+                db_id = proc.history.db.save_assessment(asset_name, args.track_ckl, "STIG", results)
+                print(format_color(f"Successfully ingested {len(results)} findings into database (Assessment ID: {db_id})", "green"))
+            except Exception as e:
+                print(format_color(f"Failed to ingest CKL: {e}", "red"), file=sys.stderr)
+                return 1
+            return 0
+
+        if args.show_drift:
+            if not proc.history.db:
+                print(format_color("ERROR: SQLite History DB is not initialized.", "red"), file=sys.stderr)
+                return 1
+            asset_name = args.show_drift
+            # We need the current assessment id, let's just get the latest one
+            with proc.history.db._get_conn() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT id FROM assessments WHERE asset_name = ? ORDER BY timestamp DESC LIMIT 1', (asset_name,))
+                row = cursor.fetchone()
+                if not row:
+                    print(format_color(f"No assessments found for asset '{asset_name}'", "yellow"))
+                    return 1
+                latest_id = row[0]
+                
+            drift = proc.history.db.get_drift(asset_name, latest_id)
+            if "error" in drift:
+                print(format_color(drift["error"], "yellow"))
+            else:
+                print(format_color(f"=== Compliance Drift for {asset_name} ===", "blue"))
+                print(f"Fixed (Open -> NotAFinding): {len(drift['fixed'])}")
+                print(f"Regressed (NotAFinding -> Open): {format_color(str(len(drift['regressed'])), 'red')}")
+                print(f"Changed: {len(drift['changed'])}")
+                print(f"New Rules: {len(drift['new'])}")
+                print(f"Removed Rules: {len(drift['removed'])}")
+                print(f"Unchanged: {len(drift['unchanged'])}")
             return 0
 
         if args.bp_list:

@@ -1,4 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+/* ═══════════════════════════════════════════════════════════════════════
+   STIG Assessor — Air-Gapped System Font Stack
+   No external CDN dependencies. Uses premium system fonts natively
+   available on Windows 11, macOS, and Linux desktops.
+   ═══════════════════════════════════════════════════════════════════════ */
 
 :root {
     --bg-main: #0B0E14;
@@ -13,19 +17,22 @@
     --ac-accent: #EC4899;
     --ac-success: #10B981;
     --ac-danger: #EF4444;
+    --ac-warn: #F59E0B;
     
     --border-glass: rgba(255, 255, 255, 0.08);
     --border-glow: rgba(59, 130, 246, 0.4);
     
     --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
     --shadow-neon: 0 0 20px rgba(59, 130, 246, 0.3);
+    
+    --font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
 }
 
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-stack);
 }
 
 body {
@@ -144,15 +151,25 @@ body {
     padding: 0.5rem;
     margin-bottom: 2rem;
     border-radius: 20px;
+    
+    /* Responsive scrolling */
+    overflow-x: auto;
+    white-space: nowrap;
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+}
+
+.tabs-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
 }
 
 .tab-btn {
-    flex: 1;
+    flex: 1 0 auto; /* Prevent overly intense squishing */
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0.85rem;
+    padding: 0.85rem 1.2rem;
     background: transparent;
     border: none;
     color: var(--tx-muted);
@@ -579,3 +596,157 @@ body {
     from { transform: translateX(0); opacity: 1; }
     to { transform: translateX(100%); opacity: 0; }
 }
+
+/* SVG Chart Animation */
+.svg-chart-bar {
+    transform-origin: bottom;
+    animation: growBar 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes growBar {
+    from { transform: scaleY(0); }
+    to { transform: scaleY(1); }
+}
+
+/* App Footer */
+.app-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.5rem 0;
+    margin-top: auto;
+    font-size: 0.85rem;
+    color: var(--tx-muted);
+    opacity: 0.7;
+}
+
+.footer-divider {
+    height: 1px;
+    flex-grow: 1;
+    background: linear-gradient(90deg, transparent, var(--border-glass), transparent);
+    max-width: 150px;
+}
+
+:root[data-theme="light"] .app-footer {
+    color: var(--tx-muted);
+}
+
+/* Warn utility color */
+.num.warn { color: var(--ac-warn); }
+
+/* Toggle Switch Component */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 26px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-switch .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.1);
+    border-radius: 26px;
+    transition: all 0.3s ease;
+    border: 1px solid var(--border-glass);
+}
+
+.toggle-switch .slider::before {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    left: 3px;
+    bottom: 2px;
+    background: var(--tx-muted);
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.toggle-switch input:checked + .slider {
+    background: rgba(59, 130, 246, 0.3);
+    border-color: var(--ac-primary);
+}
+
+.toggle-switch input:checked + .slider::before {
+    transform: translateX(21px);
+    background: var(--ac-primary);
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Responsive Layout — Tab overflow & mobile support
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 1100px) {
+    .tabs-container {
+        flex-wrap: wrap;
+    }
+    .tab-btn {
+        flex: 0 0 auto;
+        min-width: 120px;
+        font-size: 0.9rem;
+        padding: 0.65rem 0.75rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .glass-header {
+        padding: 1rem 1.5rem;
+    }
+    .container {
+        padding: 1.25rem;
+    }
+    .grid-2 {
+        grid-template-columns: 1fr;
+    }
+    .tab-btn {
+        font-size: 0.85rem;
+        min-width: 100px;
+    }
+    .tab-btn svg {
+        display: none;
+    }
+    .hero-text h2 {
+        font-size: 1.5rem;
+    }
+    .stats-grid {
+        flex-wrap: wrap;
+    }
+    .stat-box {
+        min-width: 80px;
+    }
+    .modal-content {
+        width: 95%;
+        padding: 1.5rem;
+    }
+}
+
+/* Version Footer */
+.app-footer {
+    text-align: center;
+    padding: 1.5rem 0 1rem;
+    color: var(--tx-muted);
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    opacity: 0.6;
+}
+
+.app-footer .footer-divider {
+    display: inline-block;
+    width: 40px;
+    height: 1px;
+    background: var(--border-glass);
+    vertical-align: middle;
+    margin: 0 12px;
+}
+

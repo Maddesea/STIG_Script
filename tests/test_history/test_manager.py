@@ -22,6 +22,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from stig_assessor.history.manager import HistMgr
 from stig_assessor.history.models import Hist
+from stig_assessor.core.config import Cfg
+
+# Disable sqlite DB connection during tests to avoid inter-test state leakage
+Cfg.HISTORY_DB_FILE = None
 
 
 class TestHistMgrBasics(unittest.TestCase):
@@ -330,7 +334,13 @@ class TestHistMgrMergeComments(unittest.TestCase):
 
     def setUp(self):
         """Create a new HistMgr for each test."""
+        from unittest.mock import patch
+        self.patcher = patch('stig_assessor.core.config.Cfg.HISTORY_DB_FILE', None)
+        self.patcher.start()
         self.mgr = HistMgr()
+
+    def tearDown(self):
+        self.patcher.stop()
 
     def test_merge_comm_with_no_history(self):
         """Test merge_comm with no history returns current."""

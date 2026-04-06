@@ -659,6 +659,7 @@ class Proc:
         preserve_history: bool = True,
         apply_boilerplate: bool = True,
         auto_status: bool = True,
+        dry: bool = False,
     ) -> Dict[str, Union[bool, int, List[str], str]]:
         """
         Merge multiple checklists into a single output with history preservation.
@@ -731,11 +732,10 @@ class Proc:
 
         XmlUtils.indent_xml(root)
 
-        # Note: dry parameter was missing from signature in original, added for consistency
-        # if dry:
-        #     LOG.i("Dry-run requested, merged checklist not written")
-        #     LOG.clear()
-        #     return {"updated": updated, "skipped": skipped, "dry_run": True}
+        if dry:
+            LOG.i("Dry-run requested, merged checklist not written")
+            LOG.clear()
+            return {"updated": updated, "skipped": skipped, "dry_run": True}
 
         self._export_xml_to_file(root, out)
         LOG.i(f"Merged checklist saved to {out}")

@@ -47,6 +47,7 @@ MAX_XML_SIZE = 500 * 1024 * 1024  # 500MB - maximum XML file size
 MAX_CKLB_SIZE = 150 * 1024 * 1024  # 150MB - maximum JSON CKLB size
 LARGE_EVIDENCE_THRESHOLD = 10 * 1024 * 1024  # 10MB - warning for large evidence
 MAX_LOG_SIZE_BYTES = 10 * 1024 * 1024  # 10MB max log rotation
+MAX_POST_PAYLOAD = 50 * 1024 * 1024  # 50MB - maximum web API POST payload
 
 
 # ──────────────────────────────────────────────────────────────────────────────

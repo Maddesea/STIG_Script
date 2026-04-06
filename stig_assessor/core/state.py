@@ -35,7 +35,18 @@ class GlobalState:
     """
 
     _instance: Optional["GlobalState"] = None
+    _singleton_lock = threading.RLock()
+
+    def __new__(cls, *args, **kwargs):
+        with cls._singleton_lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+                cls._instance._initialized = False
+            return cls._instance
+
     def __init__(self, register_signals: bool = True) -> None:
+        if getattr(self, "_initialized", False):
+            return
         self._lock = threading.RLock()
         self.shutdown = threading.Event()
         self.temps: List[Path] = []
@@ -43,6 +54,7 @@ class GlobalState:
         if register_signals:
             atexit.register(self.cleanup)
             self._setup_signals()
+        self._initialized = True
 
     def __enter__(self) -> "GlobalState":
         return self
@@ -76,23 +88,26 @@ class GlobalState:
     def cleanup(self) -> None:
         """Execute all registered cleanup callbacks and remove temporary files."""
         with self._lock:
-            if self.shutdown.is_set():
+            if getattr(self, "_is_cleaning", False):
                 return
-            self.shutdown.set()
+            self._is_cleaning = True
 
-            for func in reversed(self.cleanups):
-                with suppress(Exception):
-                    # User callbacks are unpredictable — keep broad catch
-                    func()
+            try:
+                for func in reversed(self.cleanups):
+                    with suppress(Exception):
+                        # User callbacks are unpredictable — keep broad catch
+                        func()
 
-            for temp in self.temps:
-                with suppress(OSError):
-                    if temp and temp.exists():
-                        temp.unlink()
+                for temp in self.temps:
+                    with suppress(OSError):
+                        if temp and temp.exists():
+                            temp.unlink()
 
-            self.temps.clear()
-            self.cleanups.clear()
-            gc.collect()
+                self.temps.clear()
+                self.cleanups.clear()
+                gc.collect()
+            finally:
+                self._is_cleaning = False
 
     def remove_temp(self, path: Path) -> None:
         """Remove a specific path from the tracked temporaries list."""

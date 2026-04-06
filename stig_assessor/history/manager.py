@@ -58,6 +58,16 @@ class HistMgr:
         self._h: Dict[str, List[Hist]] = defaultdict(list)
         self._seen: Dict[str, set] = defaultdict(set)
         self._lock = threading.RLock()
+        
+        # Initialize SQLite store if available
+        self.db = None
+        db_path = getattr(Cfg, "HISTORY_DB_FILE", None)
+        if db_path:
+            try:
+                from .sqlite_store import SQLiteStore
+                self.db = SQLiteStore(db_path)
+            except (ImportError, OSError, RuntimeError) as exc:
+                LOG.w(f"Failed to initialize SQLite history store: {exc}")
 
     def add(
         self,
@@ -133,11 +143,37 @@ class HistMgr:
             bisect.insort(self._h[vid], entry)
             self._seen[vid].add(digest)
 
+            # Save justification recursively to DB if it's considered an override/POA&M
+            if self.db and comm and stat.lower() in ("notafinding", "not_applicable", "open"):
+                try:
+                    self.db.save_justification(vid, stat, comm, who)
+                except (OSError, RuntimeError) as exc:
+                    LOG.w(f"Failed to persist justification to DB for {vid}: {exc}")
+
             # Compress if history exceeds maximum
             if len(self._h[vid]) > Cfg.MAX_HIST:
                 self._compress(vid)
 
             return True
+
+    def has(self, vid: str) -> bool:
+        """
+        Check if history exists for a given vulnerability.
+
+        Args:
+            vid: Vulnerability ID
+
+        Returns:
+            True if history exists, False otherwise
+
+        Thread-safe: Yes
+        """
+        with self._lock:
+            try:
+                vid = San.vuln(vid)
+                return vid in self._h and len(self._h[vid]) > 0
+            except ValidationError:
+                return False
 
     def _compress(self, vid: str) -> None:
         """
@@ -261,14 +297,30 @@ class HistMgr:
         """
         with self._lock:
             history = self._h.get(vid)
-            if not history:
-                return current
-
             parts: List[str] = []
 
             # Add current comment section if present
             if current.strip():
                 parts.extend(["═" * 80, "[CURRENT COMMENT]", current.strip(), "", ""])
+            
+            # Check for persistent justification in DB if memory doesn't have good history
+            if self.db:
+                try:
+                    db_just = self.db.get_justification(vid)
+                    if db_just and db_just.get("comments") and db_just.get("comments") not in current:
+                        parts.extend([
+                            "═" * 80, 
+                            f"[PERSISTENT JUSTIFICATION] (from {db_just['who']} at {db_just['updated_at']})", 
+                            db_just['comments'], 
+                            ""
+                        ])
+                except (OSError, RuntimeError, KeyError) as e:
+                    LOG.d(f"Failed to retrieve DB justification for {vid}: {e}")
+
+            if not history and len(parts) <= 5: # Only current comment added
+                return current
+            elif not history:
+                return "\n".join(parts)
 
             # Add history header
             parts.extend(["═" * 80, "[COMMENT HISTORY]", "═" * 80, ""])

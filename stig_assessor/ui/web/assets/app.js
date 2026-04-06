@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        toast.innerHTML = `<span>${message}</span>`;
+        toast.textContent = message;
         container.appendChild(toast);
         
         setTimeout(() => {
@@ -86,8 +86,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDropZone('dz-rem-json', 'file-rem-json');
     setupDropZone('dz-merge-base', 'file-merge-base');
     setupDropZone('dz-merge-hist', 'file-merge-hist', true);
+    setupDropZone('dz-extract', 'file-extract');
+    setupDropZone('dz-diff-1', 'file-diff-1');
+    setupDropZone('dz-diff-2', 'file-diff-2');
     setupDropZone('dz-analytics', 'file-analytics');
     setupDropZone('dz-evidence', 'file-evidence');
+    setupDropZone('dz-dashboard', 'file-dashboard');
+    setupDropZone('dz-track', 'file-track');
 
     // --- Modal Logic ---
     const modal = document.getElementById('results-modal');
@@ -167,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const macEl = document.getElementById('gen-mac');
         
         // Simple Input Validation
-        fetchValid = true;
+        let fetchValid = true;
         [ipEl, macEl].forEach(el => {
             if (el.value && !/^[A-Za-z0-9.:\-]+$/.test(el.value)) {
                 el.classList.add('invalid');
@@ -252,6 +257,78 @@ document.addEventListener('DOMContentLoaded', () => {
                           createStatBox(histFiles.length, "Files", "success");
             spawnModal("Master Merge Complete", res.message, stats, [], res.data.filename, res.data.ckl_b64);
         } catch(e) {}
+    });
+
+    // Extract Tab Support
+    document.getElementById('form-extract')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const file = document.getElementById('file-extract').files[0];
+        if (!file) return showToast("Select an XCCDF or CKL file to extract!", "error");
+
+        const btn = document.querySelector('#form-extract button');
+        const spinner = btn.querySelector('.spinner');
+        
+        try {
+            const payload = {
+                content_b64: await toBase64(file),
+                filename: file.name,
+                enable_rollbacks: document.getElementById('extract-rollbacks').checked,
+                do_ansible: document.getElementById('extract-ansible').checked
+            };
+            
+            const res = await postApi('/api/v1/extract', payload, btn, spinner);
+            
+            showToast("Remediations loop generated correctly! Downloading package...", "success");
+            // Trigger zip download
+            const link = document.createElement("a");
+            link.href = `data:application/zip;base64,${res.package_b64}`;
+            link.download = res.filename;
+            link.click();
+            
+            // Stats overlay if desired
+            if (res.stats) {
+                const metricsText = `Extracted: ${res.stats.bash_scripts || 0} Bash, ${res.stats.ps_scripts || 0} PS1`;
+                showToast(metricsText, "info");
+            }
+
+        } catch (e) {
+            console.error(e);
+        }
+    });
+
+    // Diff Tab Support
+    document.getElementById('form-diff')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const file1 = document.getElementById('file-diff-1').files[0];
+        const file2 = document.getElementById('file-diff-2').files[0];
+        if (!file1 || !file2) return showToast("Select both checklists to compare", "error");
+
+        const btn = document.querySelector('#form-diff button');
+        const spinner = btn.querySelector('.spinner');
+
+        try {
+            const payload = {
+                ckl1_b64: await toBase64(file1),
+                ckl2_b64: await toBase64(file2)
+            };
+            
+            const res = await postApi('/api/v1/diff', payload, btn, spinner);
+            
+            const diffResults = document.getElementById('diff-results');
+            const diffMetrics = document.getElementById('diff-metrics');
+            const diffCode = document.getElementById('diff-code');
+            
+            diffResults.classList.remove('hidden');
+            
+            const data = res.diff_data;
+            diffMetrics.innerHTML = createStatBox(data.total_vulnerabilities || 0, "Total Vulns", "info") +
+                                    createStatBox(data.changes_count || 0, "Changes", data.changes_count > 0 ? "warn" : "success");
+            
+            diffCode.textContent = data.formatted_text || JSON.stringify(data.differences, null, 2);
+            showToast("Checklists successfully compared.", "success");
+        } catch (e) {
+            console.error(e);
+        }
     });
 
     // --- Boilerplates Tab Logic ---
@@ -373,106 +450,197 @@ document.addEventListener('DOMContentLoaded', () => {
         loadBoilerplates();
     });
 
-    // --- Analytics Tab Logic ---
-    document.getElementById('file-analytics').addEventListener('change', async (e) => {
+    // --- Dashboard Tab Logic (SVG Native Rendering) ---
+    function drawBarChart(data) {
+        const svgContainer = document.getElementById('svg-canvas');
+        svgContainer.innerHTML = '';
+        const ns = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(ns, "svg");
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        svg.setAttribute('viewBox', '0 0 800 400');
+        
+        const metrics = data.stats_data.status_counts;
+        const total = Object.values(metrics).reduce((a,b)=>a+b, 0);
+        if(total === 0) return;
+
+        const colors = {
+            'NotAFinding': '#10B981',
+            'Open': '#EF4444',
+            'Not_Applicable': '#9CA3AF',
+            'Not_Reviewed': '#F59E0B'
+        };
+
+        const keys = ['NotAFinding', 'Open', 'Not_Applicable', 'Not_Reviewed'];
+        const barWidth = 100;
+        const gap = (800 - 4*barWidth) / 5;
+        const maxH = 250;
+        let currentX = gap;
+
+        keys.forEach((k) => {
+            const count = metrics[k] || 0;
+            const h = total > 0 ? (count / total) * maxH : 0;
+            
+            // Bar Background
+            const bgRect = document.createElementNS(ns, 'rect');
+            bgRect.setAttribute('x', currentX);
+            bgRect.setAttribute('y', 50);
+            bgRect.setAttribute('width', barWidth);
+            bgRect.setAttribute('height', maxH);
+            bgRect.setAttribute('fill', 'var(--bg-glass)');
+            bgRect.setAttribute('rx', '6');
+
+            // Bar Foreground (animated via CSS ideally, static here)
+            const rect = document.createElementNS(ns, 'rect');
+            rect.setAttribute('x', currentX);
+            rect.setAttribute('y', 50 + maxH - h);
+            rect.setAttribute('width', barWidth);
+            rect.setAttribute('height', h);
+            rect.setAttribute('fill', colors[k]);
+            rect.setAttribute('rx', '6');
+            rect.setAttribute('class', 'svg-chart-bar');
+
+            // Label
+            const text = document.createElementNS(ns, 'text');
+            text.setAttribute('x', currentX + barWidth/2);
+            text.setAttribute('y', 50 + maxH + 30);
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('fill', 'currentColor');
+            text.setAttribute('font-family', 'Outfit, sans-serif');
+            text.setAttribute('font-size', '16');
+            text.setAttribute('font-weight', '500');
+            text.textContent = k.replace('_', ' ');
+            
+            // Value
+            const val = document.createElementNS(ns, 'text');
+            val.setAttribute('x', currentX + barWidth/2);
+            val.setAttribute('y', 50 + maxH - h - 15);
+            val.setAttribute('text-anchor', 'middle');
+            val.setAttribute('fill', 'currentColor');
+            val.setAttribute('font-family', 'Outfit, sans-serif');
+            val.setAttribute('font-size', '24');
+            val.setAttribute('font-weight', '700');
+            val.textContent = count;
+
+            svg.appendChild(bgRect);
+            svg.appendChild(rect);
+            svg.appendChild(text);
+            svg.appendChild(val);
+            
+            currentX += barWidth + gap;
+        });
+        
+        svgContainer.appendChild(svg);
+        document.getElementById('svg-dashboard-container').classList.remove('hidden');
+    }
+
+    document.getElementById('file-dashboard')?.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        showToast("Processing CKL...", "info");
+        showToast("Generating Visual Dashboard...", "info");
         try {
-            const text = await file.text();
-            const parser = new DOMParser();
+            const b64 = await toBase64(file);
+            const payload = { ckl_b64: b64 };
+            const dummyBtn = document.createElement('button');
+            const dummySpinner = document.createElement('div');
             
-            // XML parsing is inherently secure in modern browsers if not evaluating scripts
-            const xmlDoc = parser.parseFromString(text, "text/xml");
+            const res = await postApi('/api/v1/stats', payload, dummyBtn, dummySpinner);
+            
+            if (res.status === 'success') {
+                drawBarChart(res);
+                showToast("Dashboard successfully rendered!", "success");
+            }
+        } catch (err) {
+            showToast("Failed to construct dashboard: " + err.message, "error");
+        }
+    });
 
-            const vulns = xmlDoc.querySelectorAll('VULN');
-            if (vulns.length === 0) {
-                return showToast("No VULN tags found in file. Ensure it is a valid STIG CKL.", "error");
+    // --- Analytics Tab Logic ---
+    document.getElementById('file-analytics')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        showToast("Processing CKL via Backend API...", "info");
+        try {
+            const b64 = await toBase64(file);
+            const payload = { ckl_b64: b64 };
+            
+            // Use dummy btn / spinner since there's no form submit for file change
+            const dummyBtn = document.createElement('button');
+            const dummySpinner = document.createElement('div');
+            
+            const res = await postApi('/api/v1/stats', payload, dummyBtn, dummySpinner);
+            
+            if (res.status === 'success') {
+                const sData = res.stats_data;
+                const metrics = sData.status_counts || {};
+                const details = sData.findings_details || [];
+                
+                document.getElementById('analytics-dashboard').classList.remove('hidden');
+            
+                let statsHtml = '';
+                ['Open', 'NotAFinding', 'Not_Applicable', 'Not_Reviewed'].forEach(key => {
+                    let color = 'info';
+                    if (key === 'NotAFinding') color = 'success';
+                    else if (key === 'Open') color = 'danger';
+                    else if (key === 'Not_Reviewed') color = 'warn'; 
+                    statsHtml += createStatBox(metrics[key] || 0, key.replace('_', ' '), color);
+                });
+                document.getElementById('analytics-metrics').innerHTML = statsHtml;
+
+                const tbody = document.getElementById('analytics-tbody');
+                const renderTable = (filterText = '') => {
+                    tbody.innerHTML = '';
+                    details.forEach(f => {
+                        if (filterText) {
+                            const matchVid = (f.vid||"").toLowerCase().includes(filterText.toLowerCase());
+                            const matchDet = (f.details||"").toLowerCase().includes(filterText.toLowerCase());
+                            if (!matchVid && !matchDet) return;
+                        }
+                        const tr = document.createElement('tr');
+                        
+                        const textNode = document.createTextNode(f.details || 'No detail mapped');
+                        const safeDetails = document.createElement('div');
+                        safeDetails.appendChild(textNode);
+                        let displayDet = safeDetails.innerHTML;
+                        if (displayDet.length > 150) displayDet = displayDet.substring(0, 150) + '...';
+
+                        const tdVid = document.createElement('td');
+                        tdVid.style.fontFamily = 'monospace';
+                        tdVid.style.fontWeight = '600';
+                        tdVid.textContent = f.vid;
+
+                        const tdStatus = document.createElement('td');
+                        const badge = document.createElement('span');
+                        badge.className = `status-badge-sm badge-${(f.status || '').replace(/[^\w-]/g, '')}`;
+                        badge.textContent = (f.status || '').replace('_', ' ');
+                        tdStatus.appendChild(badge);
+
+                        const tdDet = document.createElement('td');
+                        tdDet.style.fontSize = '0.9rem';
+                        tdDet.style.color = 'var(--tx-muted)';
+                        tdDet.textContent = displayDet;
+
+                        tr.appendChild(tdVid);
+                        tr.appendChild(tdStatus);
+                        tr.appendChild(tdDet);
+                        tbody.appendChild(tr);
+                    });
+                };
+                
+                renderTable();
+                
+                const searchEl = document.getElementById('analytics-search');
+                const newSearchEl = searchEl.cloneNode(true);
+                searchEl.parentNode.replaceChild(newSearchEl, searchEl);
+                newSearchEl.addEventListener('input', (event) => renderTable(event.target.value));
+                
+                showToast("Analytics generated successfully via API!", "success");
             }
 
-            const metrics = {
-                'Open': 0,
-                'NotAFinding': 0,
-                'Not_Applicable': 0,
-                'Not_Reviewed': 0
-            };
-
-            const findingsData = [];
-
-            vulns.forEach(v => {
-                const statusNode = v.querySelector('STATUS');
-                const detailsNode = v.querySelector('FINDING_DETAILS');
-                
-                let status = statusNode ? statusNode.textContent : 'Not_Reviewed';
-                if (!metrics.hasOwnProperty(status)) status = 'Not_Reviewed';
-                
-                const details = detailsNode ? detailsNode.textContent : '';
-                
-                metrics[status]++;
-                
-                let vid = 'Unknown';
-                const stigDataNodes = v.querySelectorAll('STIG_DATA');
-                stigDataNodes.forEach(sd => {
-                    const attr = sd.querySelector('VULN_ATTRIBUTE');
-                    if (attr && attr.textContent === 'Vuln_Num') {
-                        const data = sd.querySelector('ATTRIBUTE_DATA');
-                        if (data) vid = data.textContent;
-                    }
-                });
-
-                findingsData.push({ vid, status, details });
-            });
-
-            document.getElementById('analytics-dashboard').classList.remove('hidden');
-            
-            let statsHtml = '';
-            ['Open', 'NotAFinding', 'Not_Applicable', 'Not_Reviewed'].forEach(key => {
-                let color = 'info';
-                if (key === 'NotAFinding') color = 'success';
-                else if (key === 'Open') color = 'danger';
-                else if (key === 'Not_Reviewed') color = 'warn'; 
-                statsHtml += createStatBox(metrics[key], key.replace('_', ' '), color);
-            });
-            document.getElementById('analytics-metrics').innerHTML = statsHtml;
-
-            const tbody = document.getElementById('analytics-tbody');
-            const renderTable = (filterText = '') => {
-                tbody.innerHTML = '';
-                findingsData.forEach(f => {
-                    if (filterText) {
-                        const matchVid = f.vid.toLowerCase().includes(filterText.toLowerCase());
-                        const matchDet = f.details.toLowerCase().includes(filterText.toLowerCase());
-                        if (!matchVid && !matchDet) return;
-                    }
-                    const tr = document.createElement('tr');
-                    
-                    const textNode = document.createTextNode(f.details);
-                    const safeDetails = document.createElement('div');
-                    safeDetails.appendChild(textNode);
-                    let displayDet = safeDetails.innerHTML;
-                    if (displayDet.length > 150) displayDet = displayDet.substring(0, 150) + '...';
-
-                    tr.innerHTML = `
-                        <td style="font-family:monospace; font-weight:600;">${f.vid}</td>
-                        <td><span class="status-badge-sm badge-${f.status}">${f.status.replace("_", " ")}</span></td>
-                        <td style="font-size:0.9rem; color:var(--tx-muted);">${displayDet || '<em>No details mapped</em>'}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            };
-            
-            renderTable();
-            
-            const searchEl = document.getElementById('analytics-search');
-            const newSearchEl = searchEl.cloneNode(true);
-            searchEl.parentNode.replaceChild(newSearchEl, searchEl);
-            newSearchEl.addEventListener('input', (event) => renderTable(event.target.value));
-            
-            showToast("Analytics generated successfully!", "success");
-
         } catch (err) {
-            showToast("Failed to parse file: " + err.message, "error");
+            showToast("Failed to process file: " + err.message, "error");
         }
     });
 
@@ -571,6 +739,64 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             btn.innerHTML = origHtml;
             btn.disabled = false;
+        }
+    });
+
+    // --- Drift Analysis Tab Logic ---
+    document.getElementById('file-track')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        showToast("Uploading checklist for history tracking...", "info");
+        try {
+            const b64 = await toBase64(file);
+            const payload = { ckl_b64: b64 };
+            const dummyBtn = document.createElement('button');
+            const dummySpinner = document.createElement('div');
+            
+            const res = await postApi('/api/v1/track_ckl', payload, dummyBtn, dummySpinner);
+            
+            if (res.status === 'success') {
+                showToast(`Checklist successfully tracked for asset: ${res.data.asset_name}`, "success");
+            }
+        } catch (err) {
+            // postApi handles toast already
+        } finally {
+            e.target.value = "";
+            const dz = document.getElementById('dz-track');
+            dz.classList.remove('dragover', 'has-file');
+            dz.querySelector('.file-name').classList.add('hidden');
+        }
+    });
+
+    document.getElementById('form-drift')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const assetName = document.getElementById('drift-asset').value.trim();
+        if (!assetName) return showToast("Asset Name is required", "error");
+
+        const btn = document.querySelector('#form-drift button');
+        const spinner = btn.querySelector('.spinner');
+
+        try {
+            const payload = { asset_name: assetName };
+            const res = await postApi('/api/v1/show_drift', payload, btn, spinner);
+            
+            if (res.status === 'success') {
+                const drift = res.data;
+                document.getElementById('drift-results').classList.remove('hidden');
+                
+                let statsHtml = '';
+                statsHtml += createStatBox(drift.fixed.length, 'Fixed', 'success');
+                statsHtml += createStatBox(drift.regressed.length, 'Regressed', drift.regressed.length > 0 ? 'danger' : 'success');
+                statsHtml += createStatBox(drift.changed.length, 'Changed', 'warn');
+                statsHtml += createStatBox(drift.new.length, 'New', 'info');
+                statsHtml += createStatBox(drift.removed.length, 'Removed', 'info');
+                
+                document.getElementById('drift-metrics').innerHTML = statsHtml;
+                showToast(`Drift Analysis calculated for ${assetName}`, "success");
+            }
+        } catch (err) {
+            // postApi handles toast already
         }
     });
 

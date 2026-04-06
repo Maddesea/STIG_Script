@@ -392,6 +392,23 @@ class FO:
             raise ParseError(f"Error reading CKLB: {err}")
 
     @staticmethod
+    def write_ckl(root: ET.Element, path: Union[str, Path], backup: bool = False) -> None:
+        """Write ElementTree to CKL XML file atomically.
+        Uses binary mode writing to avoid cross-platform newline mangling.
+        
+        Args:
+            root: XML Element tree root
+            path: Output file path
+            backup: Whether to create a backup if file exists
+        """
+        path = San.path(path, mkpar=True)
+        with FO.atomic(path, mode="wb", bak=backup) as handle:
+            handle.write(b'<?xml version="1.0" encoding="UTF-8"?>\n')
+            handle.write(b'<!-- STIG Assessor Generated -->\n')
+            xml_text = ET.tostring(root, encoding="unicode", method="xml")
+            handle.write(xml_text.encode("utf-8"))
+
+    @staticmethod
     def write_cklb(data: Dict[str, Any], path: Union[str, Path], backup: bool = False) -> None:
         """Write dictionary to CKLB JSON file atomically.
 

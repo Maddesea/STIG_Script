@@ -13,7 +13,8 @@ import os
 import subprocess
 import sys
 
-from stig_assessor.core.config import Cfg, APP_NAME, VERSION, BUILD_DATE, STIG_VIEWER_VERSION
+from stig_assessor.core.config import Cfg
+from stig_assessor.core.constants import APP_NAME, VERSION, BUILD_DATE, STIG_VIEWER_VERSION
 from stig_assessor.core.logging import LOG
 from stig_assessor.core.deps import Deps
 from stig_assessor.xml.schema import Sch
@@ -57,6 +58,7 @@ GUI_PADDING_SECTION = 15
 
 # Font settings
 GUI_FONT_MONO = ("Courier New", 10)
+GUI_FONT_NORMAL = ("TkDefaultFont", 10)
 GUI_FONT_HEADING = ("TkDefaultFont", 12, "bold")
 
 # Vuln-ID validation pattern (#16)
@@ -445,6 +447,9 @@ if Deps.HAS_TKINTER:
                 ("\U0001f4ce Evidence", self._tab_evidence),
                 ("\u2705 Validate", self._tab_validate),
                 ("📝 Boilerplates", self._tab_boilerplates),
+                ("🔍 Compare", self._tab_compare),
+                ("📊 Analytics", self._tab_analytics),
+                ("📈 History/Drift", self._tab_drift),
             ]
 
             for title, builder in tabs:
@@ -736,6 +741,7 @@ if Deps.HAS_TKINTER:
             self.extract_csv = tk.BooleanVar(value=True)
             self.extract_bash = tk.BooleanVar(value=True)
             self.extract_ps = tk.BooleanVar(value=True)
+            self.extract_ansible = tk.BooleanVar(value=True)
 
             # Grid for checkbuttons
             ttk.Checkbutton(formats, text="JSON", variable=self.extract_json).grid(
@@ -750,13 +756,21 @@ if Deps.HAS_TKINTER:
             ttk.Checkbutton(formats, text="PowerShell", variable=self.extract_ps).grid(
                 row=0, column=3, padx=GUI_PADDING_LARGE
             )
+            ttk.Checkbutton(formats, text="Ansible", variable=self.extract_ansible).grid(
+                row=0, column=4, padx=GUI_PADDING_LARGE
+            )
 
             opts_frame = ttk.Frame(frame)
             opts_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
             self.extract_dry = tk.BooleanVar(value=False)
+            self.extract_rollbacks = tk.BooleanVar(value=False)
+            
             ttk.Checkbutton(
                 opts_frame, text="Generate scripts in dry-run mode", variable=self.extract_dry
             ).pack(anchor="center")
+            ttk.Checkbutton(
+                opts_frame, text="Enable PowerShell Registry Rollbacks (`reg export`)", variable=self.extract_rollbacks
+            ).pack(anchor="center", pady=(5, 0))
 
             btn_extract = ttk.Button(
                 frame,
@@ -1592,7 +1606,241 @@ if Deps.HAS_TKINTER:
                     self._bp_vids_list.selection_set(self._bp_current_vid)
                     self._load_bp_editor()
 
+        def _tab_compare(self, frame):
+            io_frame = ttk.LabelFrame(frame, text="Input Checklists", padding=GUI_PADDING_LARGE)
+            io_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+            io_frame.columnconfigure(1, weight=1)
+
+            ttk.Label(io_frame, text="Old/Base CKL: *").grid(row=0, column=0, sticky="w")
+            self.diff_ckl1 = tk.StringVar()
+            ent_1 = ttk.Entry(io_frame, textvariable=self.diff_ckl1, width=GUI_ENTRY_WIDTH)
+            ent_1.grid(row=0, column=1, padx=GUI_PADDING, sticky="we")
+            ttk.Button(io_frame, text="📂 Browse…", command=lambda: self.diff_ckl1.set(filedialog.askopenfilename(filetypes=[("CKL", "*.ckl")]))).grid(row=0, column=2)
+            self._enable_dnd(ent_1, self.diff_ckl1)
+
+            ttk.Label(io_frame, text="New/Target CKL: *").grid(row=1, column=0, sticky="w")
+            self.diff_ckl2 = tk.StringVar()
+            ent_2 = ttk.Entry(io_frame, textvariable=self.diff_ckl2, width=GUI_ENTRY_WIDTH)
+            ent_2.grid(row=1, column=1, padx=GUI_PADDING, sticky="we")
+            ttk.Button(io_frame, text="📂 Browse…", command=lambda: self.diff_ckl2.set(filedialog.askopenfilename(filetypes=[("CKL", "*.ckl")]))).grid(row=1, column=2)
+            self._enable_dnd(ent_2, self.diff_ckl2)
+
+            btn = ttk.Button(frame, text="🔍 Compare", command=self._do_diff_tab, width=GUI_BUTTON_WIDTH_WIDE, style="Accent.TButton")
+            btn.pack(pady=GUI_PADDING_SECTION)
+            
+            self.diff_results_txt = ScrolledText(frame, font=GUI_FONT_MONO, wrap=tk.NONE, height=15)
+            self.diff_results_txt.pack(fill="both", expand=True)
+
+        def _tab_analytics(self, frame):
+            io_frame = ttk.LabelFrame(frame, text="Checklist Analytics", padding=GUI_PADDING_LARGE)
+            io_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+            io_frame.columnconfigure(1, weight=1)
+
+            ttk.Label(io_frame, text="Checklist: *").grid(row=0, column=0, sticky="w")
+            self.stats_ckl = tk.StringVar()
+            ent_1 = ttk.Entry(io_frame, textvariable=self.stats_ckl, width=GUI_ENTRY_WIDTH)
+            ent_1.grid(row=0, column=1, padx=GUI_PADDING, sticky="we")
+            ttk.Button(io_frame, text="📂 Browse…", command=lambda: self.stats_ckl.set(filedialog.askopenfilename(filetypes=[("CKL", "*.ckl")]))).grid(row=0, column=2)
+            self._enable_dnd(ent_1, self.stats_ckl)
+            
+            btn = ttk.Button(frame, text="📊 Generate Vis & Stats", command=self._do_stats_tab, width=GUI_BUTTON_WIDTH_WIDE, style="Accent.TButton")
+            btn.pack(pady=GUI_PADDING_SECTION)
+
+            self.stats_canvas = tk.Canvas(frame, height=220, bg="#ffffff", highlightthickness=1, highlightbackground="#e5e7eb")
+            self.stats_canvas.pack(fill="x", pady=(0, GUI_PADDING))
+            self.stats_canvas.create_text(300, 110, text="Load a checklist to view graphical compliance dashboard", fill="#9ca3af", font=GUI_FONT_NORMAL)
+            
+            self.stats_results_txt = ScrolledText(frame, font=GUI_FONT_MONO, height=12)
+            self.stats_results_txt.pack(fill="both", expand=True)
+
+        def _tab_drift(self, frame):
+            io_frame = ttk.LabelFrame(frame, text="Track Checklist History", padding=GUI_PADDING_LARGE)
+            io_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+            io_frame.columnconfigure(1, weight=1)
+
+            ttk.Label(io_frame, text="Completed CKL: *").grid(row=0, column=0, sticky="w")
+            self.drift_track_ckl = tk.StringVar()
+            ent_1 = ttk.Entry(io_frame, textvariable=self.drift_track_ckl, width=GUI_ENTRY_WIDTH)
+            ent_1.grid(row=0, column=1, padx=GUI_PADDING, sticky="we")
+            ttk.Button(io_frame, text="📂 Browse…", command=lambda: self.drift_track_ckl.set(filedialog.askopenfilename(filetypes=[("CKL", "*.ckl")]))).grid(row=0, column=2)
+            self._enable_dnd(ent_1, self.drift_track_ckl)
+            
+            btn1 = ttk.Button(io_frame, text="📈 Track Checklist", command=self._do_track_ckl, width=GUI_BUTTON_WIDTH_WIDE, style="Accent.TButton")
+            btn1.grid(row=1, column=1, pady=GUI_PADDING, sticky="e")
+
+            drift_frame = ttk.LabelFrame(frame, text="Analyze Asset Drift", padding=GUI_PADDING_LARGE)
+            drift_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+            drift_frame.columnconfigure(1, weight=1)
+
+            ttk.Label(drift_frame, text="Asset Name: *").grid(row=0, column=0, sticky="w")
+            self.drift_asset = tk.StringVar()
+            ttk.Entry(drift_frame, textvariable=self.drift_asset, width=GUI_ENTRY_WIDTH).grid(row=0, column=1, padx=GUI_PADDING, sticky="we")
+            
+            btn2 = ttk.Button(drift_frame, text="🔍 Analyze Drift", command=self._do_show_drift, width=GUI_BUTTON_WIDTH_WIDE, style="Accent.TButton")
+            btn2.grid(row=1, column=1, pady=GUI_PADDING, sticky="e")
+
+            self.drift_canvas = tk.Canvas(frame, height=220, bg="#ffffff", highlightthickness=1, highlightbackground="#e5e7eb")
+            self.drift_canvas.pack(fill="x", padx=GUI_PADDING_LARGE, pady=(0, GUI_PADDING_LARGE))
+            self.drift_canvas.create_text(300, 110, text="Analyze an asset to view compliance drift", fill="#9ca3af", font=GUI_FONT_NORMAL)
+
+
         # ------------------------------------------------------------ actions
+        def _do_diff_tab(self):
+            if not self.diff_ckl1.get() or not self.diff_ckl2.get():
+                messagebox.showerror("Error", "Please provide two checklists down for comparison.")
+                return
+            try:
+                d = self.proc.diff(self.diff_ckl1.get(), self.diff_ckl2.get(), output_format="text")
+                self.diff_results_txt.configure(state="normal")
+                self.diff_results_txt.delete("1.0", tk.END)
+                if isinstance(d, dict):
+                    output = [f"Comparison: {Path(self.diff_ckl1.get()).name} vs {Path(self.diff_ckl2.get()).name}"]
+                    for k, v in d.items():
+                        output.append(f"\n[{str(k).upper()}]")
+                        if isinstance(v, list):
+                            for ln in v: output.append(str(ln))
+                        else: output.append(str(v))
+                    self.diff_results_txt.insert(tk.END, "\n".join(output))
+                else:
+                    self.diff_results_txt.insert(tk.END, str(d))
+                self.diff_results_txt.configure(state="disabled")
+            except Exception as e:
+                messagebox.showerror("Diff Error", str(e))
+                
+        def _do_stats_tab(self):
+            if not self.stats_ckl.get(): return
+            try:
+                stats_dict = self.proc.generate_stats(self.stats_ckl.get(), output_format="json")
+                s_text = self.proc.generate_stats(self.stats_ckl.get(), output_format="text")
+                self.stats_results_txt.configure(state="normal")
+                self.stats_results_txt.delete("1.0", tk.END)
+                self.stats_results_txt.insert(tk.END, str(s_text))
+                self.stats_results_txt.configure(state="disabled")
+
+                # Parse counts for visual graph
+                by_status = stats_dict.get("by_status", {})
+                total = stats_dict.get("total_vulns", 0)
+                
+                self.stats_canvas.delete("all")
+                if total == 0:
+                    self.stats_canvas.create_text(300, 110, text="No vulnerabilities found.", fill="#6b7280", font=GUI_FONT_NORMAL)
+                    return
+
+                colors = {"NotAFinding": "#10b981", "Open": "#ef4444", "Not_Applicable": "#6b7280", "Not_Reviewed": "#f59e0b"}
+                width = int(self.stats_canvas.winfo_width())
+                if width <= 10: width = 600
+                height = int(self.stats_canvas.winfo_height())
+                if height <= 10: height = 220
+                
+                self.stats_canvas.create_text(width/2, 20, text=f"Compliance Posture Overview ({total} Total Rules)", fill="#374151", font=(GUI_FONT_NORMAL[0], 12, "bold"))
+
+                bars = ["NotAFinding", "Open", "Not_Applicable", "Not_Reviewed"]
+                bar_labels = ["Not A Finding", "Open", "Not Applicable", "Not Reviewed"]
+                max_h = height - 80
+                bar_w = width / (len(bars) * 2)
+                gap = bar_w
+                current_x = gap / 2
+
+                for i, k in enumerate(bars):
+                    count = by_status.get(k, 0)
+                    h = (count / total) * max_h
+                    color = colors.get(k, "#3b82f6")
+                    
+                    self.stats_canvas.create_rectangle(current_x, height - 30 - h, current_x + bar_w, height - 30, fill=color, outline=color)
+                    self.stats_canvas.create_text(current_x + bar_w/2, height - 30 - h - 12, text=str(count), fill="#1f2937", font=(GUI_FONT_NORMAL[0], 10, "bold"))
+                    self.stats_canvas.create_text(current_x + bar_w/2, height - 15, text=bar_labels[i], fill="#4b5563", font=(GUI_FONT_NORMAL[0], 10))
+                    
+                    current_x += bar_w + gap
+
+            except Exception as e:
+                messagebox.showerror("Stats Error", str(e))
+
+        def _do_track_ckl(self):
+            if not self.drift_track_ckl.get(): return
+            ckl_path = self.drift_track_ckl.get()
+            if not self.proc.history.db:
+                messagebox.showerror("Error", "SQLite History DB is not initialized.")
+                return
+            try:
+                tree = self.proc._load_file_as_xml(Path(ckl_path))
+                root = tree.getroot()
+                vulns = self.proc._extract_vuln_data(root)
+                asset_elem = root.find(".//HOST_NAME")
+                asset_name = asset_elem.text if asset_elem is not None else "Unknown"
+                
+                results = []
+                for vid, vdata in vulns.items():
+                    results.append({
+                        "vid": vid,
+                        "status": vdata.get("status", "Not_Reviewed"),
+                        "severity": vdata.get("severity", "medium"),
+                        "find": vdata.get("finding_details", ""),
+                        "comm": vdata.get("comments", "")
+                    })
+                
+                db_id = self.proc.history.db.save_assessment(asset_name, ckl_path, "STIG", results)
+                messagebox.showinfo("Success", f"Successfully ingested {len(results)} findings into database.\nAssessment ID: {db_id}")
+            except Exception as e:
+                messagebox.showerror("Tracking Error", str(e))
+
+        def _do_show_drift(self):
+            asset_name = self.drift_asset.get().strip()
+            if not asset_name: return
+            if not self.proc.history.db:
+                messagebox.showerror("Error", "SQLite History DB is not initialized.")
+                return
+            try:
+                with self.proc.history.db._get_conn() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT id FROM assessments WHERE asset_name = ? ORDER BY timestamp DESC LIMIT 1', (asset_name,))
+                    row = cursor.fetchone()
+                    if not row:
+                        messagebox.showwarning("No Data", f"No assessments found for asset '{asset_name}'")
+                        return
+                    latest_id = row[0]
+                    
+                drift = self.proc.history.db.get_drift(asset_name, latest_id)
+                if "error" in drift:
+                    messagebox.showerror("Drift Error", drift["error"])
+                    return
+
+                self.drift_canvas.delete("all")
+                
+                width = int(self.drift_canvas.winfo_width())
+                if width <= 10: width = 600
+                height = int(self.drift_canvas.winfo_height())
+                if height <= 10: height = 220
+                
+                self.drift_canvas.create_text(width/2, 20, text=f"Compliance Drift Analysis: {asset_name}", fill="#374151", font=(GUI_FONT_NORMAL[0], 12, "bold"))
+                
+                bars = [
+                    ("Fixed", len(drift['fixed']), "#10b981"),
+                    ("Regressed", len(drift['regressed']), "#ef4444"),
+                    ("Changed", len(drift['changed']), "#f59e0b"),
+                    ("New Rules", len(drift['new']), "#3b82f6"),
+                    ("Removed", len(drift['removed']), "#6b7280")
+                ]
+                
+                max_val = max([b[1] for b in bars] + [1])
+                max_h = height - 80
+                bar_w = width / (len(bars) * 2)
+                gap = bar_w
+                current_x = gap / 2
+                
+                for label, count, color in bars:
+                    h = (count / max_val) * max_h
+                    if h < 2 and count > 0: h = 2
+                    
+                    self.drift_canvas.create_rectangle(current_x, height - 30 - h, current_x + bar_w, height - 30, fill=color, outline=color)
+                    self.drift_canvas.create_text(current_x + bar_w/2, height - 30 - h - 12, text=str(count), fill="#1f2937", font=(GUI_FONT_NORMAL[0], 10, "bold"))
+                    self.drift_canvas.create_text(current_x + bar_w/2, height - 15, text=label, fill="#4b5563", font=(GUI_FONT_NORMAL[0], 10))
+                    
+                    current_x += bar_w + gap
+
+            except Exception as e:
+                messagebox.showerror("Drift Error", str(e))
+
+
         def _do_create(self):
             if (
                 not self.create_xccdf.get()
@@ -1745,11 +1993,12 @@ if Deps.HAS_TKINTER:
             do_csv = self.extract_csv.get()
             do_bash = self.extract_bash.get()
             do_ps = self.extract_ps.get()
+            do_ansible = self.extract_ansible.get()
             dry = self.extract_dry.get()
 
             def work():
                 extractor = FixExt(in_xccdf)
-                fixes = extractor.extract()
+                extractor.extract()
                 outpaths = []
                 if do_json:
                     extractor.to_json(outdir / "fixes.json")
@@ -1761,8 +2010,12 @@ if Deps.HAS_TKINTER:
                     extractor.to_bash(outdir / "remediate.sh", dry_run=dry)
                     outpaths.append("Bash")
                 if do_ps:
-                    extractor.to_powershell(outdir / "Remediate.ps1", dry_run=dry)
+                    enable_rollbacks = self.extract_rollbacks.get()
+                    extractor.to_powershell(outdir / "Remediate.ps1", dry_run=dry, enable_rollbacks=enable_rollbacks)
                     outpaths.append("PowerShell")
+                if do_ansible:
+                    extractor.to_ansible(outdir / "remediate.yml", dry_run=dry)
+                    outpaths.append("Ansible")
                 return extractor.stats_summary(), outpaths
 
             def done(result):
@@ -2170,7 +2423,7 @@ if Deps.HAS_TKINTER:
                     s = self.evidence.summary()
                     text = f"Storage: {s['size_mb']:.1f} MB  |  Files: {s['files']}  |  Mapped VIDs: {s['vulnerabilities']}"
                     self.evid_stats_label.config(text=text)
-            except Exception as e:
+            except Exception:
                 import traceback; traceback.print_exc()
 
             summary = self.evidence.summary()
