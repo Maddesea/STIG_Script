@@ -53,7 +53,7 @@ class TestWebAPI(unittest.TestCase):
         
     @patch('stig_assessor.processor.processor.Proc.generate_stats')
     def test_handle_stats(self, mock_generate_stats):
-        mock_generate_stats.return_value = {"status_counts": {"Open": 1}}
+        mock_generate_stats.return_value = {"by_status": {"Open": 1}}
         payload = {"ckl_b64": self.b64_empty_ckl}
         
         res = route_request("/api/v1/stats", payload)

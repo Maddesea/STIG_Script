@@ -1,8 +1,6 @@
 """Core processor module for XCCDF to CKL conversion and merging."""
 
 from __future__ import annotations
-
-import datetime
 import hashlib
 import uuid
 from collections import OrderedDict, defaultdict

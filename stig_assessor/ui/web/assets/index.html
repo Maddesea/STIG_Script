@@ -3,557 +3,494 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STIG Assessor Command Center</title>
-    <meta name="description" content="Premium interface for STIG capabilities">
-    <link rel="stylesheet" href="style.css">
-    <!-- Air-Gapped: No external CDN dependencies. System fonts used natively. -->
+    <meta name="description" content="STIG Assessor — Air-gapped security compliance assessment tool for DISA STIG benchmarks">
+    <title>STIG Assessor</title>
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-    <!-- Premium Header -->
-    <header class="glass-header">
-        <div class="brand">
+
+<div class="app-layout">
+
+    <!-- ═══════════════ SIDEBAR ═══════════════ -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
             <div class="logo-orb"></div>
             <h1>STIG Assessor</h1>
         </div>
+
+        <div class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-label">Core Workflows</div>
+                <div class="nav-item active" data-panel="dashboard" id="nav-dashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                    <span>Dashboard</span>
+                </div>
+                <div class="nav-item" data-panel="generate" id="nav-generate">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                    <span>Generate CKL</span>
+                </div>
+                <div class="nav-item" data-panel="extract" id="nav-extract">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>Extract Fixes</span>
+                </div>
+                <div class="nav-item" data-panel="remediate" id="nav-remediate">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                    <span>Apply Results</span>
+                </div>
+                <div class="nav-item" data-panel="merge" id="nav-merge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg>
+                    <span>Merge Checklists</span>
+                </div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-label">Analysis</div>
+                <div class="nav-item" data-panel="analytics" id="nav-analytics">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    <span>Analytics</span>
+                </div>
+                <div class="nav-item" data-panel="diff" id="nav-diff">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><line x1="4" y1="20" x2="21" y2="3"/><path d="M21 16v5h-5"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+                    <span>Compare</span>
+                </div>
+                <div class="nav-item" data-panel="drift" id="nav-drift">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    <span>History / Drift</span>
+                </div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-label">Management</div>
+                <div class="nav-item" data-panel="evidence" id="nav-evidence">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <span>Evidence</span>
+                </div>
+                <div class="nav-item" data-panel="boilerplates" id="nav-boilerplates">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    <span>Boilerplates</span>
+                </div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-section-label">Tools</div>
+                <div class="nav-item" data-panel="validate" id="nav-validate">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    <span>Validate</span>
+                </div>
+                <div class="nav-item" data-panel="repair" id="nav-repair">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                    <span>Repair CKL</span>
+                </div>
+                <div class="nav-item" data-panel="api-docs" id="nav-api-docs">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                    <span>API Docs</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="version-text">v8.0.0 &middot; Air-Gapped</div>
+        </div>
+    </nav>
+
+    <!-- ═══════════════ HEADER ═══════════════ -->
+    <header class="glass-header">
+        <div class="header-left">
+            <button class="hamburger" id="hamburger-btn" aria-label="Toggle menu">&#9776;</button>
+            <span class="header-title" id="header-title">Dashboard</span>
+        </div>
         <div class="header-actions">
-            <button id="theme-toggle" class="btn btn-icon" title="Toggle Theme" style="background:transparent; border:none; color:inherit; cursor:pointer; margin-right: 15px;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            <div class="status-badge"><span class="dot"></span> Online</div>
+            <button class="btn-icon" id="theme-toggle" title="Toggle theme">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
             </button>
-            <span class="status-badge pulse-active"><span class="dot"></span> Active</span>
         </div>
     </header>
 
-    <main class="container">
-        <!-- Interactive Tabs -->
-        <div class="tabs-container glass-panel">
-            <button class="tab-btn active" data-target="tab-generate">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
-                Generate CKL
-            </button>
-            <button class="tab-btn" data-target="tab-remediate">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                Apply Remediation
-            </button>
-            <button class="tab-btn" data-target="tab-merge">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-                Merge Checklists
-            </button>
-            <button class="tab-btn" data-target="tab-boilerplates">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                Boilerplates
-            </button>
-            <button class="tab-btn" data-target="tab-extract">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
-                Extract Fixes
-            </button>
-            <button class="tab-btn" data-target="tab-diff">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"></path><path d="M4 21v-5h5"></path><polyline points="21 3 10 14"></polyline><polyline points="3 21 14 10"></polyline></svg>
-                Compare Checklists
-            </button>
-            <button class="tab-btn" data-target="tab-analytics">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-                Analytics
-            </button>
-            <button class="tab-btn" data-target="tab-dashboard">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
-                Dashboard
-            </button>
-            <button class="tab-btn" data-target="tab-evidence">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                Evidence
-            </button>
-            <button class="tab-btn" data-target="tab-drift">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                Drift Analysis
-            </button>
-        </div>
+    <!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+    <main class="main-content">
 
-        <!-- GENERATE TAB -->
-        <section id="tab-generate" class="tab-content active glass-panel">
-            <div class="hero-text">
-                <h2>Automated Generation</h2>
-                <p>Upload raw DISA STIG Benchmark XML for instant parsing and checklist instantiation.</p>
+        <!-- DASHBOARD -->
+        <section class="panel active" id="panel-dashboard">
+            <div class="panel-header">
+                <h2>Dashboard</h2>
+                <p>Upload a checklist to view compliance overview, or navigate to a workflow.</p>
             </div>
-
-            <form id="form-generate" class="dynamic-form">
-                <div class="upload-zone" id="dz-generate">
-                    <input type="file" id="file-generate" accept=".xml" class="hidden" required>
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="upload-zone" id="dash-upload-zone">
+                    <input type="file" id="dash-ckl-file" accept=".ckl,.cklb" hidden>
                     <div class="upload-icon">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     </div>
-                    <p class="highlight">Drag & Drop XCCDF XML</p>
-                    <p class="sub-text">or click to browse local files</p>
-                    <div class="file-name hidden"></div>
+                    <div class="highlight">Upload CKL for analysis</div>
+                    <div class="sub-text">Drag and drop or click to select (.ckl, .cklb)</div>
+                    <div class="file-name hidden" id="dash-file-label"></div>
                 </div>
-
+            </div>
+            <div id="dash-results" class="hidden">
+                <div class="stats-grid" id="dash-stats-grid"></div>
                 <div class="grid-2">
-                    <div class="form-group">
-                        <label>Target Asset (Hostname)</label>
-                        <input type="text" id="gen-asset" class="glass-input" placeholder="SERVER-01" required>
+                    <div class="card">
+                        <div class="card-header"><h3>Compliance Overview</h3></div>
+                        <div class="donut-container" id="dash-donut-chart"></div>
                     </div>
-                    <div class="form-group">
-                        <label>IP Address</label>
-                        <input type="text" id="gen-ip" class="glass-input" placeholder="192.168.1.100">
-                    </div>
-                    <div class="form-group">
-                        <label>MAC Address</label>
-                        <input type="text" id="gen-mac" class="glass-input" placeholder="00:11:22:33:44:55">
-                    </div>
-                    <div class="form-group">
-                        <label>Role</label>
-                        <input type="text" id="gen-role" class="glass-input" placeholder="Database Server">
+                    <div class="card">
+                        <div class="card-header"><h3>Status Distribution</h3></div>
+                        <div id="dash-bar-chart" style="height: 220px;"></div>
                     </div>
                 </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary btn-glow">
-                        <span class="btn-text">Generate Checklist</span>
-                        <div class="spinner hidden"></div>
-                    </button>
-                </div>
-            </form>
+            </div>
         </section>
 
-        <!-- REMEDIATE TAB -->
-        <section id="tab-remediate" class="tab-content glass-panel">
-            <div class="hero-text">
-                <h2>Continuous Remediation</h2>
-                <p>Merge extracted JSON findings natively into an existing .ckl file.</p>
+        <!-- GENERATE CKL -->
+        <section class="panel" id="panel-generate">
+            <div class="panel-header">
+                <h2>Generate CKL</h2>
+                <p>Convert a DISA XCCDF benchmark to STIG Viewer checklist format.</p>
             </div>
-
-            <form id="form-remediate" class="dynamic-form">
+            <div class="card" style="margin-bottom: 16px;">
+                <div class="card-header"><h3>XCCDF Source</h3></div>
+                <div class="upload-zone" id="gen-upload-zone">
+                    <input type="file" id="gen-xccdf-file" accept=".xml" hidden>
+                    <div class="upload-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                    <div class="highlight">Upload XCCDF benchmark</div>
+                    <div class="sub-text">.xml files from DISA STIG Library</div>
+                    <div class="file-name hidden" id="gen-file-label"></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Asset Details</h3></div>
                 <div class="grid-2">
-                    <div class="upload-zone" id="dz-rem-ckl">
-                        <input type="file" id="file-rem-ckl" accept=".ckl" class="hidden" required>
-                        <p class="highlight">Drop Target .ckl</p>
-                        <div class="file-name hidden"></div>
-                    </div>
-                    <div class="upload-zone" id="dz-rem-json">
-                        <input type="file" id="file-rem-json" accept=".json,.csv" class="hidden" required>
-                        <p class="highlight">Drop Results .json / .csv</p>
-                        <div class="file-name hidden"></div>
+                    <div class="form-group"><label for="gen-asset">Asset Name *</label><input class="glass-input" id="gen-asset" placeholder="e.g. WEBSERVER01" required></div>
+                    <div class="form-group"><label for="gen-ip">IP Address</label><input class="glass-input" id="gen-ip" placeholder="e.g. 10.0.1.50"></div>
+                    <div class="form-group"><label for="gen-mac">MAC Address</label><input class="glass-input" id="gen-mac" placeholder="e.g. 00:1A:2B:3C:4D:5E"></div>
+                    <div class="form-group"><label for="gen-marking">Marking</label><select class="glass-input" id="gen-marking"><option value="CUI" selected>CUI</option><option value="UNCLASSIFIED">UNCLASSIFIED</option><option value="CLASSIFIED">CLASSIFIED</option></select></div>
+                </div>
+                <div class="form-group" style="margin-top:8px;"><label class="checkbox-label"><input type="checkbox" id="gen-boilerplate"> Apply boilerplate templates</label></div>
+                <div class="form-actions"><button class="btn btn-primary" id="gen-submit" disabled>Generate CKL</button></div>
+            </div>
+        </section>
+
+        <!-- EXTRACT FIXES -->
+        <section class="panel" id="panel-extract">
+            <div class="panel-header">
+                <h2>Extract Fixes</h2>
+                <p>Extract remediation scripts from XCCDF benchmarks in JSON, CSV, Bash, PowerShell, and Ansible formats.</p>
+            </div>
+            <div class="card" style="margin-bottom: 16px;">
+                <div class="upload-zone" id="ext-upload-zone">
+                    <input type="file" id="ext-xccdf-file" accept=".xml" hidden>
+                    <div class="upload-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                    <div class="highlight">Upload XCCDF benchmark</div>
+                    <div class="sub-text">Remediation scripts will be extracted and packaged as a ZIP</div>
+                    <div class="file-name hidden" id="ext-file-label"></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Options</h3></div>
+                <div class="grid-2" style="margin-bottom:12px;">
+                    <label class="checkbox-label"><input type="checkbox" id="ext-ansible" checked> Ansible Playbook</label>
+                    <label class="checkbox-label"><input type="checkbox" id="ext-rollbacks"> Enable PS Rollbacks</label>
+                </div>
+                <div class="form-actions"><button class="btn btn-secondary" id="ext-submit" disabled>Extract Fixes</button></div>
+            </div>
+        </section>
+
+        <!-- APPLY RESULTS -->
+        <section class="panel" id="panel-remediate">
+            <div class="panel-header">
+                <h2>Apply Remediation Results</h2>
+                <p>Import remediation results (JSON) into an existing CKL checklist.</p>
+            </div>
+            <div class="grid-2" style="margin-bottom: 16px;">
+                <div class="card">
+                    <div class="card-header"><h3>Checklist (.ckl)</h3></div>
+                    <div class="upload-zone" id="rem-ckl-zone">
+                        <input type="file" id="rem-ckl-file" accept=".ckl,.cklb" hidden>
+                        <div class="upload-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                        <div class="highlight">Upload CKL</div>
+                        <div class="file-name hidden" id="rem-ckl-label"></div>
                     </div>
                 </div>
-
+                <div class="card">
+                    <div class="card-header"><h3>Results (.json)</h3></div>
+                    <div class="upload-zone" id="rem-json-zone">
+                        <input type="file" id="rem-json-file" accept=".json,.csv" hidden>
+                        <div class="upload-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                        <div class="highlight">Upload Results JSON</div>
+                        <div class="file-name hidden" id="rem-json-label"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Import Options</h3></div>
                 <div class="grid-2">
-                    <div class="form-group">
-                        <label>Finding Details Mode</label>
-                        <select id="rem-details-mode" class="glass-input">
-                            <option value="prepend">Prepend (Top)</option>
-                            <option value="append">Append (Bottom)</option>
-                            <option value="overwrite">Overwrite</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Comments Mode</label>
-                        <select id="rem-comment-mode" class="glass-input">
-                            <option value="prepend">Prepend (Top)</option>
-                            <option value="append">Append (Bottom)</option>
-                            <option value="overwrite">Overwrite</option>
-                        </select>
-                    </div>
+                    <div class="form-group"><label for="rem-details-mode">Details Mode</label><select class="glass-input" id="rem-details-mode"><option value="prepend" selected>Prepend</option><option value="append">Append</option><option value="overwrite">Overwrite</option></select></div>
+                    <div class="form-group"><label for="rem-comment-mode">Comment Mode</label><select class="glass-input" id="rem-comment-mode"><option value="prepend" selected>Prepend</option><option value="append">Append</option><option value="overwrite">Overwrite</option></select></div>
                 </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-secondary btn-glow">
-                        <span class="btn-text">Apply Remediation</span>
-                        <div class="spinner hidden"></div>
-                    </button>
-                </div>
-            </form>
-        </section>
-
-        <!-- MERGE TAB -->
-        <section id="tab-merge" class="tab-content glass-panel">
-            <div class="hero-text">
-                <h2>Bulk Architecture Merge</h2>
-                <p>Combine multiple historical .ckl assets into a single comprehensive authoritative record.</p>
-            </div>
-
-            <form id="form-merge" class="dynamic-form">
-                <div class="upload-zone" id="dz-merge-base">
-                    <input type="file" id="file-merge-base" accept=".ckl" class="hidden" required>
-                    <p class="highlight">Drop Base Master .ckl</p>
-                    <div class="file-name hidden"></div>
-                </div>
-
-                <div class="upload-zone" id="dz-merge-hist" style="min-height: 120px;">
-                    <input type="file" id="file-merge-hist" accept=".ckl" multiple class="hidden" required>
-                    <p class="highlight">Drop Historical .ckls (Multiple Allowed)</p>
-                    <div class="file-name hidden"></div>
-                </div>
-
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="merge-preserve" checked>
-                        <span>Preserve Check History Trails</span>
-                    </label>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-accent btn-glow">
-                        <span class="btn-text">Merge Checklists</span>
-                        <div class="spinner hidden"></div>
-                    </button>
-                </div>
-            </form>
-        </section>
-
-        <!-- EXTRACT TAB -->
-        <section id="tab-extract" class="tab-content glass-panel">
-            <div class="hero-text">
-                <h2>Extract Fixes & Automations</h2>
-                <p>Generate JSON, CSV, Bash, and PowerShell scripts from an XCCDF or CKL file to automate remediation.</p>
-            </div>
-            
-            <form id="form-extract" class="dynamic-form">
-                <div class="upload-zone" id="dz-extract" style="margin-bottom: 2rem;">
-                    <input type="file" id="file-extract" accept=".xml,.ckl" class="hidden" required>
-                    <div class="upload-icon">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    </div>
-                    <p class="highlight">Drop XCCDF or CKL</p>
-                    <div class="file-name hidden"></div>
-                </div>
-
-                <div class="settings-panel" style="margin-bottom: 2rem; background: rgba(0,0,0,0.1); padding: 15px; border-radius: 8px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <div>
-                            <label style="font-weight: 600; margin-bottom: 4px; display: block;">Enable Registry Rollbacks</label>
-                            <span style="font-size: 0.85rem; color: var(--tx-muted);">Generate automatic pre-flight registry backups (`reg export`) during PowerShell remediation.</span>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="extract-rollbacks">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
-                        <div>
-                            <label style="font-weight: 600; margin-bottom: 4px; display: block;">Generate Ansible Playbook</label>
-                            <span style="font-size: 0.85rem; color: var(--tx-muted);">Generate native Ansible playbooks (`remediate.yml`) for Linux/Unix generic endpoints.</span>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="extract-ansible" checked>
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-secondary btn-glow">
-                        <span class="btn-text">Generate Remediations Loop</span>
-                        <div class="spinner hidden"></div>
-                    </button>
-                </div>
-            </form>
-        </section>
-
-        <!-- DIFF TAB -->
-        <section id="tab-diff" class="tab-content glass-panel">
-            <div class="hero-text">
-                <h2>Compare Checklists</h2>
-                <p>Diff two checklists to instantly spot regressions, unapplied fixes, or new findings.</p>
-            </div>
-
-            <form id="form-diff" class="dynamic-form">
-                <div class="grid-2">
-                    <div class="upload-zone" id="dz-diff-1">
-                        <input type="file" id="file-diff-1" accept=".ckl" class="hidden" required>
-                        <p class="highlight">Drop Old/Base .ckl</p>
-                        <div class="file-name hidden"></div>
-                    </div>
-                    <div class="upload-zone" id="dz-diff-2">
-                        <input type="file" id="file-diff-2" accept=".ckl" class="hidden" required>
-                        <p class="highlight">Drop New/Target .ckl</p>
-                        <div class="file-name hidden"></div>
-                    </div>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-info btn-glow">
-                        <span class="btn-text">Analyze Differences</span>
-                        <div class="spinner hidden"></div>
-                    </button>
-                </div>
-            </form>
-            
-            <div id="diff-results" class="hidden" style="margin-top: 2rem;">
-                <h3 style="margin-bottom: 1rem;">Diff Summary</h3>
-                <div class="stats-grid" id="diff-metrics" style="margin-bottom: 1.5rem;"></div>
-                <div class="table-wrapper" style="background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid var(--border-glass); padding: 15px;">
-                    <pre id="diff-code" style="font-family: monospace; white-space: pre-wrap; margin:0; outline:none; max-height: 400px; overflow-y: auto;"></pre>
-                </div>
+                <div class="form-actions"><button class="btn btn-accent" id="rem-submit" disabled>Apply Results</button></div>
             </div>
         </section>
 
-        <!-- BOILERPLATES TAB -->
-        <section id="tab-boilerplates" class="tab-content glass-panel">
-            <div class="hero-text">
-                <h2>Boilerplate Templates</h2>
-                <p>Manage default finding details and comments universally or granularly.</p>
+        <!-- MERGE -->
+        <section class="panel" id="panel-merge">
+            <div class="panel-header">
+                <h2>Merge Checklists</h2>
+                <p>Merge multiple historical checklists into a single output with history preservation.</p>
             </div>
-
-            <div class="grid-2">
-                <!-- Left: Navigation (VIDs) -->
-                <div class="bp-sidebar glass-input" style="display: flex; flex-direction: column; overflow: hidden; min-height: 400px; padding:0;">
-                    <div style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                        <input type="text" id="bp-search" class="glass-input" placeholder="Search VIDs..." style="width: 100%; margin-bottom: 10px; padding: 10px; font-size: 0.9em;">
-                        <button id="btn-bp-add" class="btn btn-secondary btn-glow" style="width: 100%; padding: 10px;">+ Add Custom VID</button>
-                    </div>
-                    <ul id="bp-vid-list" class="bp-list hide-scrollbar" style="flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0;">
-                        <!-- JS injected list items -->
-                    </ul>
-                </div>
-
-                <!-- Right: Editor -->
-                <div class="bp-editor" style="display: flex; flex-direction: column; gap: 15px;">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label style="margin-bottom: 5px; display:block;">Finding Status</label>
-                        <select id="bp-status-select" class="glass-input" style="padding: 10px;">
-                            <option value="NotAFinding">NotAFinding</option>
-                            <option value="Open">Open</option>
-                            <option value="Not_Applicable">Not_Applicable</option>
-                            <option value="Not_Reviewed">Not_Reviewed</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group" style="flex: 1; display:flex; flex-direction:column; margin-bottom: 0;">
-                        <label style="margin-bottom: 5px; display:block;">Finding Details Template</label>
-                        <textarea id="bp-finding-text" class="glass-input highlight-area" style="flex: 1; min-height: 120px; font-family: monospace; resize: none; padding: 10px; line-height: 1.4;"></textarea>
-                    </div>
-
-                    <div class="form-group" style="flex: 1; display:flex; flex-direction:column; margin-bottom: 0;">
-                        <label style="margin-bottom: 5px; display:block;">Comments Template</label>
-                        <textarea id="bp-comment-text" class="glass-input highlight-area" style="flex: 1; min-height: 120px; font-family: monospace; resize: none; padding: 10px; line-height: 1.4;"></textarea>
-                    </div>
-
-                    <div class="form-actions" style="justify-content: flex-end; gap: 10px; margin-top: 5px;">
-                        <button id="btn-bp-delete" class="btn" style="background: rgba(255,50,50,0.1); border: 1px solid rgba(255,50,50,0.3); color: #ff8888; padding: 10px 20px;">Delete Template</button>
-                        <button id="btn-bp-save" class="btn btn-primary btn-glow" style="padding: 10px 20px;">Save Boilerplate</button>
-                    </div>
+            <div class="card" style="margin-bottom:16px;">
+                <div class="card-header"><h3>Base Checklist</h3></div>
+                <div class="upload-zone" id="merge-base-zone">
+                    <input type="file" id="merge-base-file" accept=".ckl,.cklb" hidden>
+                    <div class="upload-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                    <div class="highlight">Upload base CKL</div>
+                    <div class="file-name hidden" id="merge-base-label"></div>
                 </div>
             </div>
-            <style>
-                .bp-sidebar { background: rgba(0,0,0,0.2) !important; border-radius: 12px; }
-                .bp-list li {
-                    padding: 12px 15px;
-                    border-bottom: 1px solid rgba(255,255,255,0.05);
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    font-family: monospace;
-                    font-size: 1.1em;
-                }
-                .bp-list li:hover { background: rgba(255,255,255,0.05); }
-                .bp-list li.selected { background: rgba(0, 240, 255, 0.15); color: #fff; font-weight: 600; border-left: 3px solid #00f0ff; }
-            </style>
-        </section>
-
-        <!-- DASHBOARD TAB -->
-        <section id="tab-dashboard" class="tab-content glass-panel">
-            <div class="hero-text">
-                <h2>Visual Compliance Dashboards</h2>
-                <p>Drop a generated .ckl file to dynamically render native SVG visual charts.</p>
+            <div class="card" style="margin-bottom:16px;">
+                <div class="card-header"><h3>History Files</h3></div>
+                <div class="upload-zone" id="merge-hist-zone">
+                    <input type="file" id="merge-hist-files" accept=".ckl,.cklb" multiple hidden>
+                    <div class="upload-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+                    <div class="highlight">Upload history CKLs</div>
+                    <div class="sub-text">Select multiple files</div>
+                    <div class="file-name hidden" id="merge-hist-label"></div>
+                </div>
             </div>
-
-            <div class="upload-zone" id="dz-dashboard" style="min-height: 120px; margin-bottom: 2rem;">
-                <input type="file" id="file-dashboard" accept=".ckl" class="hidden">
-                <p class="highlight">Analyze Output .ckl for Visuals</p>
-                <div class="file-name hidden"></div>
-            </div>
-
-            <div id="svg-dashboard-container" class="hidden" style="width: 100%; display: flex; flex-direction: column; align-items: center; padding: 20px; background: rgba(0,0,0,0.1); border-radius: 12px; border: 1px solid var(--border-glass);">
-                <h3 style="margin-bottom: 20px;">Compliance Posture</h3>
-                <div id="svg-canvas" style="width: 100%; max-width: 800px; height: 400px;"></div>
+            <div class="card">
+                <label class="checkbox-label" style="margin-bottom:12px;"><input type="checkbox" id="merge-preserve" checked> Preserve full history</label>
+                <div class="form-actions"><button class="btn btn-primary" id="merge-submit" disabled>Merge Checklists</button></div>
             </div>
         </section>
 
-        <!-- ANALYTICS TAB -->
-        <section id="tab-analytics" class="tab-content glass-panel">
-            <div class="hero-text">
-                <h2>Checklist Intelligence</h2>
-                <p>Drop a generated .ckl file to dynamically inspect posture metrics and search all findings.</p>
+        <!-- ANALYTICS -->
+        <section class="panel" id="panel-analytics">
+            <div class="panel-header">
+                <h2>Analytics</h2>
+                <p>Upload a checklist to view detailed compliance analytics and per-finding breakdown.</p>
             </div>
-
-            <div class="upload-zone" id="dz-analytics" style="min-height: 120px; margin-bottom: 2rem;">
-                <input type="file" id="file-analytics" accept=".ckl" class="hidden">
-                <p class="highlight">Analyze Output .ckl</p>
-                <div class="file-name hidden"></div>
-            </div>
-
-            <!-- Dashboard View (hidden until file loaded) -->
-            <div id="analytics-dashboard" class="hidden">
-                <div class="stats-grid" id="analytics-metrics" style="margin-bottom: 1.5rem;">
-                    <!-- JS populated metric cards -->
+            <div class="card" style="margin-bottom:20px;">
+                <div class="upload-zone" id="analytics-upload-zone">
+                    <input type="file" id="analytics-ckl-file" accept=".ckl,.cklb" hidden>
+                    <div class="upload-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+                    <div class="highlight">Upload CKL for analytics</div>
+                    <div class="sub-text">.ckl, .cklb files</div>
+                    <div class="file-name hidden" id="analytics-file-label"></div>
                 </div>
-                
-                <!-- Table -->
-                <div class="table-wrapper" style="background: rgba(0,0,0,0.2); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-glass);">
-                    <div style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center;">
-                        <h3 style="margin:0;">Finding Explorer</h3>
-                        <input type="text" id="analytics-search" class="glass-input" placeholder="Search VIDs or Details..." style="width: 250px; padding: 8px;">
+            </div>
+            <div id="analytics-results" class="hidden">
+                <div class="stats-grid" id="analytics-stats-grid"></div>
+                <div class="grid-2" style="margin-bottom:20px;">
+                    <div class="card"><div class="card-header"><h3>Severity Breakdown</h3></div><div id="analytics-severity-chart" style="height:200px;"></div></div>
+                    <div class="card"><div class="card-header"><h3>Status by Severity</h3></div><div id="analytics-matrix"></div></div>
+                </div>
+                <div class="table-wrapper">
+                    <div class="table-wrapper-header">
+                        <h3>Findings Detail</h3>
+                        <input class="glass-input" id="analytics-search" placeholder="Filter by VID or title..." style="width:260px;">
                     </div>
-                    <div style="max-height: 400px; overflow-y: auto;">
-                        <table style="width: 100%; border-collapse: collapse; text-align: left;" id="analytics-table">
-                            <thead style="background: rgba(255,255,255,0.05); position: sticky; top: 0;">
-                                <tr>
-                                    <th style="padding: 12px 15px; border-bottom: 1px solid var(--border-glass);">Check ID</th>
-                                    <th style="padding: 12px 15px; border-bottom: 1px solid var(--border-glass);">Status</th>
-                                    <th style="padding: 12px 15px; border-bottom: 1px solid var(--border-glass);">Details Extract</th>
-                                </tr>
-                            </thead>
-                            <tbody id="analytics-tbody">
-                                <!-- JS populated -->
-                            </tbody>
+                    <div class="table-scroll">
+                        <table class="data-table" id="analytics-table">
+                            <thead><tr><th>VID</th><th>Status</th><th>Severity</th><th>Rule Title</th></tr></thead>
+                            <tbody id="analytics-tbody"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
-            <style>
-                #analytics-table td { padding: 12px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
-                #analytics-table tr:hover { background: rgba(255,255,255,0.05); }
-                .status-badge-sm { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; display: inline-block; }
-                .badge-NotAFinding { background: rgba(16,185,129,0.2); color: #10B981; }
-                .badge-Open { background: rgba(239,68,68,0.2); color: #EF4444; }
-                .badge-Not_Applicable { background: rgba(156,163,175,0.2); color: #9CA3AF; }
-                .badge-Not_Reviewed { background: rgba(245,158,11,0.2); color: #F59E0B; }
-                :root[data-theme="light"] #analytics-table tr:hover { background: rgba(0,0,0,0.05); }
-                :root[data-theme="light"] #analytics-table th, :root[data-theme="light"] #analytics-table td { border-color: rgba(0,0,0,0.05); }
-            </style>
         </section>
 
-        <!-- EVIDENCE TAB -->
-        <section id="tab-evidence" class="tab-content glass-panel">
-            <div class="hero-text">
-                <h2>Evidence Manager</h2>
-                <p>Import screenshots, logs, or exports and securely map them to Vuln IDs natively.</p>
+        <!-- COMPARE -->
+        <section class="panel" id="panel-diff">
+            <div class="panel-header">
+                <h2>Compare Checklists</h2>
+                <p>Compare two CKL files to identify status changes, new rules, and removed rules.</p>
             </div>
-
-            <div class="stats-grid" id="evidence-metrics" style="margin-bottom: 2rem;">
-                <div class="stat-box stat-info"><div class="stat-value">0</div><div class="stat-label">Total Files</div></div>
-                <div class="stat-box stat-success"><div class="stat-value">0</div><div class="stat-label">Mapped VIDs</div></div>
-                <div class="stat-box stat-warn"><div class="stat-value">0 MB</div><div class="stat-label">Storage Size</div></div>
-            </div>
-
-            <div style="display: flex; gap: 2rem; align-items: stretch; margin-bottom: 2rem;">
-                <!-- Form column -->
-                <div style="flex: 1; background: rgba(0,0,0,0.1); padding: 20px; border-radius: 12px; border: 1px solid var(--border-glass);">
-                    <h3 style="margin-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">Import Evidence</h3>
-                    <div class="input-group">
-                        <label>Vulnerability ID (e.g. V-12345)</label>
-                        <input type="text" id="evid-vid" class="glass-input" placeholder="V-*" required>
-                    </div>
-                    <div class="input-group">
-                        <label>Description</label>
-                        <input type="text" id="evid-desc" class="glass-input" placeholder="e.g. Server configuration list">
-                    </div>
-                    <div class="input-group">
-                        <label>Category</label>
-                        <input type="text" id="evid-cat" class="glass-input" value="general">
+            <div class="grid-2" style="margin-bottom:16px;">
+                <div class="card">
+                    <div class="card-header"><h3>Baseline CKL</h3></div>
+                    <div class="upload-zone" id="diff-ckl1-zone">
+                        <input type="file" id="diff-ckl1-file" accept=".ckl,.cklb" hidden>
+                        <div class="upload-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                        <div class="highlight">Baseline (Before)</div>
+                        <div class="file-name hidden" id="diff-ckl1-label"></div>
                     </div>
                 </div>
-
-                <!-- Drop zone column -->
-                <div style="flex: 1; display:flex; flex-direction:column; justify-content:center;">
-                    <div class="upload-zone" id="dz-evidence" style="min-height: 200px; height: 100%;">
-                        <input type="file" id="file-evidence" class="hidden">
-                        <p class="highlight" style="font-size: 1.2rem;">Drop Evidence File Here</p>
-                        <p style="font-size: 0.9rem; margin-top: 10px;">(Please fill out the form before dropping or selecting!)</p>
-                        <div class="file-name hidden"></div>
+                <div class="card">
+                    <div class="card-header"><h3>Comparison CKL</h3></div>
+                    <div class="upload-zone" id="diff-ckl2-zone">
+                        <input type="file" id="diff-ckl2-file" accept=".ckl,.cklb" hidden>
+                        <div class="upload-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                        <div class="highlight">Comparison (After)</div>
+                        <div class="file-name hidden" id="diff-ckl2-label"></div>
                     </div>
                 </div>
             </div>
-
-            <div style="text-align: right; padding-top: 1rem; border-top: 1px solid var(--border-glass);">
-                <button id="btn-export-evidence" class="generate-btn glass-button" style="display:inline-flex; align-items:center; gap:8px;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Package & Download All Evidence (Zip)
-                </button>
+            <div class="form-actions" style="margin-bottom:20px;"><button class="btn btn-primary" id="diff-submit" disabled>Compare Checklists</button></div>
+            <div id="diff-results" class="hidden">
+                <div class="stats-grid" id="diff-stats-grid"></div>
+                <div class="table-wrapper">
+                    <div class="table-wrapper-header"><h3>Changed Vulnerabilities</h3></div>
+                    <div class="table-scroll">
+                        <table class="data-table"><thead><tr><th>VID</th><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody id="diff-tbody"></tbody></table>
+                    </div>
+                </div>
             </div>
-            <style>
-                :root[data-theme="light"] #tab-evidence .input-group input { background: rgba(0,0,0,0.03); }
-            </style>
         </section>
 
-        <!-- DRIFT ANALYSIS TAB -->
-        <section id="tab-drift" class="tab-content glass-panel">
-            <div class="hero-text">
-                <h2>History & Drift Analysis</h2>
-                <p>Track checklist history in the SQLite database and visualize configuration drift between assessments over time.</p>
+        <!-- HISTORY / DRIFT -->
+        <section class="panel" id="panel-drift">
+            <div class="panel-header">
+                <h2>History &amp; Drift Analysis</h2>
+                <p>Track and ingest checklists, then view compliance drift over time.</p>
             </div>
+            <div class="grid-2" style="margin-bottom:16px;">
+                <div class="card">
+                    <div class="card-header"><h3>Ingest CKL</h3></div>
+                    <div class="upload-zone" id="track-upload-zone">
+                        <input type="file" id="track-ckl-file" accept=".ckl,.cklb" hidden>
+                        <div class="upload-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                        <div class="highlight">Upload CKL to track</div>
+                        <div class="file-name hidden" id="track-file-label"></div>
+                    </div>
+                    <button class="btn btn-success" id="track-submit" disabled style="width:100%;">Ingest into Database</button>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>View Drift</h3></div>
+                    <div class="form-group"><label for="drift-asset">Asset Name</label><input class="glass-input" id="drift-asset" placeholder="e.g. WEBSERVER01"></div>
+                    <button class="btn btn-primary" id="drift-submit" style="width:100%;margin-top:12px;">Show Drift</button>
+                </div>
+            </div>
+            <div id="drift-results" class="hidden"><div class="stats-grid" id="drift-stats-grid"></div></div>
+        </section>
 
+        <!-- EVIDENCE -->
+        <section class="panel" id="panel-evidence">
+            <div class="panel-header">
+                <h2>Evidence Management</h2>
+                <p>Import, organize, and package audit evidence files for compliance documentation.</p>
+            </div>
+            <div class="card" style="margin-bottom:16px;">
+                <div class="card-header"><h3>Import Evidence</h3></div>
+                <div class="grid-2">
+                    <div class="form-group"><label for="ev-vid">Vulnerability ID</label><input class="glass-input" id="ev-vid" placeholder="e.g. V-12345"></div>
+                    <div class="form-group"><label for="ev-cat">Category</label><select class="glass-input" id="ev-cat"><option value="general">General</option><option value="screenshot">Screenshot</option><option value="log">Log File</option><option value="config">Configuration</option></select></div>
+                </div>
+                <div class="form-group"><label for="ev-desc">Description</label><input class="glass-input" id="ev-desc" placeholder="Brief description of evidence"></div>
+                <div class="upload-zone" id="ev-upload-zone">
+                    <input type="file" id="ev-file" hidden>
+                    <div class="upload-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                    <div class="highlight">Upload evidence file</div>
+                    <div class="file-name hidden" id="ev-file-label"></div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-success" id="ev-import-btn" disabled>Import Evidence</button>
+                    <button class="btn btn-ghost" id="ev-package-btn">Package All Evidence</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- BOILERPLATES -->
+        <section class="panel" id="panel-boilerplates">
+            <div class="panel-header">
+                <h2>Boilerplate Templates</h2>
+                <p>Manage reusable finding details and comment templates for common vulnerability assessments.</p>
+            </div>
             <div class="grid-2">
-                <!-- Submit CKL for History Tracking -->
-                <div style="background: rgba(0,0,0,0.1); padding: 20px; border-radius: 12px; border: 1px solid var(--border-glass);">
-                    <h3 style="margin-bottom: 1rem;">Track Checklist History</h3>
-                    <p style="font-size: 0.9rem; color: var(--tx-muted); margin-bottom: 1.5rem;">Upload a completed checklist to record its status into the centralized SQLite history engine.</p>
-                    <div class="upload-zone" id="dz-track" style="min-height: 120px;">
-                        <input type="file" id="file-track" accept=".ckl" class="hidden">
-                        <p class="highlight">Drop .ckl to Track</p>
-                        <div class="file-name hidden"></div>
+                <div class="bp-sidebar">
+                    <div class="bp-search-box"><input class="glass-input" id="bp-search" placeholder="Search VID..."></div>
+                    <ul class="bp-list" id="bp-list"></ul>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3 id="bp-editor-title">Select a boilerplate</h3></div>
+                    <div class="form-group"><label for="bp-vid">Vulnerability ID</label><input class="glass-input" id="bp-vid" placeholder="V-12345"></div>
+                    <div class="form-group"><label for="bp-status">Status</label><select class="glass-input" id="bp-status"><option value="NotAFinding">NotAFinding</option><option value="Open">Open</option><option value="Not_Applicable">Not_Applicable</option><option value="Not_Reviewed">Not_Reviewed</option></select></div>
+                    <div class="form-group"><label for="bp-finding">Finding Details</label><textarea class="glass-input" id="bp-finding" rows="4" placeholder="Default finding details text..."></textarea></div>
+                    <div class="form-group"><label for="bp-comment">Comments</label><textarea class="glass-input" id="bp-comment" rows="4" placeholder="Default comments text..."></textarea></div>
+                    <div class="form-actions">
+                        <button class="btn btn-danger" id="bp-delete-btn">Delete</button>
+                        <button class="btn btn-primary" id="bp-save-btn">Save</button>
                     </div>
-                </div>
-
-                <!-- Query Asset Drift -->
-                <div style="background: rgba(0,0,0,0.1); padding: 20px; border-radius: 12px; border: 1px solid var(--border-glass);">
-                    <h3 style="margin-bottom: 1rem;">Analyze Asset Drift</h3>
-                    <p style="font-size: 0.9rem; color: var(--tx-muted); margin-bottom: 1.5rem;">Calculate the configuration drift of an asset by comparing its latest assessment against the previous run.</p>
-                    <form id="form-drift">
-                        <div class="input-group" style="margin-bottom: 1.5rem;">
-                            <label>Asset Name</label>
-                            <input type="text" id="drift-asset" class="glass-input" placeholder="e.g. SERVER-01" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-glow" style="width: 100%;">
-                            <span class="btn-text">Compute Drift</span>
-                            <div class="spinner hidden"></div>
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Drift Results Dashboard -->
-            <div id="drift-results" class="hidden" style="margin-top: 2rem;">
-                <h3 style="margin-bottom: 1rem; text-align: center;">Drift Metrics Dashboard</h3>
-                <div class="stats-grid" id="drift-metrics">
-                    <!-- JS populated metric cards -->
                 </div>
             </div>
         </section>
 
-        <!-- Global Results Modal Overlay -->
-        <div id="results-modal" class="modal-overlay hidden">
-            <div class="modal-content glass-panel popup-anim">
-                <div class="modal-header">
-                    <h3>Operation Complete</h3>
-                    <button class="close-btn" id="close-modal">×</button>
+        <!-- VALIDATE -->
+        <section class="panel" id="panel-validate">
+            <div class="panel-header">
+                <h2>Validate Checklist</h2>
+                <p>Check a CKL file for structural issues, missing fields, and STIG Viewer compatibility problems.</p>
+            </div>
+            <div class="card">
+                <div class="upload-zone" id="val-upload-zone">
+                    <input type="file" id="val-ckl-file" accept=".ckl,.cklb" hidden>
+                    <div class="upload-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+                    <div class="highlight">Upload CKL to validate</div>
+                    <div class="sub-text">.ckl, .cklb files</div>
+                    <div class="file-name hidden" id="val-file-label"></div>
                 </div>
-                
-                <p id="result-message" class="result-msg"></p>
-                
-                <div class="stats-grid" id="modal-stats"></div>
-                
-                <div id="error-log" class="error-console hidden"></div>
+                <div class="form-actions"><button class="btn btn-primary" id="val-submit" disabled>Validate CKL</button></div>
+            </div>
+            <div id="val-results" class="hidden validation-result"></div>
+        </section>
 
-                <div class="modal-actions">
-                    <a id="download-trigger" class="btn btn-success btn-glow">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        Download Artifact
-                    </a>
+        <!-- REPAIR -->
+        <section class="panel" id="panel-repair">
+            <div class="panel-header">
+                <h2>Repair Checklist</h2>
+                <p>Automatically fix common CKL issues: invalid status values, missing elements, oversized fields.</p>
+            </div>
+            <div class="card">
+                <div class="upload-zone" id="repair-upload-zone">
+                    <input type="file" id="repair-ckl-file" accept=".ckl,.cklb" hidden>
+                    <div class="upload-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+                    <div class="highlight">Upload corrupted CKL</div>
+                    <div class="sub-text">The file will be analyzed and repaired</div>
+                    <div class="file-name hidden" id="repair-file-label"></div>
+                </div>
+                <div class="form-actions"><button class="btn btn-accent" id="repair-submit" disabled>Repair CKL</button></div>
+            </div>
+            <div id="repair-results" class="hidden">
+                <div class="card" style="margin-top:20px;">
+                    <div class="card-header"><h3>Repair Log</h3></div>
+                    <div id="repair-log"></div>
+                    <div class="form-actions" style="margin-top:16px;"><button class="btn btn-success hidden" id="repair-download">Download Repaired CKL</button></div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- Toast Container -->
-        <div id="toast-container" class="toast-container"></div>
+        <!-- API DOCS -->
+        <section class="panel" id="panel-api-docs">
+            <div class="panel-header">
+                <h2>API Reference</h2>
+                <p>All REST endpoints accept JSON POST bodies and return JSON responses. Files are transmitted as base64.</p>
+            </div>
+            <div id="api-docs-list"></div>
+        </section>
 
-        <!-- Version Footer -->
         <footer class="app-footer">
             <span class="footer-divider"></span>
-            STIG Assessor &mdash; Air-Gapped Command Center
+            <span>STIG Assessor v8.0.0 &middot; Air-Gapped &middot; Zero Dependencies</span>
             <span class="footer-divider"></span>
         </footer>
-
     </main>
+</div>
 
-    <script src="app.js"></script>
+<!-- RESULT MODAL -->
+<div class="modal-overlay hidden" id="result-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">Result</h3>
+            <button class="close-btn" id="modal-close">&times;</button>
+        </div>
+        <p class="result-msg" id="modal-message"></p>
+        <div id="modal-stats" class="hidden"><div class="stats-grid" id="modal-stats-grid"></div></div>
+        <div class="error-console hidden" id="modal-errors"></div>
+        <div class="modal-actions" id="modal-actions"></div>
+    </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="/app.js"></script>
 </body>
 </html>

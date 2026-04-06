@@ -47,8 +47,10 @@ class WebUIHandler(BaseHTTPRequestHandler):
         )
         self.send_header("Content-Security-Policy", csp)
         
-        # CORS restrictions (loopback only)
-        self.send_header("Access-Control-Allow-Origin", "http://127.0.0.1")
+        # CORS restrictions (loopback only — include actual port)
+        import builtins
+        port = getattr(builtins, "_stig_web_port", 8080)
+        self.send_header("Access-Control-Allow-Origin", f"http://127.0.0.1:{port}")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
@@ -105,9 +107,13 @@ class WebUIHandler(BaseHTTPRequestHandler):
             ".html": "text/html",
             ".css": "text/css",
             ".js": "application/javascript",
+            ".json": "application/json",
             ".png": "image/png",
             ".jpg": "image/jpeg",
             ".svg": "image/svg+xml",
+            ".ico": "image/x-icon",
+            ".zip": "application/zip",
+            ".woff2": "font/woff2",
         }
         content_type = content_types.get(ext, "application/octet-stream")
 
@@ -117,7 +123,6 @@ class WebUIHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(content)))
-            self.send_header("Content-Security-Policy", "default-src 'self' data: 'unsafe-inline';")
             self._send_security_headers()
             self.end_headers()
             self.wfile.write(content)

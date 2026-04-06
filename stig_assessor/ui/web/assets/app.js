@@ -1,803 +1,849 @@
+/**
+ * STIG Assessor — Air-Gapped Web Client v2.0
+ * Sidebar navigation layout. Zero external dependencies.
+ *
+ * Maps to the sidebar nav-item[data-panel] → section.panel#panel-{name}
+ * architecture chosen by the user.
+ */
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════════════════════════ */
+
+function toBase64(file) {
+    return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result.split(',')[1]);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+    });
+}
+
+function downloadB64(b64, filename) {
+    const bytes = atob(b64);
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    const blob = new Blob([arr]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+}
+
+function downloadText(text, filename, mime = 'text/csv') {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+}
+
+function showToast(msg, type = 'info') {
+    const c = document.getElementById('toast-container');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => { t.style.animation = 'fadeOut .3s ease forwards'; setTimeout(() => t.remove(), 300); }, 4000);
+}
+
+function statBox(val, label, color = 'info') {
+    return `<div class="stat-box"><div class="num ${color}">${val}</div><div class="lbl">${label}</div></div>`;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   API LAYER
+   ═══════════════════════════════════════════════════════════════════ */
+
+async function postApi(url, payload, btn) {
+    if (btn) btn.disabled = true;
+    try {
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (data.status === 'error') showToast(data.message || 'API Error', 'error');
+        return data;
+    } catch (err) {
+        showToast(`Network error: ${err.message}`, 'error');
+        return { status: 'error', message: err.message };
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   NAVIGATION — Sidebar panel switching
+   ═══════════════════════════════════════════════════════════════════ */
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Sidebar nav
+    const navItems = document.querySelectorAll('.nav-item[data-panel]');
+    const panels = document.querySelectorAll('.panel');
+    const headerTitle = document.getElementById('header-title');
 
-    // --- Tab Switching Logic ---
-    const tabBtns = document.querySelectorAll('.tab-btn');
-    const tabContents = document.querySelectorAll('.tab-content');
-
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            // Remove active class from all tabs and contents
-            tabBtns.forEach(b => b.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active'));
-
-            // Set active
-            btn.classList.add('active');
-            const targetId = btn.getAttribute('data-target');
-            document.getElementById(targetId).classList.add('active');
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            navItems.forEach(n => n.classList.remove('active'));
+            panels.forEach(p => p.classList.remove('active'));
+            item.classList.add('active');
+            const target = document.getElementById('panel-' + item.dataset.panel);
+            if (target) target.classList.add('active');
+            if (headerTitle) headerTitle.textContent = item.querySelector('span')?.textContent || '';
         });
     });
 
-    // --- Theme Toggle Logic ---
-    const themeBtn = document.getElementById('theme-toggle');
-    themeBtn.addEventListener('click', () => {
-        const current = document.documentElement.getAttribute('data-theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    // Hamburger
+    document.getElementById('hamburger-btn')?.addEventListener('click', () => {
+        document.getElementById('sidebar')?.classList.toggle('open');
     });
 
-    // --- Toast Notifications ---
-    function showToast(message, type = 'info') {
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        toast.textContent = message;
-        container.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.style.animation = 'fadeOut 0.3s forwards';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-    }
-
-
-    // --- Global Utility / Drag & Drop ---
-    const toBase64 = file => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = error => reject(error);
+    // Theme
+    document.getElementById('theme-toggle')?.addEventListener('click', () => {
+        const h = document.documentElement;
+        h.setAttribute('data-theme', h.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
     });
 
-    function setupDropZone(dzId, inputId, multiple = false) {
-        const dz = document.getElementById(dzId);
-        const input = document.getElementById(inputId);
-        const nameDisplay = dz.querySelector('.file-name');
+    // Modal close
+    document.getElementById('modal-close')?.addEventListener('click', () => {
+        document.getElementById('result-modal')?.classList.add('hidden');
+    });
 
-        const stop = e => { e.preventDefault(); e.stopPropagation(); };
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => dz.addEventListener(evt, stop, false));
+    // Init all features
+    initDropZones();
+    wireGenerate();
+    wireExtract();
+    wireRemediate();
+    wireMerge();
+    wireAnalytics();
+    wireDashboard();
+    wireDiff();
+    wireDrift();
+    wireEvidence();
+    wireBoilerplates();
+    wireValidate();
+    wireRepair();
+    wireApiDocs();
+});
 
-        ['dragenter', 'dragover'].forEach(evt => dz.addEventListener(evt, () => dz.classList.add('drag-over'), false));
-        ['dragleave', 'drop'].forEach(evt => dz.addEventListener(evt, () => dz.classList.remove('drag-over'), false));
 
-        dz.addEventListener('drop', e => {
-            const dt = e.dataTransfer;
-            input.files = dt.files;
-            input.dispatchEvent(new Event('change'));
-        });
+/* ═══════════════════════════════════════════════════════════════════
+   UNIVERSAL DROP ZONE WIRING
+   ═══════════════════════════════════════════════════════════════════ */
 
-        dz.addEventListener('click', () => input.click());
+function initDZ(zoneId, inputId, labelId, onReady) {
+    const zone = document.getElementById(zoneId);
+    const input = document.getElementById(inputId);
+    if (!zone || !input) return;
 
-        input.addEventListener('change', () => {
-            if (input.files.length > 0) {
-                if (multiple) {
-                    nameDisplay.textContent = `${input.files.length} files selected`;
-                } else {
-                    nameDisplay.textContent = input.files[0].name;
-                }
-                nameDisplay.classList.remove('hidden');
-            } else {
-                nameDisplay.classList.add('hidden');
-            }
-        });
-    }
-
-    // Initialize all drop zones
-    setupDropZone('dz-generate', 'file-generate');
-    setupDropZone('dz-rem-ckl', 'file-rem-ckl');
-    setupDropZone('dz-rem-json', 'file-rem-json');
-    setupDropZone('dz-merge-base', 'file-merge-base');
-    setupDropZone('dz-merge-hist', 'file-merge-hist', true);
-    setupDropZone('dz-extract', 'file-extract');
-    setupDropZone('dz-diff-1', 'file-diff-1');
-    setupDropZone('dz-diff-2', 'file-diff-2');
-    setupDropZone('dz-analytics', 'file-analytics');
-    setupDropZone('dz-evidence', 'file-evidence');
-    setupDropZone('dz-dashboard', 'file-dashboard');
-    setupDropZone('dz-track', 'file-track');
-
-    // --- Modal Logic ---
-    const modal = document.getElementById('results-modal');
-    const closeModalBtn = document.getElementById('close-modal');
-    const msgElement = document.getElementById('result-message');
-    const errorConsole = document.getElementById('error-log');
-    const statsContainer = document.getElementById('modal-stats');
-    const downloadTrigger = document.getElementById('download-trigger');
-
-    closeModalBtn.addEventListener('click', () => modal.classList.add('hidden'));
-
-    function createStatBox(value, label, colorClass) {
-        return `
-            <div class="stat-box">
-                <div class="num ${colorClass}">${value}</div>
-                <div class="lbl">${label}</div>
-            </div>
-        `;
-    }
-
-    function spawnModal(title, msg, statsHtml, errors, filename, b64_ckl) {
-        document.querySelector('.modal-header h3').textContent = title;
-        msgElement.textContent = msg;
-        statsContainer.innerHTML = statsHtml;
-
-        if (errors && errors.length > 0) {
-            errorConsole.classList.remove('hidden');
-            errorConsole.innerHTML = '<strong>Notices:</strong><br>';
-            errors.forEach(err => {
-                const div = document.createElement('div');
-                div.textContent = String(err);
-                errorConsole.appendChild(div);
-            });
-        } else {
-            errorConsole.classList.add('hidden');
+    zone.addEventListener('click', () => input.click());
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+        e.preventDefault(); zone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) {
+            input.files = e.dataTransfer.files;
+            showLabel(labelId, e.dataTransfer.files);
+            if (onReady) onReady(e.dataTransfer.files);
         }
+    });
+    input.addEventListener('change', () => {
+        showLabel(labelId, input.files);
+        if (onReady && input.files.length) onReady(input.files);
+    });
+}
 
-        downloadTrigger.href = `data:application/xml;base64,${b64_ckl}`;
-        downloadTrigger.download = filename;
+function showLabel(id, files) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.textContent = Array.from(files).map(f => f.name).join(', ');
+}
 
-        modal.classList.remove('hidden');
+function initDropZones() {
+    // Generate
+    initDZ('gen-upload-zone', 'gen-xccdf-file', 'gen-file-label', () => {
+        const btn = document.getElementById('gen-submit'); if (btn) btn.disabled = false;
+    });
+    // Extract
+    initDZ('ext-upload-zone', 'ext-xccdf-file', 'ext-file-label', () => {
+        const btn = document.getElementById('ext-submit'); if (btn) btn.disabled = false;
+    });
+    // Remediate
+    initDZ('rem-ckl-zone', 'rem-ckl-file', 'rem-ckl-label', checkRemReady);
+    initDZ('rem-json-zone', 'rem-json-file', 'rem-json-label', checkRemReady);
+    // Merge
+    initDZ('merge-base-zone', 'merge-base-file', 'merge-base-label', checkMergeReady);
+    initDZ('merge-hist-zone', 'merge-hist-files', 'merge-hist-label', checkMergeReady);
+    // Analytics
+    initDZ('analytics-upload-zone', 'analytics-ckl-file', 'analytics-file-label');
+    // Dashboard
+    initDZ('dash-upload-zone', 'dash-ckl-file', 'dash-file-label');
+    // Diff
+    initDZ('diff-ckl1-zone', 'diff-ckl1-file', 'diff-ckl1-label', checkDiffReady);
+    initDZ('diff-ckl2-zone', 'diff-ckl2-file', 'diff-ckl2-label', checkDiffReady);
+    // Track
+    initDZ('track-upload-zone', 'track-ckl-file', 'track-file-label', () => {
+        const btn = document.getElementById('track-submit'); if (btn) btn.disabled = false;
+    });
+    // Evidence
+    initDZ('ev-upload-zone', 'ev-file', 'ev-file-label', () => {
+        const btn = document.getElementById('ev-import-btn'); if (btn) btn.disabled = false;
+    });
+    // Validate
+    initDZ('val-upload-zone', 'val-ckl-file', 'val-file-label', () => {
+        const btn = document.getElementById('val-submit'); if (btn) btn.disabled = false;
+    });
+    // Repair
+    initDZ('repair-upload-zone', 'repair-ckl-file', 'repair-file-label', () => {
+        const btn = document.getElementById('repair-submit'); if (btn) btn.disabled = false;
+    });
+}
+
+function checkRemReady() {
+    const btn = document.getElementById('rem-submit');
+    if (btn) btn.disabled = !(document.getElementById('rem-ckl-file')?.files?.length && document.getElementById('rem-json-file')?.files?.length);
+}
+function checkMergeReady() {
+    const btn = document.getElementById('merge-submit');
+    if (btn) btn.disabled = !(document.getElementById('merge-base-file')?.files?.length && document.getElementById('merge-hist-files')?.files?.length);
+}
+function checkDiffReady() {
+    const btn = document.getElementById('diff-submit');
+    if (btn) btn.disabled = !(document.getElementById('diff-ckl1-file')?.files?.length && document.getElementById('diff-ckl2-file')?.files?.length);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   RESULT MODAL
+   ═══════════════════════════════════════════════════════════════════ */
+
+function showModal(title, message, statsHtml, b64, filename, errors) {
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-message').textContent = message;
+
+    const statsEl = document.getElementById('modal-stats');
+    const gridEl = document.getElementById('modal-stats-grid');
+    if (statsHtml) { statsEl.classList.remove('hidden'); gridEl.innerHTML = statsHtml; }
+    else { statsEl.classList.add('hidden'); }
+
+    const errEl = document.getElementById('modal-errors');
+    if (errors?.length) { errEl.classList.remove('hidden'); errEl.textContent = errors.join('\n'); }
+    else { errEl.classList.add('hidden'); }
+
+    const actions = document.getElementById('modal-actions');
+    actions.innerHTML = '';
+    if (b64 && filename) {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-success';
+        btn.textContent = 'Download ' + filename;
+        btn.onclick = () => downloadB64(b64, filename);
+        actions.appendChild(btn);
     }
 
-
-    // --- API Interactions ---
-    async function postApi(endpoint, payload, btn, spinner) {
-        btn.disabled = true;
-        spinner.classList.remove('hidden');
-        try {
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-            if (!response.ok || data.status !== 'success') {
-                throw new Error(data.message || 'Server error');
-            }
-            return data;
-        } catch (err) {
-            showToast("Operation Failed: " + err.message, "error");
-            throw err;
-        } finally {
-            btn.disabled = false;
-            spinner.classList.add('hidden');
-        }
-    }
+    document.getElementById('result-modal').classList.remove('hidden');
+}
 
 
-    // Tab 1: Generate Action
-    document.getElementById('form-generate').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const file = document.getElementById('file-generate').files[0];
-        if (!file) return showToast("Select an XCCDF file!", "error");
+/* ═══════════════════════════════════════════════════════════════════
+   GENERATE CKL
+   ═══════════════════════════════════════════════════════════════════ */
 
-        const ipEl = document.getElementById('gen-ip');
-        const macEl = document.getElementById('gen-mac');
-        
-        // Simple Input Validation
-        let fetchValid = true;
-        [ipEl, macEl].forEach(el => {
-            if (el.value && !/^[A-Za-z0-9.:\-]+$/.test(el.value)) {
-                el.classList.add('invalid');
-                fetchValid = false;
-            } else {
-                el.classList.remove('invalid');
-            }
-        });
-        if (!fetchValid) return showToast("Invalid IP or MAC format.", "error");
+function wireGenerate() {
+    document.getElementById('gen-submit')?.addEventListener('click', async () => {
+        const file = document.getElementById('gen-xccdf-file')?.files[0];
+        const asset = document.getElementById('gen-asset')?.value?.trim();
+        if (!file) { showToast('Upload an XCCDF XML first.', 'error'); return; }
+        if (!asset) { showToast('Asset name is required.', 'error'); return; }
 
-        const payload = {
-            content_b64: await toBase64(file),
+        const btn = document.getElementById('gen-submit');
+        showToast('Converting XCCDF…', 'info');
+        const res = await postApi('/api/v1/xccdf_to_ckl', {
+            xccdf_b64: await toBase64(file),
             filename: file.name,
-            asset: document.getElementById('gen-asset').value,
-            ip: document.getElementById('gen-ip').value,
-            mac: document.getElementById('gen-mac').value,
-            role: document.getElementById('gen-role').value
-        };
+            asset,
+            ip: document.getElementById('gen-ip')?.value || '',
+            mac: document.getElementById('gen-mac')?.value || '',
+            role: 'None',
+        }, btn);
 
-        const btn = document.querySelector('#form-generate button');
-        const spinner = btn.querySelector('.spinner');
-        
-        try {
-            const res = await postApi('/api/v1/xccdf_to_ckl', payload, btn, spinner);
-            const stats = createStatBox(res.data.processed, "Vulns", "success") +
-                          createStatBox(res.data.skipped, "Skipped", res.data.skipped > 0 ? "danger" : "info");
-            spawnModal("Checklist Generated", res.message, stats, res.data.errors, res.data.filename, res.data.ckl_b64);
-        } catch(e) {}
-    });
-
-    // Tab 2: Remediate Action
-    document.getElementById('form-remediate').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const fileCkl = document.getElementById('file-rem-ckl').files[0];
-        const fileJson = document.getElementById('file-rem-json').files[0];
-        if (!fileCkl || !fileJson) return showToast("Select both CKL and JSON mapped files!", "error");
-
-        const payload = {
-            ckl_b64: await toBase64(fileCkl),
-            json_b64: await toBase64(fileJson),
-            filename: fileCkl.name.replace(".ckl", "_updated.ckl"),
-            details_mode: document.getElementById('rem-details-mode').value,
-            comment_mode: document.getElementById('rem-comment-mode').value
-        };
-
-        const btn = document.querySelector('#form-remediate button');
-        const spinner = btn.querySelector('.spinner');
-
-        try {
-            const res = await postApi('/api/v1/apply_results', payload, btn, spinner);
-            const stats = createStatBox(res.data.imported, "Applied", "success") +
-                          createStatBox(res.data.not_found, "Missing", res.data.not_found > 0 ? "danger" : "info");
-            spawnModal("Remediations Applied", res.message, stats, [], res.data.filename, res.data.ckl_b64);
-        } catch(e) {}
-    });
-
-    // Tab 3: Merge Action
-    document.getElementById('form-merge').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const baseCkl = document.getElementById('file-merge-base').files[0];
-        const histFiles = document.getElementById('file-merge-hist').files;
-        if (!baseCkl || histFiles.length === 0) return showToast("Select base CKL and at least 1 history CKL.", "error");
-
-        const histories = [];
-        for (let i = 0; i < histFiles.length; i++) {
-            histories.push(await toBase64(histFiles[i]));
-        }
-
-        const payload = {
-            base_b64: await toBase64(baseCkl),
-            histories_b64: histories,
-            filename: baseCkl.name.replace(".ckl", "_merged.ckl"),
-            preserve_history: document.getElementById('merge-preserve').checked
-        };
-
-        const btn = document.querySelector('#form-merge button');
-        const spinner = btn.querySelector('.spinner');
-
-        try {
-            const res = await postApi('/api/v1/merge_ckls', payload, btn, spinner);
-            const stats = createStatBox(res.data.processed, "Evaluated", "info") +
-                          createStatBox(histFiles.length, "Files", "success");
-            spawnModal("Master Merge Complete", res.message, stats, [], res.data.filename, res.data.ckl_b64);
-        } catch(e) {}
-    });
-
-    // Extract Tab Support
-    document.getElementById('form-extract')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const file = document.getElementById('file-extract').files[0];
-        if (!file) return showToast("Select an XCCDF or CKL file to extract!", "error");
-
-        const btn = document.querySelector('#form-extract button');
-        const spinner = btn.querySelector('.spinner');
-        
-        try {
-            const payload = {
-                content_b64: await toBase64(file),
-                filename: file.name,
-                enable_rollbacks: document.getElementById('extract-rollbacks').checked,
-                do_ansible: document.getElementById('extract-ansible').checked
-            };
-            
-            const res = await postApi('/api/v1/extract', payload, btn, spinner);
-            
-            showToast("Remediations loop generated correctly! Downloading package...", "success");
-            // Trigger zip download
-            const link = document.createElement("a");
-            link.href = `data:application/zip;base64,${res.package_b64}`;
-            link.download = res.filename;
-            link.click();
-            
-            // Stats overlay if desired
-            if (res.stats) {
-                const metricsText = `Extracted: ${res.stats.bash_scripts || 0} Bash, ${res.stats.ps_scripts || 0} PS1`;
-                showToast(metricsText, "info");
-            }
-
-        } catch (e) {
-            console.error(e);
+        if (res.status === 'success') {
+            const d = res.data || {};
+            showModal('CKL Generated', res.message || 'Success',
+                statBox(d.processed||0,'Processed','success') + statBox(d.skipped||0,'Skipped','danger') + statBox(d.total||0,'Total','info'),
+                d.ckl_b64, d.filename, d.errors);
+            showToast('CKL generated!', 'success');
         }
     });
+}
 
-    // Diff Tab Support
-    document.getElementById('form-diff')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const file1 = document.getElementById('file-diff-1').files[0];
-        const file2 = document.getElementById('file-diff-2').files[0];
-        if (!file1 || !file2) return showToast("Select both checklists to compare", "error");
 
-        const btn = document.querySelector('#form-diff button');
-        const spinner = btn.querySelector('.spinner');
+/* ═══════════════════════════════════════════════════════════════════
+   EXTRACT FIXES
+   ═══════════════════════════════════════════════════════════════════ */
 
-        try {
-            const payload = {
-                ckl1_b64: await toBase64(file1),
-                ckl2_b64: await toBase64(file2)
-            };
-            
-            const res = await postApi('/api/v1/diff', payload, btn, spinner);
-            
-            const diffResults = document.getElementById('diff-results');
-            const diffMetrics = document.getElementById('diff-metrics');
-            const diffCode = document.getElementById('diff-code');
-            
-            diffResults.classList.remove('hidden');
-            
-            const data = res.diff_data;
-            diffMetrics.innerHTML = createStatBox(data.total_vulnerabilities || 0, "Total Vulns", "info") +
-                                    createStatBox(data.changes_count || 0, "Changes", data.changes_count > 0 ? "warn" : "success");
-            
-            diffCode.textContent = data.formatted_text || JSON.stringify(data.differences, null, 2);
-            showToast("Checklists successfully compared.", "success");
-        } catch (e) {
-            console.error(e);
+function wireExtract() {
+    document.getElementById('ext-submit')?.addEventListener('click', async () => {
+        const file = document.getElementById('ext-xccdf-file')?.files[0];
+        if (!file) { showToast('Upload an XCCDF first.', 'error'); return; }
+
+        const btn = document.getElementById('ext-submit');
+        showToast('Extracting fixes…', 'info');
+        const res = await postApi('/api/v1/extract', {
+            b64_content: await toBase64(file),
+            filename: file.name,
+            enable_rollbacks: document.getElementById('ext-rollbacks')?.checked || false,
+            do_ansible: document.getElementById('ext-ansible')?.checked !== false,
+        }, btn);
+
+        if (res.status === 'success') {
+            const s = res.stats || {};
+            showModal('Fixes Extracted', 'Remediation package ready.',
+                statBox(s.total_fixes||0,'Fixes','success') + statBox(s.total_vulns||0,'Vulns','info'),
+                res.package_b64, res.filename);
+            showToast('Extraction complete!', 'success');
         }
     });
+}
 
-    // --- Boilerplates Tab Logic ---
-    let currentBpData = {};
-    let currentBpVid = null;
 
-    const bpVidList = document.getElementById('bp-vid-list');
-    const bpStatusSelect = document.getElementById('bp-status-select');
-    const bpFindingText = document.getElementById('bp-finding-text');
-    const bpCommentText = document.getElementById('bp-comment-text');
+/* ═══════════════════════════════════════════════════════════════════
+   APPLY RESULTS (REMEDIATE)
+   ═══════════════════════════════════════════════════════════════════ */
 
-    async function loadBoilerplates() {
-        try {
-            const response = await fetch('/api/v1/bp_list', { method: 'POST', body: '{}', headers: {'Content-Type': 'application/json'}});
-            const data = await response.json();
-            if (data.status === 'success') {
-                currentBpData = data.data.boilerplates;
-                renderBpList();
-            }
-        } catch (e) {
-            console.error("Failed to load boilerplates", e);
-        }
-    }
+function wireRemediate() {
+    document.getElementById('rem-submit')?.addEventListener('click', async () => {
+        const cklFile = document.getElementById('rem-ckl-file')?.files[0];
+        const jsonFile = document.getElementById('rem-json-file')?.files[0];
+        if (!cklFile || !jsonFile) return;
 
-    function renderBpList(filter = "") {
-        bpVidList.innerHTML = '';
-        let vids = Object.keys(currentBpData).sort();
-        if (!vids.includes("V-*")) vids.unshift("V-*");
-        else {
-            vids = vids.filter(v => v !== "V-*");
-            vids.unshift("V-*");
-        }
+        const btn = document.getElementById('rem-submit');
+        showToast('Applying results…', 'info');
+        const res = await postApi('/api/v1/apply_results', {
+            ckl_b64: await toBase64(cklFile),
+            results_b64: await toBase64(jsonFile),
+            results_filename: jsonFile.name,
+            filename: cklFile.name,
+            details_mode: document.getElementById('rem-details-mode')?.value || 'prepend',
+            comment_mode: document.getElementById('rem-comment-mode')?.value || 'prepend',
+        }, btn);
 
-        vids.forEach(vid => {
-            if (filter && !vid.toLowerCase().includes(filter.toLowerCase())) return;
-            const li = document.createElement('li');
-            li.textContent = vid;
-            if (vid === currentBpVid) li.classList.add('selected');
-            li.addEventListener('click', () => {
-                currentBpVid = vid;
-                renderBpList(filter); // Update selection styling
-                loadBpEditor();
-            });
-            bpVidList.appendChild(li);
-        });
-    }
-
-    document.getElementById('bp-search').addEventListener('input', (e) => {
-        renderBpList(e.target.value);
-    });
-
-    function loadBpEditor() {
-        if (!currentBpVid) return;
-        const status = bpStatusSelect.value;
-        const entry = (currentBpData[currentBpVid] && currentBpData[currentBpVid][status]) || {};
-        bpFindingText.value = entry.finding_details || '';
-        bpCommentText.value = entry.comments || '';
-    }
-
-    bpStatusSelect.addEventListener('change', loadBpEditor);
-
-    document.getElementById('btn-bp-add').addEventListener('click', () => {
-        const check = prompt("Enter new STIG Check ID (e.g. V-12345):");
-        if (check && check.trim()) {
-            currentBpVid = check.trim();
-            if (!currentBpData[currentBpVid]) currentBpData[currentBpVid] = {};
-            document.getElementById('bp-search').value = '';
-            renderBpList();
-            loadBpEditor();
+        if (res.status === 'success') {
+            const d = res.data || {};
+            showModal('Results Applied', res.message || 'Done',
+                statBox(d.updated||0,'Updated','success') + statBox(d.not_found?.length||0,'Not Found','warn'),
+                d.ckl_b64, d.filename);
+            showToast('Remediation applied!', 'success');
         }
     });
+}
 
-    document.getElementById('btn-bp-save').addEventListener('click', async () => {
-        if (!currentBpVid) return showToast("Select a VID first", "error");
-        const payload = {
-            vid: currentBpVid,
-            status: bpStatusSelect.value,
-            finding: bpFindingText.value,
-            comment: bpCommentText.value
-        };
-        const btn = document.getElementById('btn-bp-save');
-        btn.textContent = "Saving...";
-        try {
-            await fetch('/api/v1/bp_set', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            await loadBoilerplates(); // Reload latest
-            btn.textContent = "Saved ✓";
-            showToast("Boilerplate saved successfully", "success");
-            setTimeout(() => btn.textContent = "Save Boilerplate", 2000);
-        } catch(e) {
-            showToast("Save failed: " + e.message, "error");
-            btn.textContent = "Save Boilerplate";
+
+/* ═══════════════════════════════════════════════════════════════════
+   MERGE
+   ═══════════════════════════════════════════════════════════════════ */
+
+function wireMerge() {
+    document.getElementById('merge-submit')?.addEventListener('click', async () => {
+        const base = document.getElementById('merge-base-file')?.files[0];
+        const hists = document.getElementById('merge-hist-files')?.files;
+        if (!base || !hists?.length) return;
+
+        const btn = document.getElementById('merge-submit');
+        showToast('Merging…', 'info');
+        const histB64 = [];
+        for (const f of hists) histB64.push(await toBase64(f));
+
+        const res = await postApi('/api/v1/merge_ckls', {
+            base_b64: await toBase64(base),
+            histories_b64: histB64,
+            filename: base.name.replace('.ckl', '_merged.ckl'),
+            preserve_history: document.getElementById('merge-preserve')?.checked !== false,
+        }, btn);
+
+        if (res.status === 'success') {
+            const d = res.data || {};
+            showModal('Merge Complete', res.message || 'Done',
+                statBox(d.processed||0,'Total','info') + statBox(d.updated||0,'Updated','success') + statBox(d.skipped||0,'Unchanged','warn'),
+                d.ckl_b64, d.filename);
+            showToast('Merge complete!', 'success');
         }
     });
+}
 
-    document.getElementById('btn-bp-delete').addEventListener('click', async () => {
-        if (!currentBpVid) return;
-        if (!confirm(`Delete boilerplate for ${currentBpVid} / ${bpStatusSelect.value}?`)) return;
-        
-        try {
-            await fetch('/api/v1/bp_delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ vid: currentBpVid, status: bpStatusSelect.value })
-            });
-            await loadBoilerplates();
-            loadBpEditor();
-            showToast("Boilerplate deleted.", "success");
-        } catch(e) {
-            showToast("Delete failed.", "error");
-        }
-    });
 
-    // Load data when tab becomes active
-    document.querySelector('[data-target="tab-boilerplates"]').addEventListener('click', () => {
-        loadBoilerplates();
-    });
+/* ═══════════════════════════════════════════════════════════════════
+   ANALYTICS
+   ═══════════════════════════════════════════════════════════════════ */
 
-    // --- Dashboard Tab Logic (SVG Native Rendering) ---
-    function drawBarChart(data) {
-        const svgContainer = document.getElementById('svg-canvas');
-        svgContainer.innerHTML = '';
-        const ns = "http://www.w3.org/2000/svg";
-        const svg = document.createElementNS(ns, "svg");
-        svg.setAttribute('width', '100%');
-        svg.setAttribute('height', '100%');
-        svg.setAttribute('viewBox', '0 0 800 400');
-        
-        const metrics = data.stats_data.status_counts;
-        const total = Object.values(metrics).reduce((a,b)=>a+b, 0);
-        if(total === 0) return;
+let _analyticsData = [];
 
-        const colors = {
-            'NotAFinding': '#10B981',
-            'Open': '#EF4444',
-            'Not_Applicable': '#9CA3AF',
-            'Not_Reviewed': '#F59E0B'
-        };
-
-        const keys = ['NotAFinding', 'Open', 'Not_Applicable', 'Not_Reviewed'];
-        const barWidth = 100;
-        const gap = (800 - 4*barWidth) / 5;
-        const maxH = 250;
-        let currentX = gap;
-
-        keys.forEach((k) => {
-            const count = metrics[k] || 0;
-            const h = total > 0 ? (count / total) * maxH : 0;
-            
-            // Bar Background
-            const bgRect = document.createElementNS(ns, 'rect');
-            bgRect.setAttribute('x', currentX);
-            bgRect.setAttribute('y', 50);
-            bgRect.setAttribute('width', barWidth);
-            bgRect.setAttribute('height', maxH);
-            bgRect.setAttribute('fill', 'var(--bg-glass)');
-            bgRect.setAttribute('rx', '6');
-
-            // Bar Foreground (animated via CSS ideally, static here)
-            const rect = document.createElementNS(ns, 'rect');
-            rect.setAttribute('x', currentX);
-            rect.setAttribute('y', 50 + maxH - h);
-            rect.setAttribute('width', barWidth);
-            rect.setAttribute('height', h);
-            rect.setAttribute('fill', colors[k]);
-            rect.setAttribute('rx', '6');
-            rect.setAttribute('class', 'svg-chart-bar');
-
-            // Label
-            const text = document.createElementNS(ns, 'text');
-            text.setAttribute('x', currentX + barWidth/2);
-            text.setAttribute('y', 50 + maxH + 30);
-            text.setAttribute('text-anchor', 'middle');
-            text.setAttribute('fill', 'currentColor');
-            text.setAttribute('font-family', 'Outfit, sans-serif');
-            text.setAttribute('font-size', '16');
-            text.setAttribute('font-weight', '500');
-            text.textContent = k.replace('_', ' ');
-            
-            // Value
-            const val = document.createElementNS(ns, 'text');
-            val.setAttribute('x', currentX + barWidth/2);
-            val.setAttribute('y', 50 + maxH - h - 15);
-            val.setAttribute('text-anchor', 'middle');
-            val.setAttribute('fill', 'currentColor');
-            val.setAttribute('font-family', 'Outfit, sans-serif');
-            val.setAttribute('font-size', '24');
-            val.setAttribute('font-weight', '700');
-            val.textContent = count;
-
-            svg.appendChild(bgRect);
-            svg.appendChild(rect);
-            svg.appendChild(text);
-            svg.appendChild(val);
-            
-            currentX += barWidth + gap;
-        });
-        
-        svgContainer.appendChild(svg);
-        document.getElementById('svg-dashboard-container').classList.remove('hidden');
-    }
-
-    document.getElementById('file-dashboard')?.addEventListener('change', async (e) => {
+function wireAnalytics() {
+    document.getElementById('analytics-ckl-file')?.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        showToast('Analyzing CKL…', 'info');
+        const res = await postApi('/api/v1/stats', { ckl_b64: await toBase64(file) });
 
-        showToast("Generating Visual Dashboard...", "info");
-        try {
-            const b64 = await toBase64(file);
-            const payload = { ckl_b64: b64 };
-            const dummyBtn = document.createElement('button');
-            const dummySpinner = document.createElement('div');
-            
-            const res = await postApi('/api/v1/stats', payload, dummyBtn, dummySpinner);
-            
-            if (res.status === 'success') {
-                drawBarChart(res);
-                showToast("Dashboard successfully rendered!", "success");
-            }
-        } catch (err) {
-            showToast("Failed to construct dashboard: " + err.message, "error");
+        if (res.status === 'success') {
+            const s = res.stats_data;
+            const counts = s.status_counts || {};
+            const details = s.findings_details || [];
+            _analyticsData = details;
+
+            document.getElementById('analytics-results')?.classList.remove('hidden');
+
+            // Stats
+            document.getElementById('analytics-stats-grid').innerHTML =
+                statBox(s.total_vulns || 0, 'Total Vulns', 'info') +
+                statBox(counts.Open || 0, 'Open', 'danger') +
+                statBox(counts.NotAFinding || 0, 'Not a Finding', 'success') +
+                statBox(counts.Not_Applicable || 0, 'N/A', 'info') +
+                statBox(counts.Not_Reviewed || 0, 'Not Reviewed', 'warn') +
+                statBox((s.compliance_pct || 0).toFixed(1) + '%', 'Compliance', 'success') +
+                statBox((s.completion_pct || 0).toFixed(1) + '%', 'Completion', 'info');
+
+            // Severity chart
+            const bySev = s.by_severity || {};
+            drawDonut('analytics-severity-chart', bySev);
+
+            // Status × Severity matrix
+            const matrix = s.by_status_and_severity || {};
+            renderMatrix('analytics-matrix', matrix);
+
+            // Table
+            renderAnalyticsTable(details);
+
+            // Search
+            const search = document.getElementById('analytics-search');
+            if (search) search.oninput = () => renderAnalyticsTable(details, search.value);
+
+            showToast('Analytics loaded!', 'success');
         }
     });
+}
 
-    // --- Analytics Tab Logic ---
-    document.getElementById('file-analytics')?.addEventListener('change', async (e) => {
+function renderAnalyticsTable(details, filter = '') {
+    const tbody = document.getElementById('analytics-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    const lc = filter.toLowerCase();
+    details.forEach(f => {
+        if (filter && !(f.vid||'').toLowerCase().includes(lc) && !(f.rule_title||'').toLowerCase().includes(lc)) return;
+        const tr = document.createElement('tr');
+        const sevClass = f.severity === 'high' ? 'fail' : f.severity === 'low' ? 'na' : 'nr';
+        const statusClass = f.status === 'Open' ? 'fail' : f.status === 'NotAFinding' ? 'pass' : f.status === 'Not_Applicable' ? 'na' : 'nr';
+        tr.innerHTML = `
+            <td><strong>${f.vid}</strong></td>
+            <td><span class="badge-${f.status === 'Open' ? 'Open' : f.status}">${f.status}</span></td>
+            <td><span class="badge-sev-${f.severity || 'medium'}">${f.severity || 'medium'}</span></td>
+            <td title="${(f.rule_title||'').replace(/"/g,'&quot;')}">${(f.rule_title||'').substring(0,80)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function renderMatrix(containerId, matrix) {
+    const el = document.getElementById(containerId);
+    if (!el || !Object.keys(matrix).length) { if (el) el.innerHTML = '<p style="color:var(--tx-muted);padding:12px;">No data</p>'; return; }
+    let html = '<table class="data-table" style="width:100%;"><thead><tr><th>Status</th><th>High</th><th>Medium</th><th>Low</th></tr></thead><tbody>';
+    for (const [status, sevs] of Object.entries(matrix)) {
+        html += `<tr><td>${status}</td><td>${sevs.high||0}</td><td>${sevs.medium||0}</td><td>${sevs.low||0}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   DASHBOARD
+   ═══════════════════════════════════════════════════════════════════ */
+
+function wireDashboard() {
+    document.getElementById('dash-ckl-file')?.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        showToast('Building dashboard…', 'info');
+        const res = await postApi('/api/v1/stats', { ckl_b64: await toBase64(file) });
 
-        showToast("Processing CKL via Backend API...", "info");
-        try {
-            const b64 = await toBase64(file);
-            const payload = { ckl_b64: b64 };
-            
-            // Use dummy btn / spinner since there's no form submit for file change
-            const dummyBtn = document.createElement('button');
-            const dummySpinner = document.createElement('div');
-            
-            const res = await postApi('/api/v1/stats', payload, dummyBtn, dummySpinner);
-            
-            if (res.status === 'success') {
-                const sData = res.stats_data;
-                const metrics = sData.status_counts || {};
-                const details = sData.findings_details || [];
-                
-                document.getElementById('analytics-dashboard').classList.remove('hidden');
-            
-                let statsHtml = '';
-                ['Open', 'NotAFinding', 'Not_Applicable', 'Not_Reviewed'].forEach(key => {
-                    let color = 'info';
-                    if (key === 'NotAFinding') color = 'success';
-                    else if (key === 'Open') color = 'danger';
-                    else if (key === 'Not_Reviewed') color = 'warn'; 
-                    statsHtml += createStatBox(metrics[key] || 0, key.replace('_', ' '), color);
-                });
-                document.getElementById('analytics-metrics').innerHTML = statsHtml;
+        if (res.status === 'success') {
+            const s = res.stats_data;
+            const counts = s.status_counts || {};
 
-                const tbody = document.getElementById('analytics-tbody');
-                const renderTable = (filterText = '') => {
-                    tbody.innerHTML = '';
-                    details.forEach(f => {
-                        if (filterText) {
-                            const matchVid = (f.vid||"").toLowerCase().includes(filterText.toLowerCase());
-                            const matchDet = (f.details||"").toLowerCase().includes(filterText.toLowerCase());
-                            if (!matchVid && !matchDet) return;
-                        }
+            document.getElementById('dash-results')?.classList.remove('hidden');
+
+            document.getElementById('dash-stats-grid').innerHTML =
+                statBox(s.total_vulns||0, 'Total Vulns', 'info') +
+                statBox(counts.Open||0, 'Open', 'danger') +
+                statBox(counts.NotAFinding||0, 'Compliant', 'success') +
+                statBox((s.compliance_pct||0).toFixed(1)+'%', 'Compliance', 'success') +
+                statBox((s.completion_pct||0).toFixed(1)+'%', 'Completion', 'info');
+
+            drawDonut('dash-donut-chart', s.by_severity || {});
+            drawBarChart('dash-bar-chart', counts);
+            showToast('Dashboard ready!', 'success');
+        }
+    });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   SVG CHARTS — Bar + Donut (pure inline SVG, zero deps)
+   ═══════════════════════════════════════════════════════════════════ */
+
+function drawBarChart(containerId, statusCounts) {
+    const c = document.getElementById(containerId);
+    if (!c) return;
+    const colors = { Open:'#f85149', NotAFinding:'#3fb950', Not_Applicable:'#7d8590', Not_Reviewed:'#d29922' };
+    const labels = { Open:'Open', NotAFinding:'Pass', Not_Applicable:'N/A', Not_Reviewed:'NR' };
+    const keys = Object.keys(colors);
+    const max = Math.max(1, ...keys.map(k => statusCounts[k]||0));
+    const w=400, h=200, pad=45, barW=60, gap=20;
+    const startX = (w - keys.length*(barW+gap))/2 + gap/2;
+    let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">`;
+    svg += `<line x1="${pad}" y1="${h-pad}" x2="${w-10}" y2="${h-pad}" stroke="rgba(255,255,255,.1)" stroke-width="1"/>`;
+    keys.forEach((k,i) => {
+        const v = statusCounts[k]||0;
+        const bH = Math.max(3, (v/max)*(h-pad*2));
+        const x = startX + i*(barW+gap), y = h-pad-bH;
+        svg += `<rect x="${x}" y="${y}" width="${barW}" height="${bH}" rx="5" fill="${colors[k]}" opacity=".85"><animate attributeName="height" from="0" to="${bH}" dur=".6s" fill="freeze"/><animate attributeName="y" from="${h-pad}" to="${y}" dur=".6s" fill="freeze"/></rect>`;
+        svg += `<text x="${x+barW/2}" y="${y-6}" text-anchor="middle" fill="white" font-size="13" font-weight="600">${v}</text>`;
+        svg += `<text x="${x+barW/2}" y="${h-pad+16}" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="10">${labels[k]}</text>`;
+    });
+    svg += '</svg>';
+    c.innerHTML = svg;
+}
+
+function drawDonut(containerId, bySeverity) {
+    const c = document.getElementById(containerId);
+    if (!c) return;
+    const data = [
+        { label:'CAT I', value: bySeverity.high||0, color:'#f85149' },
+        { label:'CAT II', value: bySeverity.medium||0, color:'#d29922' },
+        { label:'CAT III', value: bySeverity.low||0, color:'#58a6ff' },
+    ];
+    const total = data.reduce((s,d) => s+d.value, 0) || 1;
+    const cx=100, cy=90, r=70, ir=45;
+    let svg = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">`;
+    let cum = -Math.PI/2;
+    data.forEach(d => {
+        if (d.value <= 0) { cum += 0; return; }
+        const a = (d.value/total)*2*Math.PI;
+        const x1=cx+r*Math.cos(cum), y1=cy+r*Math.sin(cum);
+        const x2=cx+r*Math.cos(cum+a), y2=cy+r*Math.sin(cum+a);
+        const ix1=cx+ir*Math.cos(cum+a), iy1=cy+ir*Math.sin(cum+a);
+        const ix2=cx+ir*Math.cos(cum), iy2=cy+ir*Math.sin(cum);
+        const la = a>Math.PI?1:0;
+        svg += `<path d="M${x1},${y1} A${r},${r} 0 ${la},1 ${x2},${y2} L${ix1},${iy1} A${ir},${ir} 0 ${la},0 ${ix2},${iy2} Z" fill="${d.color}" opacity=".85"/>`;
+        cum += a;
+    });
+    svg += `<text x="${cx}" y="${cy-4}" text-anchor="middle" fill="white" font-size="20" font-weight="700">${total}</text>`;
+    svg += `<text x="${cx}" y="${cy+13}" text-anchor="middle" fill="rgba(255,255,255,.4)" font-size="10">TOTAL</text>`;
+    data.forEach((d,i) => {
+        const lx = 10 + i*68;
+        svg += `<rect x="${lx}" y="185" width="10" height="10" rx="2" fill="${d.color}"/>`;
+        svg += `<text x="${lx+14}" y="194" fill="rgba(255,255,255,.6)" font-size="9">${d.label}: ${d.value}</text>`;
+    });
+    svg += '</svg>';
+    c.innerHTML = svg;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   DIFF / COMPARE
+   ═══════════════════════════════════════════════════════════════════ */
+
+function wireDiff() {
+    document.getElementById('diff-submit')?.addEventListener('click', async () => {
+        const f1 = document.getElementById('diff-ckl1-file')?.files[0];
+        const f2 = document.getElementById('diff-ckl2-file')?.files[0];
+        if (!f1 || !f2) return;
+
+        const btn = document.getElementById('diff-submit');
+        showToast('Comparing…', 'info');
+        const res = await postApi('/api/v1/diff', {
+            ckl1_b64: await toBase64(f1), ckl2_b64: await toBase64(f2),
+        }, btn);
+
+        if (res.status === 'success') {
+            const d = res.diff_data || {};
+            const s = d.summary || {};
+            document.getElementById('diff-results')?.classList.remove('hidden');
+
+            document.getElementById('diff-stats-grid').innerHTML =
+                statBox(d.total_vulnerabilities||s.total_in_baseline||0, 'Baseline', 'info') +
+                statBox(d.changes_count||s.changed||0, 'Changed', 'danger') +
+                statBox(d.unchanged_count||s.unchanged||0, 'Unchanged', 'success') +
+                statBox(d.only_in_baseline_count||s.only_in_baseline||0, 'Only Base', 'warn');
+
+            // Changed detail table
+            const tbody = document.getElementById('diff-tbody');
+            if (tbody) {
+                tbody.innerHTML = '';
+                (d.changed || []).forEach(ch => {
+                    (ch.differences || []).forEach(df => {
                         const tr = document.createElement('tr');
-                        
-                        const textNode = document.createTextNode(f.details || 'No detail mapped');
-                        const safeDetails = document.createElement('div');
-                        safeDetails.appendChild(textNode);
-                        let displayDet = safeDetails.innerHTML;
-                        if (displayDet.length > 150) displayDet = displayDet.substring(0, 150) + '...';
-
-                        const tdVid = document.createElement('td');
-                        tdVid.style.fontFamily = 'monospace';
-                        tdVid.style.fontWeight = '600';
-                        tdVid.textContent = f.vid;
-
-                        const tdStatus = document.createElement('td');
-                        const badge = document.createElement('span');
-                        badge.className = `status-badge-sm badge-${(f.status || '').replace(/[^\w-]/g, '')}`;
-                        badge.textContent = (f.status || '').replace('_', ' ');
-                        tdStatus.appendChild(badge);
-
-                        const tdDet = document.createElement('td');
-                        tdDet.style.fontSize = '0.9rem';
-                        tdDet.style.color = 'var(--tx-muted)';
-                        tdDet.textContent = displayDet;
-
-                        tr.appendChild(tdVid);
-                        tr.appendChild(tdStatus);
-                        tr.appendChild(tdDet);
+                        tr.innerHTML = `<td>${ch.vid}</td><td>${df.field}</td><td>${df.from||df.from_length||''}</td><td>${df.to||df.to_length||''}</td>`;
                         tbody.appendChild(tr);
                     });
-                };
-                
-                renderTable();
-                
-                const searchEl = document.getElementById('analytics-search');
-                const newSearchEl = searchEl.cloneNode(true);
-                searchEl.parentNode.replaceChild(newSearchEl, searchEl);
-                newSearchEl.addEventListener('input', (event) => renderTable(event.target.value));
-                
-                showToast("Analytics generated successfully via API!", "success");
+                });
             }
-
-        } catch (err) {
-            showToast("Failed to process file: " + err.message, "error");
+            showToast('Diff complete!', 'success');
         }
     });
+}
 
-    // --- Evidence Tab Logic ---
-    document.querySelector('[data-target="tab-evidence"]').addEventListener('click', () => {
-        loadEvidenceSummary();
-    });
 
-    async function loadEvidenceSummary() {
-        try {
-            const res = await fetch('/api/v1/evidence/summary', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
-            });
-            const data = await res.json();
-            if (data.status === 'success') {
-                const s = data.summary;
-                let html = createStatBox(s.files, 'Total Files', 'info');
-                html += createStatBox(s.vulnerabilities, 'Mapped VIDs', 'success');
-                html += createStatBox(s.size_mb.toFixed(2) + ' MB', 'Storage Size', 'warn');
-                document.getElementById('evidence-metrics').innerHTML = html;
-            }
-        } catch (e) {
-            console.error("Failed to load evidence summary", e);
-        }
-    }
+/* ═══════════════════════════════════════════════════════════════════
+   DRIFT & HISTORY
+   ═══════════════════════════════════════════════════════════════════ */
 
-    document.getElementById('file-evidence').addEventListener('change', async (e) => {
-        const file = e.target.files[0];
+function wireDrift() {
+    // Ingest
+    document.getElementById('track-submit')?.addEventListener('click', async () => {
+        const file = document.getElementById('track-ckl-file')?.files[0];
         if (!file) return;
-
-        const vidInput = document.getElementById('evid-vid');
-        if (!vidInput.value.trim()) {
-            showToast("Vulnerability ID is required before attaching evidence.", "error");
-            e.target.value = "";
-            return;
-        }
-
-        showToast("Uploading evidence...", "info");
-        try {
-            const b64 = await toBase64(file);
-            const payload = {
-                vid: vidInput.value.trim(),
-                description: document.getElementById('evid-desc').value.trim(),
-                category: document.getElementById('evid-cat').value.trim(),
-                filename: file.name,
-                content_b64: b64
-            };
-            
-            const btn = document.createElement('button'); // dummy btn for postApi
-            const spin = document.createElement('div');
-            
-            const result = await postApi('/api/v1/evidence/import', payload, btn, spin);
-            if (result.status === 'success') {
-                showToast(`Evidence successfully mapped to ${vidInput.value.trim()}`, 'success');
-                loadEvidenceSummary();
-            } else {
-                showToast(`Upload failed: ${result.message}`, 'error');
-            }
-        } catch (err) {
-            // postApi handles toast already, but we catch
-        } finally {
-            e.target.value = "";
-            const dz = document.getElementById('dz-evidence');
-            dz.classList.remove('dragover', 'has-file');
-            dz.querySelector('.file-name').classList.add('hidden');
-        }
+        const btn = document.getElementById('track-submit');
+        showToast('Ingesting CKL…', 'info');
+        const res = await postApi('/api/v1/track_ckl', { ckl_b64: await toBase64(file) }, btn);
+        if (res.status === 'success') showToast(res.message || 'Tracked!', 'success');
     });
 
-    document.getElementById('btn-export-evidence').addEventListener('click', async (e) => {
-        const btn = e.target.closest('button');
-        showToast("Packaging evidence, please wait...", "info");
-        const origHtml = btn.innerHTML;
-        btn.innerHTML = 'Packaging...';
-        btn.disabled = true;
-        try {
-            const res = await fetch('/api/v1/evidence/package', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
-            });
-            const data = await res.json();
-            if (data.status === 'success' && data.package_b64) {
-                // Trigger download
-                const link = document.createElement("a");
-                link.href = `data:application/zip;base64,${data.package_b64}`;
-                link.download = data.filename || "evidence_package.zip";
-                link.click();
-                showToast("Package downloaded successfully!", "success");
-            } else {
-                showToast("Failed to package evidence: " + (data.message || 'Unknown error'), "error");
-            }
-        } catch (err) {
-            showToast("Package error: " + err.message, "error");
-        } finally {
-            btn.innerHTML = origHtml;
-            btn.disabled = false;
+    // Drift query
+    document.getElementById('drift-submit')?.addEventListener('click', async () => {
+        const asset = document.getElementById('drift-asset')?.value?.trim();
+        if (!asset) { showToast('Enter an asset name.', 'error'); return; }
+        const btn = document.getElementById('drift-submit');
+        showToast('Computing drift…', 'info');
+        const res = await postApi('/api/v1/show_drift', { asset_name: asset }, btn);
+
+        if (res.status === 'success') {
+            const d = res.data || {};
+            document.getElementById('drift-results')?.classList.remove('hidden');
+            document.getElementById('drift-stats-grid').innerHTML =
+                statBox(d.fixed?.length||0, 'Fixed', 'success') +
+                statBox(d.regressed?.length||0, 'Regressed', 'danger') +
+                statBox(d.changed?.length||0, 'Changed', 'warn') +
+                statBox(d.new?.length||0, 'New', 'info');
+            showToast('Drift analysis done!', 'success');
         }
     });
+}
 
-    // --- Drift Analysis Tab Logic ---
-    document.getElementById('file-track')?.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
+
+/* ═══════════════════════════════════════════════════════════════════
+   EVIDENCE
+   ═══════════════════════════════════════════════════════════════════ */
+
+function wireEvidence() {
+    document.getElementById('ev-import-btn')?.addEventListener('click', async () => {
+        const file = document.getElementById('ev-file')?.files[0];
+        const vid = document.getElementById('ev-vid')?.value?.trim();
+        if (!file || !vid) { showToast('VID and file are required.', 'error'); return; }
+
+        showToast('Uploading evidence…', 'info');
+        const res = await postApi('/api/v1/evidence/import', {
+            vid, filename: file.name,
+            description: document.getElementById('ev-desc')?.value || '',
+            category: document.getElementById('ev-cat')?.value || 'general',
+            content_b64: await toBase64(file),
+        });
+        if (res.status === 'success') showToast(`Evidence imported for ${vid}!`, 'success');
+    });
+
+    document.getElementById('ev-package-btn')?.addEventListener('click', async () => {
+        showToast('Packaging…', 'info');
+        const res = await postApi('/api/v1/evidence/package', {});
+        if (res.status === 'success') {
+            downloadB64(res.data?.package_b64 || res.package_b64, 'evidence_package.zip');
+            showToast('Evidence packaged!', 'success');
+        }
+    });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   BOILERPLATES
+   ═══════════════════════════════════════════════════════════════════ */
+
+let _bpData = {}, _selectedVid = null;
+
+function wireBoilerplates() {
+    loadBpList();
+    document.getElementById('bp-save-btn')?.addEventListener('click', async () => {
+        const vid = document.getElementById('bp-vid')?.value?.trim();
+        if (!vid) { showToast('VID required.', 'error'); return; }
+        const res = await postApi('/api/v1/bp_set', {
+            vid,
+            status: document.getElementById('bp-status')?.value,
+            finding: document.getElementById('bp-finding')?.value || '',
+            comment: document.getElementById('bp-comment')?.value || '',
+        });
+        if (res.status === 'success') { showToast('Saved!', 'success'); loadBpList(); }
+    });
+
+    document.getElementById('bp-delete-btn')?.addEventListener('click', async () => {
+        const vid = document.getElementById('bp-vid')?.value?.trim();
+        if (!vid) return;
+        const res = await postApi('/api/v1/bp_delete', { vid, status: document.getElementById('bp-status')?.value });
+        if (res.status === 'success') { showToast('Deleted.', 'success'); loadBpList(); }
+    });
+
+    document.getElementById('bp-search')?.addEventListener('input', (e) => {
+        const f = e.target.value.toLowerCase();
+        document.querySelectorAll('#bp-list li').forEach(li => {
+            li.style.display = li.textContent.toLowerCase().includes(f) ? '' : 'none';
+        });
+    });
+}
+
+async function loadBpList() {
+    const res = await postApi('/api/v1/bp_list', {});
+    if (res.status !== 'success') return;
+    _bpData = res.data || {};
+    const list = document.getElementById('bp-list');
+    if (!list) return;
+    list.innerHTML = '';
+    Object.keys(_bpData).sort().forEach(vid => {
+        const li = document.createElement('li');
+        li.textContent = vid;
+        li.addEventListener('click', () => {
+            list.querySelectorAll('li').forEach(l => l.classList.remove('active'));
+            li.classList.add('active');
+            _selectedVid = vid;
+            document.getElementById('bp-vid').value = vid;
+            document.getElementById('bp-editor-title').textContent = vid;
+            const statuses = _bpData[vid] || {};
+            const first = Object.keys(statuses)[0] || 'NotAFinding';
+            document.getElementById('bp-status').value = first;
+            const entry = statuses[first] || {};
+            document.getElementById('bp-finding').value = entry.finding || '';
+            document.getElementById('bp-comment').value = entry.comment || '';
+        });
+        list.appendChild(li);
+    });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   VALIDATE
+   ═══════════════════════════════════════════════════════════════════ */
+
+function wireValidate() {
+    document.getElementById('val-submit')?.addEventListener('click', async () => {
+        const file = document.getElementById('val-ckl-file')?.files[0];
         if (!file) return;
+        const btn = document.getElementById('val-submit');
+        showToast('Validating…', 'info');
+        const res = await postApi('/api/v1/validate', { ckl_b64: await toBase64(file) }, btn);
 
-        showToast("Uploading checklist for history tracking...", "info");
-        try {
-            const b64 = await toBase64(file);
-            const payload = { ckl_b64: b64 };
-            const dummyBtn = document.createElement('button');
-            const dummySpinner = document.createElement('div');
-            
-            const res = await postApi('/api/v1/track_ckl', payload, dummyBtn, dummySpinner);
-            
-            if (res.status === 'success') {
-                showToast(`Checklist successfully tracked for asset: ${res.data.asset_name}`, "success");
+        if (res.status === 'success') {
+            const d = res.data || {};
+            const el = document.getElementById('val-results');
+            el?.classList.remove('hidden');
+
+            let html = `<div class="card" style="margin-top:20px;"><div class="card-header"><h3>${d.valid ? '✓ Validation Passed' : '✗ Validation Failed'}</h3></div>`;
+            html += `<div class="stats-grid">${statBox(d.error_count||0,'Errors','danger')}${statBox(d.warning_count||0,'Warnings','warn')}${statBox(d.info?.length||0,'Info','info')}</div>`;
+
+            if (d.errors?.length) {
+                html += '<div class="val-section val-errors"><h4>Errors</h4><ul>';
+                d.errors.forEach(e => html += `<li>${e}</li>`);
+                html += '</ul></div>';
             }
-        } catch (err) {
-            // postApi handles toast already
-        } finally {
-            e.target.value = "";
-            const dz = document.getElementById('dz-track');
-            dz.classList.remove('dragover', 'has-file');
-            dz.querySelector('.file-name').classList.add('hidden');
+            if (d.warnings?.length) {
+                html += '<div class="val-section val-warnings"><h4>Warnings</h4><ul>';
+                d.warnings.forEach(w => html += `<li>${w}</li>`);
+                html += '</ul></div>';
+            }
+            html += '</div>';
+            if (el) el.innerHTML = html;
+            showToast(d.valid ? 'Validation passed!' : 'Issues found.', d.valid ? 'success' : 'error');
         }
     });
+}
 
-    document.getElementById('form-drift')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const assetName = document.getElementById('drift-asset').value.trim();
-        if (!assetName) return showToast("Asset Name is required", "error");
 
-        const btn = document.querySelector('#form-drift button');
-        const spinner = btn.querySelector('.spinner');
+/* ═══════════════════════════════════════════════════════════════════
+   REPAIR
+   ═══════════════════════════════════════════════════════════════════ */
 
-        try {
-            const payload = { asset_name: assetName };
-            const res = await postApi('/api/v1/show_drift', payload, btn, spinner);
-            
-            if (res.status === 'success') {
-                const drift = res.data;
-                document.getElementById('drift-results').classList.remove('hidden');
-                
-                let statsHtml = '';
-                statsHtml += createStatBox(drift.fixed.length, 'Fixed', 'success');
-                statsHtml += createStatBox(drift.regressed.length, 'Regressed', drift.regressed.length > 0 ? 'danger' : 'success');
-                statsHtml += createStatBox(drift.changed.length, 'Changed', 'warn');
-                statsHtml += createStatBox(drift.new.length, 'New', 'info');
-                statsHtml += createStatBox(drift.removed.length, 'Removed', 'info');
-                
-                document.getElementById('drift-metrics').innerHTML = statsHtml;
-                showToast(`Drift Analysis calculated for ${assetName}`, "success");
+function wireRepair() {
+    document.getElementById('repair-submit')?.addEventListener('click', async () => {
+        const file = document.getElementById('repair-ckl-file')?.files[0];
+        if (!file) return;
+        const btn = document.getElementById('repair-submit');
+        showToast('Repairing…', 'info');
+        const res = await postApi('/api/v1/repair', {
+            ckl_b64: await toBase64(file), filename: file.name,
+        }, btn);
+
+        if (res.status === 'success') {
+            const d = res.data || {};
+            document.getElementById('repair-results')?.classList.remove('hidden');
+            const log = document.getElementById('repair-log');
+            if (log) {
+                let html = `<p>${res.message}</p>`;
+                if (d.details?.length) {
+                    html += '<ul>';
+                    d.details.forEach(det => html += `<li>${det}</li>`);
+                    html += '</ul>';
+                }
+                log.innerHTML = html;
             }
-        } catch (err) {
-            // postApi handles toast already
+            const dlBtn = document.getElementById('repair-download');
+            if (dlBtn && d.ckl_b64) {
+                dlBtn.classList.remove('hidden');
+                dlBtn.onclick = () => downloadB64(d.ckl_b64, d.filename || 'repaired.ckl');
+            }
+            showToast('Repair complete!', 'success');
         }
     });
+}
 
-});
+
+/* ═══════════════════════════════════════════════════════════════════
+   API DOCS (auto-generated reference)
+   ═══════════════════════════════════════════════════════════════════ */
+
+function wireApiDocs() {
+    const container = document.getElementById('api-docs-list');
+    if (!container) return;
+    const endpoints = [
+        { path:'/api/v1/ping', desc:'Health check. Returns server status.' },
+        { path:'/api/v1/xccdf_to_ckl', desc:'Convert XCCDF benchmark XML to CKL format. Params: xccdf_b64, filename, asset, ip, mac, role.' },
+        { path:'/api/v1/apply_results', desc:'Apply remediation results to a CKL. Params: ckl_b64, results_b64, results_filename, filename, details_mode, comment_mode.' },
+        { path:'/api/v1/merge_ckls', desc:'Merge multiple CKLs. Params: base_b64, histories_b64[], filename, preserve_history.' },
+        { path:'/api/v1/extract', desc:'Extract fixes from XCCDF. Params: b64_content, filename, enable_rollbacks, do_ansible.' },
+        { path:'/api/v1/diff', desc:'Compare two CKLs. Params: ckl1_b64, ckl2_b64.' },
+        { path:'/api/v1/stats', desc:'Generate compliance stats from CKL. Params: ckl_b64.' },
+        { path:'/api/v1/track_ckl', desc:'Ingest CKL into history DB. Params: ckl_b64.' },
+        { path:'/api/v1/show_drift', desc:'Show drift for an asset. Params: asset_name.' },
+        { path:'/api/v1/list_assets', desc:'List all tracked asset names. No params.' },
+        { path:'/api/v1/validate', desc:'Validate CKL structure. Params: ckl_b64.' },
+        { path:'/api/v1/repair', desc:'Repair broken CKL. Params: ckl_b64, filename.' },
+        { path:'/api/v1/verify_integrity', desc:'Checksums and validation. Params: ckl_b64.' },
+        { path:'/api/v1/bp_list', desc:'List all boilerplate templates. No params.' },
+        { path:'/api/v1/bp_set', desc:'Save boilerplate. Params: vid, status, finding, comment.' },
+        { path:'/api/v1/bp_delete', desc:'Delete boilerplate. Params: vid, status.' },
+        { path:'/api/v1/evidence/summary', desc:'Evidence summary stats. No params.' },
+        { path:'/api/v1/evidence/import', desc:'Import evidence file. Params: vid, filename, content_b64, description, category.' },
+        { path:'/api/v1/evidence/package', desc:'Package all evidence as ZIP. No params.' },
+    ];
+    let html = '';
+    endpoints.forEach(ep => {
+        html += `<div class="card" style="margin-bottom:10px;padding:14px 18px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <code style="color:var(--ac-primary);font-size:.95rem;font-weight:600;">POST ${ep.path}</code>
+            </div>
+            <p style="margin:6px 0 0;color:var(--tx-muted);font-size:.88rem;">${ep.desc}</p>
+        </div>`;
+    });
+    container.innerHTML = html;
+}

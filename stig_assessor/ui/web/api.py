@@ -178,13 +178,18 @@ def handle_merge_ckls(payload: dict) -> dict:
         
         out_b64 = _encode_from_temp(out_path)
         
+        # Processor returns 'updated' — frontend reads 'processed'
+        processed = result.get("updated", 0) + result.get("skipped", 0)
+        
         return {
             "status": "success",
-            "message": "Merge complete.",
+            "message": f"Merge complete. {result.get('updated', 0)} vulnerabilities updated.",
             "data": {
                 "ckl_b64": out_b64,
                 "filename": filename,
-                "processed": result.get("processed", 0)
+                "processed": processed,
+                "updated": result.get("updated", 0),
+                "skipped": result.get("skipped", 0),
             }
         }
     finally:
@@ -247,12 +252,12 @@ def handle_evidence_import(payload: dict) -> dict:
     if not vid:
         return {"status": "error", "message": "vid required"}
     
-    # Needs suffix handling since b64 doesn't come with name directly in decode
     try:
         ext = Path(filename).suffix or ".bin"
         temp_path = _decode_to_temp(b64_content, ext)
-        # We rename the tempfile to have the original filename so EVIDENCE.import_file gets the right name
         orig_name_path = temp_path.parent / filename
+        if orig_name_path.exists():
+            orig_name_path.unlink()
         temp_path.rename(orig_name_path)
         GLOBAL_STATE.add_temp(orig_name_path)
         
@@ -269,13 +274,11 @@ def handle_evidence_import(payload: dict) -> dict:
 
 def handle_evidence_package(payload: dict) -> dict:
     try:
-        # Create a temp zip file
         tf = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
         tf.close()
         zip_path = Path(tf.name)
         GLOBAL_STATE.add_temp(zip_path)
         
-        # Package everything
         EVIDENCE.package(zip_path)
         
         b64_out = _encode_from_temp(zip_path)
@@ -345,25 +348,91 @@ def handle_diff(payload: dict) -> dict:
         ckl2_path = _decode_to_temp(ckl2_b64, ".ckl")
         
         proc = Proc()
-        result = proc.diff(str(ckl1_path), str(ckl2_path), output_format="json")
+        raw = proc.diff(str(ckl1_path), str(ckl2_path), output_format="json")
+        
+        # Also get a text-formatted summary for display
+        text_result = proc.diff(str(ckl1_path), str(ckl2_path), output_format="summary")
+        
+        summary = raw.get("summary", {})
+        
+        # Normalise keys the frontend expects
+        diff_data = dict(raw)
+        diff_data["total_vulnerabilities"] = summary.get("total_in_baseline", 0)
+        diff_data["changes_count"] = summary.get("changed", 0)
+        diff_data["formatted_text"] = text_result.get("formatted_text", "")
+        diff_data["only_in_baseline_count"] = summary.get("only_in_baseline", 0)
+        diff_data["only_in_comparison_count"] = summary.get("only_in_comparison", 0)
+        diff_data["unchanged_count"] = summary.get("unchanged", 0)
+        
         return {
             "status": "success",
-            "diff_data": result
+            "diff_data": diff_data
         }
     finally:
         _cleanup_paths([ckl1_path, ckl2_path])
 
+
 def handle_stats(payload: dict) -> dict:
+    """Generate stats with a response shape the frontend can consume.
+
+    The Proc.generate_stats() method returns keys like ``by_status`` and
+    ``by_severity``, but the web frontend historically expected
+    ``status_counts`` and ``findings_details``.  This handler bridges the
+    gap by building both the aggregate counts *and* the per-finding detail
+    rows the Analytics table needs.
+    """
     ckl_b64 = payload.get("ckl_b64", "")
     ckl_path = None
-    
+
     try:
         ckl_path = _decode_to_temp(ckl_b64, ".ckl")
         proc = Proc()
-        result = proc.generate_stats(str(ckl_path), output_format="json")
+
+        # Get the raw JSON stats from the processor
+        raw = proc.generate_stats(str(ckl_path), output_format="json")
+
+        # Build the status_counts dict the frontend expects
+        by_status = raw.get("by_status", {})
+        status_counts = {
+            "NotAFinding": by_status.get("NotAFinding", 0),
+            "Open": by_status.get("Open", 0),
+            "Not_Applicable": by_status.get("Not_Applicable", 0),
+            "Not_Reviewed": by_status.get("Not_Reviewed", 0),
+        }
+
+        # Build the per-finding detail rows for the Analytics table
+        findings_details = []
+        try:
+            tree = proc._load_file_as_xml(ckl_path)
+            root = tree.getroot()
+            vulns = proc._extract_vuln_data(root)
+            for vid, vdata in vulns.items():
+                findings_details.append({
+                    "vid": vid,
+                    "status": vdata.get("status", "Not_Reviewed"),
+                    "severity": vdata.get("severity", "medium"),
+                    "details": (vdata.get("finding_details", "") or "")[:300],
+                    "rule_title": vdata.get("rule_title", ""),
+                })
+        except Exception:
+            # If per-finding extraction fails, return empty list
+            pass
+
         return {
             "status": "success",
-            "stats_data": result
+            "stats_data": {
+                "status_counts": status_counts,
+                "findings_details": findings_details,
+                "by_severity": raw.get("by_severity", {}),
+                "by_status_and_severity": raw.get("by_status_and_severity", {}),
+                "total_vulns": raw.get("total_vulns", 0),
+                "reviewed": raw.get("reviewed", 0),
+                "completion_pct": round(raw.get("completion_pct", 0), 1),
+                "compliance_pct": round(raw.get("compliance_pct", 0), 1),
+                "compliant": raw.get("compliant", 0),
+                "file": raw.get("file", ""),
+                "generated": raw.get("generated", ""),
+            }
         }
     finally:
         _cleanup_paths([ckl_path])
@@ -432,6 +501,102 @@ def handle_show_drift(payload: dict) -> dict:
     }
 
 
+def handle_list_assets(payload: dict) -> dict:
+    """List all tracked asset names from the SQLite history DB."""
+    proc = Proc()
+    if not proc.history.db:
+        return {"status": "error", "message": "SQLite History DB is not initialized."}
+    
+    try:
+        with proc.history.db._get_conn() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT DISTINCT asset_name FROM assessments ORDER BY asset_name'
+            )
+            assets = [row[0] for row in cursor.fetchall()]
+        return {
+            "status": "success",
+            "data": {"assets": assets}
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+def handle_validate(payload: dict) -> dict:
+    """Validate a CKL file for STIG Viewer compatibility."""
+    ckl_b64 = payload.get("ckl_b64", "")
+    ckl_path = None
+
+    try:
+        ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+        proc = Proc()
+        ok, errors, warnings, info = proc.validator.validate(ckl_path)
+
+        return {
+            "status": "success",
+            "data": {
+                "valid": ok,
+                "errors": errors,
+                "warnings": warnings,
+                "info": info,
+                "error_count": len(errors),
+                "warning_count": len(warnings),
+            }
+        }
+    finally:
+        _cleanup_paths([ckl_path])
+
+
+def handle_repair(payload: dict) -> dict:
+    """Repair a corrupted CKL file."""
+    ckl_b64 = payload.get("ckl_b64", "")
+    filename = payload.get("filename", "repaired.ckl")
+    ckl_path = None
+    out_path = None
+
+    try:
+        ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+        with tempfile.NamedTemporaryFile(suffix=".ckl", delete=False) as tf:
+            out_path = Path(tf.name)
+        GLOBAL_STATE.add_temp(out_path)
+
+        proc = Proc()
+        result = proc.repair(ckl_path, out_path)
+
+        out_b64 = _encode_from_temp(out_path)
+
+        return {
+            "status": "success",
+            "message": f"Applied {result.get('repairs', 0)} repairs.",
+            "data": {
+                "ckl_b64": out_b64,
+                "filename": filename.replace(".ckl", "_repaired.ckl") if ".ckl" in filename else filename + "_repaired.ckl",
+                "repairs": result.get("repairs", 0),
+                "details": result.get("details", []),
+            }
+        }
+    finally:
+        _cleanup_paths([ckl_path, out_path])
+
+
+def handle_verify_integrity(payload: dict) -> dict:
+    """Verify checklist integrity with checksums and validation."""
+    ckl_b64 = payload.get("ckl_b64", "")
+    ckl_path = None
+
+    try:
+        ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+        proc = Proc()
+        result = proc.verify_integrity(ckl_path)
+
+        return {
+            "status": "success",
+            "data": result
+        }
+    finally:
+        _cleanup_paths([ckl_path])
+
+
 def route_request(path: str, payload: dict) -> dict:
     """Route the request to the appropriate handler."""
     handlers = {
@@ -450,6 +615,10 @@ def route_request(path: str, payload: dict) -> dict:
         "/api/v1/stats": handle_stats,
         "/api/v1/track_ckl": handle_track_ckl,
         "/api/v1/show_drift": handle_show_drift,
+        "/api/v1/list_assets": handle_list_assets,
+        "/api/v1/validate": handle_validate,
+        "/api/v1/repair": handle_repair,
+        "/api/v1/verify_integrity": handle_verify_integrity,
     }
 
     if path not in handlers:

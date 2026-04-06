@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 from contextlib import suppress
-import sys
 import gc
 
 

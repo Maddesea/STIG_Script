@@ -446,6 +446,8 @@ if Deps.HAS_TKINTER:
                 ("\U0001f4e5 Import Results", self._tab_results),
                 ("\U0001f4ce Evidence", self._tab_evidence),
                 ("\u2705 Validate", self._tab_validate),
+                ("🔧 Repair CKL", self._tab_repair),
+                ("🏭 Batch Convert", self._tab_batch),
                 ("📝 Boilerplates", self._tab_boilerplates),
                 ("🔍 Compare", self._tab_compare),
                 ("📊 Analytics", self._tab_analytics),
@@ -1683,8 +1685,158 @@ if Deps.HAS_TKINTER:
             self.drift_canvas.pack(fill="x", padx=GUI_PADDING_LARGE, pady=(0, GUI_PADDING_LARGE))
             self.drift_canvas.create_text(300, 110, text="Analyze an asset to view compliance drift", fill="#9ca3af", font=GUI_FONT_NORMAL)
 
+        def _tab_repair(self, frame):
+            io_frame = ttk.LabelFrame(frame, text="Repair Corrupted Checklists", padding=GUI_PADDING_LARGE)
+            io_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+            io_frame.columnconfigure(1, weight=1)
+
+            ttk.Label(io_frame, text="Target CKL: *").grid(row=0, column=0, sticky="w")
+            self.repair_ckl = tk.StringVar()
+            ent_1 = ttk.Entry(io_frame, textvariable=self.repair_ckl, width=GUI_ENTRY_WIDTH)
+            ent_1.grid(row=0, column=1, padx=GUI_PADDING, sticky="we")
+            ttk.Button(io_frame, text="📂 Browse…", command=lambda: self.repair_ckl.set(filedialog.askopenfilename(filetypes=[("CKL", "*.ckl")]))).grid(row=0, column=2)
+            self._enable_dnd(ent_1, self.repair_ckl)
+
+            self.repair_backup = tk.BooleanVar(value=True)
+            ttk.Checkbutton(io_frame, text="Create backup copy before altering file", variable=self.repair_backup).grid(row=1, column=1, sticky="w", pady=(GUI_PADDING, 0))
+
+            btn_frame = ttk.Frame(frame)
+            btn_frame.pack(pady=GUI_PADDING_SECTION)
+            ttk.Button(btn_frame, text="🔍 Verify Integrity", command=self._do_verify_integrity, width=GUI_BUTTON_WIDTH_WIDE).pack(side="left", padx=5)
+            btn_repair = ttk.Button(btn_frame, text="🔧 Repair", command=self._do_repair, width=GUI_BUTTON_WIDTH_WIDE, style="Accent.TButton")
+            btn_repair.pack(side="left", padx=5)
+            self._action_buttons.append(btn_repair)
+
+            self.repair_txt = ScrolledText(frame, font=GUI_FONT_MONO, height=15)
+            self.repair_txt.pack(fill="both", expand=True)
+            self.repair_txt.insert("1.0", "Select a CKL file to verify its checksum or repair structural issues.")
+            self.repair_txt.config(state="disabled")
+
+        def _tab_batch(self, frame):
+            io_frame = ttk.LabelFrame(frame, text="Bulk Data Transformation", padding=GUI_PADDING_LARGE)
+            io_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+            io_frame.columnconfigure(1, weight=1)
+
+            ttk.Label(io_frame, text="Input Directory: *").grid(row=0, column=0, sticky="w")
+            self.batch_ind = tk.StringVar()
+            ent_1 = ttk.Entry(io_frame, textvariable=self.batch_ind, width=GUI_ENTRY_WIDTH)
+            ent_1.grid(row=0, column=1, padx=GUI_PADDING, sticky="we")
+            ttk.Button(io_frame, text="📂 Browse…", command=lambda: self.batch_ind.set(filedialog.askdirectory())).grid(row=0, column=2)
+
+            ttk.Label(io_frame, text="Output Directory: *").grid(row=1, column=0, sticky="w", pady=GUI_PADDING)
+            self.batch_out = tk.StringVar()
+            ent_2 = ttk.Entry(io_frame, textvariable=self.batch_out, width=GUI_ENTRY_WIDTH)
+            ent_2.grid(row=1, column=1, padx=GUI_PADDING, sticky="we", pady=GUI_PADDING)
+            ttk.Button(io_frame, text="📂 Browse…", command=lambda: self.batch_out.set(filedialog.askdirectory())).grid(row=1, column=2, pady=GUI_PADDING)
+
+            opt_frame = ttk.LabelFrame(frame, text="Options", padding=GUI_PADDING_LARGE)
+            opt_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+
+            ttk.Label(opt_frame, text="Format:").grid(row=0, column=0, sticky="w")
+            self.batch_fmt = tk.StringVar(value="csv")
+            ttk.Combobox(opt_frame, textvariable=self.batch_fmt, values=["csv", "json"], state="readonly", width=10).grid(row=0, column=1, padx=GUI_PADDING, sticky="w")
+
+            self.batch_merge = tk.BooleanVar(value=True)
+            ttk.Checkbutton(opt_frame, text="Merge into single file", variable=self.batch_merge).grid(row=1, column=0, columnspan=2, sticky="w", pady=(GUI_PADDING, 0))
+
+            btn_batch = ttk.Button(frame, text="🏭 Export Batch", command=self._do_batch_convert, width=GUI_BUTTON_WIDTH_WIDE, style="Accent.TButton")
+            btn_batch.pack(pady=GUI_PADDING_SECTION)
+            self._action_buttons.append(btn_batch)
+
 
         # ------------------------------------------------------------ actions
+        def _do_verify_integrity(self):
+            ckl_path = self.repair_ckl.get().strip()
+            if not ckl_path:
+                messagebox.showerror("Missing input", "Please select a CKL file to verify.")
+                return
+            
+            def work():
+                return self.proc.verify_integrity(ckl_path)
+                
+            def done(result):
+                self.repair_txt.config(state="normal")
+                self.repair_txt.delete("1.0", tk.END)
+                if isinstance(result, Exception):
+                    self.repair_txt.insert(tk.END, f"[ERROR] Integrity Check Failed:\n{result}")
+                    messagebox.showerror("Error", str(result))
+                else:
+                    self.repair_txt.insert(tk.END, f"[SUCCESS] Integrity Verification Complete\n\nChecksum (SHA3-256):\n{result}\n\nThis checksum proves the file has not been tampered with since creation.")
+                self.repair_txt.config(state="disabled")
+                
+            self.status_var.set("Verifying...")
+            self._async(work, done)
+
+        def _do_repair(self):
+            ckl_path = self.repair_ckl.get().strip()
+            if not ckl_path:
+                messagebox.showerror("Missing input", "Please select a CKL file to repair.")
+                return
+            
+            backup = self.repair_backup.get()
+            
+            def work():
+                return self.proc.repair(ckl_path, backup=backup)
+                
+            def done(result):
+                self.repair_txt.config(state="normal")
+                self.repair_txt.delete("1.0", tk.END)
+                if isinstance(result, Exception):
+                    self.repair_txt.insert(tk.END, f"[ERROR] Repair Failed:\n{result}")
+                    messagebox.showerror("Repair Failed", str(result))
+                else:
+                    fixed_lines = result.get('fixed', [])
+                    output_file = result.get('file', ckl_path)
+                    
+                    if not fixed_lines:
+                        self.repair_txt.insert(tk.END, f"No structural issues found in {Path(ckl_path).name}.\nThe file appears normal.")
+                        self.status_var.set("✔ Checklist is structurally sound.")
+                    else:
+                        self.repair_txt.insert(tk.END, f"[SUCCESS] Repaired {len(fixed_lines)} anomalies in {Path(ckl_path).name}\n\nDetails:\n")
+                        for msg in fixed_lines:
+                            self.repair_txt.insert(tk.END, f"- {msg}\n")
+                        self.status_var.set(f"✔ Repaired checklist: {output_file}")
+                        messagebox.showinfo("Repair Complete", f"Successfully repaired {len(fixed_lines)} issue(s).")
+                self.repair_txt.config(state="disabled")
+                
+            self.status_var.set("Repairing...")
+            self._async(work, done)
+
+        def _do_batch_convert(self):
+            in_dir = self.batch_ind.get().strip()
+            out_dir = self.batch_out.get().strip()
+            if not in_dir or not out_dir:
+                messagebox.showerror("Missing input", "Please provide both input and output directories.")
+                return
+                
+            fmt = self.batch_fmt.get()
+            merge = self.batch_merge.get()
+            
+            def work():
+                return self.proc.batch_convert(
+                    input_dir=in_dir, 
+                    output_dir=out_dir, 
+                    format_=fmt, 
+                    merge=merge
+                )
+                
+            def done(result):
+                if isinstance(result, Exception):
+                    self.status_var.set(f"✘ Batch convert failed: {result}")
+                    messagebox.showerror("Batch Convert Error", str(result))
+                else:
+                    processed = result.get("processed", 0)
+                    skipped = result.get("skipped", 0)
+                    errors = result.get("errors", 0)
+                    out_path = result.get("output", "")
+                    
+                    msg = f"Processed: {processed}\nSkipped: {skipped}\nErrors: {errors}\n\nOutput saved in: {out_path}"
+                    self.status_var.set(f"✔ Batch conversion complete. Output: {out_path}")
+                    messagebox.showinfo("Batch Convert Complete", msg)
+                    
+            self.status_var.set("Running batch conversion...")
+            self._async(work, done)
+
         def _do_diff_tab(self):
             if not self.diff_ckl1.get() or not self.diff_ckl2.get():
                 messagebox.showerror("Error", "Please provide two checklists down for comparison.")
