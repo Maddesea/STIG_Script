@@ -8,6 +8,7 @@ from typing import List
 from stig_assessor.core.state import GLOBAL_STATE
 from stig_assessor.processor.processor import Proc
 from stig_assessor.remediation.processor import FixResPro
+from stig_assessor.evidence.manager import EVIDENCE
 
 
 def _decode_to_temp(b64_str: str, suffix: str) -> Path:
@@ -185,6 +186,103 @@ def handle_merge_ckls(payload: dict) -> dict:
         _cleanup_paths([base_path, out_path] + hist_paths)
 
 
+def handle_bp_list(payload: dict) -> dict:
+    proc = Proc()
+    bp_data = proc.boiler.list_all()
+    return {
+        "status": "success",
+        "data": {
+            "boilerplates": bp_data
+        }
+    }
+
+def handle_bp_set(payload: dict) -> dict:
+    vid = payload.get("vid", "").strip()
+    status = payload.get("status", "").strip()
+    finding = payload.get("finding", "").strip()
+    comment = payload.get("comment", "").strip()
+    
+    if not vid or not status:
+        return {"status": "error", "message": "vid and status are required"}
+        
+    proc = Proc()
+    proc.boiler.set(vid, status, finding, comment)
+    return {
+        "status": "success",
+        "message": f"Updated boilerplate for {vid} / {status}"
+    }
+
+def handle_bp_delete(payload: dict) -> dict:
+    vid = payload.get("vid", "").strip()
+    status = payload.get("status")
+    
+    if not vid:
+        return {"status": "error", "message": "vid is required"}
+        
+    proc = Proc()
+    deleted = proc.boiler.delete(vid, status)
+    return {
+        "status": "success" if deleted else "error",
+        "message": f"Deleted boilerplate for {vid}" if deleted else "Boilerplate not found"
+    }
+
+def handle_evidence_summary(payload: dict) -> dict:
+    return {
+        "status": "success",
+        "summary": EVIDENCE.summary()
+    }
+
+def handle_evidence_import(payload: dict) -> dict:
+    vid = payload.get("vid", "").strip()
+    desc = payload.get("description", "").strip()
+    cat = payload.get("category", "general").strip()
+    filename = payload.get("filename", "upload.bin").strip()
+    b64_content = payload.get("content_b64", "")
+    
+    if not vid:
+        return {"status": "error", "message": "vid required"}
+    
+    # Needs suffix handling since b64 doesn't come with name directly in decode
+    try:
+        ext = Path(filename).suffix or ".bin"
+        temp_path = _decode_to_temp(b64_content, ext)
+        # We rename the tempfile to have the original filename so EVIDENCE.import_file gets the right name
+        orig_name_path = temp_path.parent / filename
+        temp_path.rename(orig_name_path)
+        GLOBAL_STATE.add_temp(orig_name_path)
+        
+        saved_path = EVIDENCE.import_file(vid, orig_name_path, description=desc, category=cat)
+        
+        _cleanup_paths([orig_name_path, temp_path])
+        return {
+            "status": "success",
+            "message": f"Evidence imported successfully for {vid}",
+            "path": str(saved_path.name)
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+def handle_evidence_package(payload: dict) -> dict:
+    try:
+        # Create a temp zip file
+        tf = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+        tf.close()
+        zip_path = Path(tf.name)
+        GLOBAL_STATE.add_temp(zip_path)
+        
+        # Package everything
+        EVIDENCE.package(zip_path)
+        
+        b64_out = _encode_from_temp(zip_path)
+        _cleanup_paths([zip_path])
+        return {
+            "status": "success",
+            "package_b64": b64_out,
+            "filename": "evidence_package.zip"
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 def route_request(path: str, payload: dict) -> dict:
     """Route the request to the appropriate handler."""
     handlers = {
@@ -192,6 +290,12 @@ def route_request(path: str, payload: dict) -> dict:
         "/api/v1/xccdf_to_ckl": handle_xccdf_to_ckl,
         "/api/v1/apply_results": handle_apply_results,
         "/api/v1/merge_ckls": handle_merge_ckls,
+        "/api/v1/bp_list": handle_bp_list,
+        "/api/v1/bp_set": handle_bp_set,
+        "/api/v1/bp_delete": handle_bp_delete,
+        "/api/v1/evidence/summary": handle_evidence_summary,
+        "/api/v1/evidence/import": handle_evidence_import,
+        "/api/v1/evidence/package": handle_evidence_package,
     }
 
     if path not in handlers:

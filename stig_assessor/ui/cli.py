@@ -114,6 +114,7 @@ class STIGHelpFormatter(argparse.RawTextHelpFormatter):
                 "Batch Processing:",
                 "Integrity Verification:",
                 "Compliance Statistics:",
+                "Boilerplate Management:",
             ]
             for group in groups:
                 help_text = help_text.replace(group, format_color(group, "green"))
@@ -272,6 +273,16 @@ COMMON USE-CASES (Windows Operations):
     history_group = parser.add_argument_group("History Management")
     history_group.add_argument("--export-history", help="Export history JSON")
     history_group.add_argument("--import-history", help="Import history JSON")
+
+    bp_group = parser.add_argument_group("Boilerplate Management")
+    bp_group.add_argument("--bp-list", action="store_true", help="List all boilerplates")
+    bp_group.add_argument("--bp-list-vid", help="List boilerplates for a specific VID")
+    bp_group.add_argument("--bp-set", action="store_true", help="Set a boilerplate comment")
+    bp_group.add_argument("--bp-delete", action="store_true", help="Delete a boilerplate comment")
+    bp_group.add_argument("--vid", help="Vulnerability ID (e.g. V-12345)")
+    bp_group.add_argument("--status", help="Finding Status (e.g. NotAFinding, Open)")
+    bp_group.add_argument("--finding", help="Finding Details text for boilerplate")
+    bp_group.add_argument("--comment", help="Comments text for boilerplate")
 
     parser.add_argument("--validate", help="Validate checklist compatibility")
 
@@ -561,6 +572,34 @@ COMMON USE-CASES (Windows Operations):
         if args.import_history:
             count = proc.history.imp(args.import_history)
             print(f"Imported {count} history entries")
+            return 0
+
+        if args.bp_list:
+            bp_all = proc.boiler.list_all()
+            print(json.dumps(bp_all, indent=2, ensure_ascii=False))
+            return 0
+            
+        if args.bp_list_vid:
+            bp_all = proc.boiler.list_all()
+            res = bp_all.get(args.bp_list_vid, {})
+            print(json.dumps({args.bp_list_vid: res}, indent=2, ensure_ascii=False))
+            return 0
+            
+        if args.bp_set:
+            if not args.vid or not args.status:
+                parser.error("--bp-set requires --vid and --status")
+            proc.boiler.set(args.vid, args.status, args.finding or "", args.comment or "")
+            print(format_color(f"Boilerplate set for {args.vid} / {args.status}", "green"))
+            return 0
+            
+        if args.bp_delete:
+            if not args.vid:
+                parser.error("--bp-delete requires at least --vid")
+            deleted = proc.boiler.delete(args.vid, args.status)
+            if deleted:
+                print(format_color(f"Deleted boilerplate {'for ' + args.status if args.status else 'all statuses'} on {args.vid}", "green"))
+            else:
+                print(format_color("Boilerplate not found", "yellow"))
             return 0
 
         if args.validate:

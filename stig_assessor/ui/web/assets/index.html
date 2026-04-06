@@ -16,6 +16,9 @@
             <h1>STIG Assessor</h1>
         </div>
         <div class="header-actions">
+            <button id="theme-toggle" class="btn btn-icon" title="Toggle Theme" style="background:transparent; border:none; color:inherit; cursor:pointer; margin-right: 15px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            </button>
             <span class="status-badge pulse-active"><span class="dot"></span> Active</span>
         </div>
     </header>
@@ -34,6 +37,18 @@
             <button class="tab-btn" data-target="tab-merge">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                 Merge Checklists
+            </button>
+            <button class="tab-btn" data-target="tab-boilerplates">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                Boilerplates
+            </button>
+            <button class="tab-btn" data-target="tab-analytics">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                Analytics
+            </button>
+            <button class="tab-btn" data-target="tab-evidence">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                Evidence
             </button>
         </div>
 
@@ -98,8 +113,8 @@
                         <div class="file-name hidden"></div>
                     </div>
                     <div class="upload-zone" id="dz-rem-json">
-                        <input type="file" id="file-rem-json" accept=".json" class="hidden" required>
-                        <p class="highlight">Drop Results .json</p>
+                        <input type="file" id="file-rem-json" accept=".json,.csv" class="hidden" required>
+                        <p class="highlight">Drop Results .json / .csv</p>
                         <div class="file-name hidden"></div>
                     </div>
                 </div>
@@ -168,6 +183,175 @@
             </form>
         </section>
 
+        <!-- BOILERPLATES TAB -->
+        <section id="tab-boilerplates" class="tab-content glass-panel">
+            <div class="hero-text">
+                <h2>Boilerplate Templates</h2>
+                <p>Manage default finding details and comments universally or granularly.</p>
+            </div>
+
+            <div class="grid-2">
+                <!-- Left: Navigation (VIDs) -->
+                <div class="bp-sidebar glass-input" style="display: flex; flex-direction: column; overflow: hidden; min-height: 400px; padding:0;">
+                    <div style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <input type="text" id="bp-search" class="glass-input" placeholder="Search VIDs..." style="width: 100%; margin-bottom: 10px; padding: 10px; font-size: 0.9em;">
+                        <button id="btn-bp-add" class="btn btn-secondary btn-glow" style="width: 100%; padding: 10px;">+ Add Custom VID</button>
+                    </div>
+                    <ul id="bp-vid-list" class="bp-list hide-scrollbar" style="flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0;">
+                        <!-- JS injected list items -->
+                    </ul>
+                </div>
+
+                <!-- Right: Editor -->
+                <div class="bp-editor" style="display: flex; flex-direction: column; gap: 15px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label style="margin-bottom: 5px; display:block;">Finding Status</label>
+                        <select id="bp-status-select" class="glass-input" style="padding: 10px;">
+                            <option value="NotAFinding">NotAFinding</option>
+                            <option value="Open">Open</option>
+                            <option value="Not_Applicable">Not_Applicable</option>
+                            <option value="Not_Reviewed">Not_Reviewed</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="flex: 1; display:flex; flex-direction:column; margin-bottom: 0;">
+                        <label style="margin-bottom: 5px; display:block;">Finding Details Template</label>
+                        <textarea id="bp-finding-text" class="glass-input highlight-area" style="flex: 1; min-height: 120px; font-family: monospace; resize: none; padding: 10px; line-height: 1.4;"></textarea>
+                    </div>
+
+                    <div class="form-group" style="flex: 1; display:flex; flex-direction:column; margin-bottom: 0;">
+                        <label style="margin-bottom: 5px; display:block;">Comments Template</label>
+                        <textarea id="bp-comment-text" class="glass-input highlight-area" style="flex: 1; min-height: 120px; font-family: monospace; resize: none; padding: 10px; line-height: 1.4;"></textarea>
+                    </div>
+
+                    <div class="form-actions" style="justify-content: flex-end; gap: 10px; margin-top: 5px;">
+                        <button id="btn-bp-delete" class="btn" style="background: rgba(255,50,50,0.1); border: 1px solid rgba(255,50,50,0.3); color: #ff8888; padding: 10px 20px;">Delete Template</button>
+                        <button id="btn-bp-save" class="btn btn-primary btn-glow" style="padding: 10px 20px;">Save Boilerplate</button>
+                    </div>
+                </div>
+            </div>
+            <style>
+                .bp-sidebar { background: rgba(0,0,0,0.2) !important; border-radius: 12px; }
+                .bp-list li {
+                    padding: 12px 15px;
+                    border-bottom: 1px solid rgba(255,255,255,0.05);
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    font-family: monospace;
+                    font-size: 1.1em;
+                }
+                .bp-list li:hover { background: rgba(255,255,255,0.05); }
+                .bp-list li.selected { background: rgba(0, 240, 255, 0.15); color: #fff; font-weight: 600; border-left: 3px solid #00f0ff; }
+            </style>
+        </section>
+
+        <!-- ANALYTICS TAB -->
+        <section id="tab-analytics" class="tab-content glass-panel">
+            <div class="hero-text">
+                <h2>Checklist Intelligence</h2>
+                <p>Drop a generated .ckl file to dynamically inspect posture metrics and search all findings.</p>
+            </div>
+
+            <div class="upload-zone" id="dz-analytics" style="min-height: 120px; margin-bottom: 2rem;">
+                <input type="file" id="file-analytics" accept=".ckl" class="hidden">
+                <p class="highlight">Analyze Output .ckl</p>
+                <div class="file-name hidden"></div>
+            </div>
+
+            <!-- Dashboard View (hidden until file loaded) -->
+            <div id="analytics-dashboard" class="hidden">
+                <div class="stats-grid" id="analytics-metrics" style="margin-bottom: 1.5rem;">
+                    <!-- JS populated metric cards -->
+                </div>
+                
+                <!-- Table -->
+                <div class="table-wrapper" style="background: rgba(0,0,0,0.2); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-glass);">
+                    <div style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="margin:0;">Finding Explorer</h3>
+                        <input type="text" id="analytics-search" class="glass-input" placeholder="Search VIDs or Details..." style="width: 250px; padding: 8px;">
+                    </div>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left;" id="analytics-table">
+                            <thead style="background: rgba(255,255,255,0.05); position: sticky; top: 0;">
+                                <tr>
+                                    <th style="padding: 12px 15px; border-bottom: 1px solid var(--border-glass);">Check ID</th>
+                                    <th style="padding: 12px 15px; border-bottom: 1px solid var(--border-glass);">Status</th>
+                                    <th style="padding: 12px 15px; border-bottom: 1px solid var(--border-glass);">Details Extract</th>
+                                </tr>
+                            </thead>
+                            <tbody id="analytics-tbody">
+                                <!-- JS populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <style>
+                #analytics-table td { padding: 12px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
+                #analytics-table tr:hover { background: rgba(255,255,255,0.05); }
+                .status-badge-sm { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; display: inline-block; }
+                .badge-NotAFinding { background: rgba(16,185,129,0.2); color: #10B981; }
+                .badge-Open { background: rgba(239,68,68,0.2); color: #EF4444; }
+                .badge-Not_Applicable { background: rgba(156,163,175,0.2); color: #9CA3AF; }
+                .badge-Not_Reviewed { background: rgba(245,158,11,0.2); color: #F59E0B; }
+                :root[data-theme="light"] #analytics-table tr:hover { background: rgba(0,0,0,0.05); }
+                :root[data-theme="light"] #analytics-table th, :root[data-theme="light"] #analytics-table td { border-color: rgba(0,0,0,0.05); }
+            </style>
+        </section>
+
+        <!-- EVIDENCE TAB -->
+        <section id="tab-evidence" class="tab-content glass-panel">
+            <div class="hero-text">
+                <h2>Evidence Manager</h2>
+                <p>Import screenshots, logs, or exports and securely map them to Vuln IDs natively.</p>
+            </div>
+
+            <div class="stats-grid" id="evidence-metrics" style="margin-bottom: 2rem;">
+                <div class="stat-box stat-info"><div class="stat-value">0</div><div class="stat-label">Total Files</div></div>
+                <div class="stat-box stat-success"><div class="stat-value">0</div><div class="stat-label">Mapped VIDs</div></div>
+                <div class="stat-box stat-warn"><div class="stat-value">0 MB</div><div class="stat-label">Storage Size</div></div>
+            </div>
+
+            <div style="display: flex; gap: 2rem; align-items: stretch; margin-bottom: 2rem;">
+                <!-- Form column -->
+                <div style="flex: 1; background: rgba(0,0,0,0.1); padding: 20px; border-radius: 12px; border: 1px solid var(--border-glass);">
+                    <h3 style="margin-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">Import Evidence</h3>
+                    <div class="input-group">
+                        <label>Vulnerability ID (e.g. V-12345)</label>
+                        <input type="text" id="evid-vid" class="glass-input" placeholder="V-*" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Description</label>
+                        <input type="text" id="evid-desc" class="glass-input" placeholder="e.g. Server configuration list">
+                    </div>
+                    <div class="input-group">
+                        <label>Category</label>
+                        <input type="text" id="evid-cat" class="glass-input" value="general">
+                    </div>
+                </div>
+
+                <!-- Drop zone column -->
+                <div style="flex: 1; display:flex; flex-direction:column; justify-content:center;">
+                    <div class="upload-zone" id="dz-evidence" style="min-height: 200px; height: 100%;">
+                        <input type="file" id="file-evidence" class="hidden">
+                        <p class="highlight" style="font-size: 1.2rem;">Drop Evidence File Here</p>
+                        <p style="font-size: 0.9rem; margin-top: 10px;">(Please fill out the form before dropping or selecting!)</p>
+                        <div class="file-name hidden"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align: right; padding-top: 1rem; border-top: 1px solid var(--border-glass);">
+                <button id="btn-export-evidence" class="generate-btn glass-button" style="display:inline-flex; align-items:center; gap:8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Package & Download All Evidence (Zip)
+                </button>
+            </div>
+            <style>
+                :root[data-theme="light"] #tab-evidence .input-group input { background: rgba(0,0,0,0.03); }
+            </style>
+        </section>
+
         <!-- Global Results Modal Overlay -->
         <div id="results-modal" class="modal-overlay hidden">
             <div class="modal-content glass-panel popup-anim">
@@ -190,6 +374,9 @@
                 </div>
             </div>
         </div>
+
+        <!-- Toast Container -->
+        <div id="toast-container" class="toast-container"></div>
 
     </main>
 

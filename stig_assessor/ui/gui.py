@@ -25,6 +25,7 @@ from stig_assessor.evidence.manager import EvidenceMgr
 from stig_assessor.exceptions import ValidationError
 from stig_assessor.ui.presets import PresetMgr
 from stig_assessor.ui.helpers import Debouncer
+from stig_assessor.core.constants import Status
 
 # ──────────────────────────────────────────────────────────────────────────────
 # GUI CONSTANTS
@@ -443,6 +444,7 @@ if Deps.HAS_TKINTER:
                 ("\U0001f4e5 Import Results", self._tab_results),
                 ("\U0001f4ce Evidence", self._tab_evidence),
                 ("\u2705 Validate", self._tab_validate),
+                ("📝 Boilerplates", self._tab_boilerplates),
             ]
 
             for title, builder in tabs:
@@ -508,7 +510,7 @@ if Deps.HAS_TKINTER:
 
             r = 0
             ttk.Label(asset_frame, text="Asset Name: *").grid(row=r, column=0, sticky="w")
-            self.create_asset = tk.StringVar()
+            self.create_asset = tk.StringVar(value=self._settings.get("create_asset", ""))
             ttk.Entry(asset_frame, textvariable=self.create_asset, width=GUI_ENTRY_WIDTH).grid(
                 row=r, column=1, padx=GUI_PADDING, sticky="we"
             )
@@ -531,21 +533,21 @@ if Deps.HAS_TKINTER:
             r += 1
 
             ttk.Label(asset_frame, text="IP Address:").grid(row=r, column=0, sticky="w")
-            self.create_ip = tk.StringVar()
+            self.create_ip = tk.StringVar(value=self._settings.get("create_ip", ""))
             ttk.Entry(asset_frame, textvariable=self.create_ip, width=GUI_ENTRY_WIDTH).grid(
                 row=r, column=1, padx=GUI_PADDING, sticky="we"
             )
             r += 1
 
             ttk.Label(asset_frame, text="MAC Address:").grid(row=r, column=0, sticky="w")
-            self.create_mac = tk.StringVar()
+            self.create_mac = tk.StringVar(value=self._settings.get("create_mac", ""))
             ttk.Entry(asset_frame, textvariable=self.create_mac, width=GUI_ENTRY_WIDTH).grid(
                 row=r, column=1, padx=GUI_PADDING, sticky="we"
             )
             r += 1
 
             ttk.Label(asset_frame, text="Marking:").grid(row=r, column=0, sticky="w")
-            self.create_mark = tk.StringVar(value="CUI")
+            self.create_mark = tk.StringVar(value=self._settings.get("create_mark", "CUI"))
             ttk.Combobox(
                 asset_frame,
                 textvariable=self.create_mark,
@@ -555,7 +557,7 @@ if Deps.HAS_TKINTER:
             ).grid(row=r, column=1, padx=GUI_PADDING, sticky="we")
             r += 1
 
-            self.create_bp = tk.BooleanVar(value=False)
+            self.create_bp = tk.BooleanVar(value=self._settings.get("create_bp", False))
             cb_bp = ttk.Checkbutton(
                 asset_frame,
                 text="Apply boilerplate templates",
@@ -1147,6 +1149,9 @@ if Deps.HAS_TKINTER:
             ttk.Button(action_frame, text="Create Package…", command=self._package_evidence).grid(
                 row=0, column=1, padx=GUI_PADDING, pady=GUI_PADDING
             )
+            
+            self.evid_stats_label = ttk.Label(action_frame, text="", font=("", 9, "bold"), foreground=self._colors.get("text_muted", "gray"))
+            self.evid_stats_label.grid(row=0, column=3, padx=GUI_PADDING * 2, sticky="w")
             ttk.Button(
                 action_frame, text="Import Package…", command=self._import_evidence_package
             ).grid(row=0, column=2, padx=GUI_PADDING, pady=GUI_PADDING)
@@ -1454,6 +1459,139 @@ if Deps.HAS_TKINTER:
                 self.validate_ckl.set(path)
                 self._remember_file(path)
 
+        def _tab_boilerplates(self, frame):
+            frame.columnconfigure(1, weight=1)
+            frame.rowconfigure(0, weight=1)
+            
+            left_frame = ttk.LabelFrame(frame, text="Vulnerability IDs", padding=GUI_PADDING_LARGE)
+            left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, GUI_PADDING_LARGE))
+            
+            columns = ("vid", "flags")
+            self._bp_vids_list = ttk.Treeview(left_frame, columns=columns, show="headings", selectmode="browse")
+            self._bp_vids_list.heading("vid", text="VID")
+            self._bp_vids_list.heading("flags", text="Configs")
+            self._bp_vids_list.column("vid", width=120)
+            self._bp_vids_list.column("flags", width=80)
+            self._bp_vids_list.pack(side="left", fill="both", expand=True)
+            self._bp_vids_list.bind("<<TreeviewSelect>>", self._on_bp_vid_select)
+            scroll_bp = ttk.Scrollbar(left_frame, orient="vertical", command=self._bp_vids_list.yview)
+            scroll_bp.pack(side="right", fill="y")
+            self._bp_vids_list.configure(yscrollcommand=scroll_bp.set)
+            
+            self._bp_vids_list.tag_configure(Status.OPEN.value, foreground=self._colors.get("error", "red"))
+            self._bp_vids_list.tag_configure(Status.NOT_A_FINDING.value, foreground=self._colors.get("ok", "green"))
+            self._bp_vids_list.tag_configure(Status.NOT_REVIEWED.value, foreground=self._colors.get("warn", "orange"))
+            
+            ttk.Button(left_frame, text="+ Add VID", command=self._bp_add_vid).pack(side="bottom", fill="x", pady=2)
+            
+            right_frame = ttk.LabelFrame(frame, text="Boilerplate Editor", padding=GUI_PADDING_LARGE)
+            right_frame.grid(row=0, column=1, sticky="nsew")
+            right_frame.rowconfigure(1, weight=1)
+            right_frame.columnconfigure(0, weight=1)
+
+            ctrl_frame = ttk.Frame(right_frame)
+            ctrl_frame.grid(row=0, column=0, sticky="ew", pady=(0, GUI_PADDING_LARGE))
+            ttk.Label(ctrl_frame, text="Status:").pack(side="left", padx=5)
+            self._bp_status_var = tk.StringVar(value=Status.NOT_A_FINDING.value)
+            status_cb = ttk.Combobox(ctrl_frame, textvariable=self._bp_status_var, values=[Status.NOT_A_FINDING.value, Status.OPEN.value, Status.NOT_APPLICABLE.value, Status.NOT_REVIEWED.value], state="readonly")
+            status_cb.pack(side="left", padx=5)
+            status_cb.bind("<<ComboboxSelected>>", self._on_bp_status_select)
+
+            editors = ttk.Frame(right_frame)
+            editors.grid(row=1, column=0, sticky="nsew")
+            editors.columnconfigure(0, weight=1)
+            editors.rowconfigure(1, weight=1)
+            editors.rowconfigure(3, weight=1)
+            
+            ttk.Label(editors, text="Finding Details:").grid(row=0, column=0, sticky="w")
+            self._bp_finding_text = ScrolledText(editors, width=60, height=8, font=GUI_FONT_MONO)
+            self._bp_finding_text.grid(row=1, column=0, sticky="nsew", pady=(0, GUI_PADDING_LARGE))
+            
+            ttk.Label(editors, text="Comments:").grid(row=2, column=0, sticky="w")
+            self._bp_comment_text = ScrolledText(editors, width=60, height=8, font=GUI_FONT_MONO)
+            self._bp_comment_text.grid(row=3, column=0, sticky="nsew")
+
+            actions = ttk.Frame(right_frame)
+            actions.grid(row=2, column=0, sticky="ew", pady=(GUI_PADDING_LARGE, 0))
+            ttk.Button(actions, text="💾 Save", command=self._bp_save, style="Accent.TButton").pack(side="right", padx=5)
+            ttk.Button(actions, text="🗑 Delete", command=self._bp_delete).pack(side="left", padx=5)
+
+            self._bp_current_vid = None
+            self._bp_refresh_vids()
+
+        def _bp_refresh_vids(self):
+            for row in self._bp_vids_list.get_children():
+                self._bp_vids_list.delete(row)
+            bmap = self.proc.boiler.list_all()
+            vids = sorted(list(bmap.keys()))
+            if "V-*" not in vids:
+                vids.insert(0, "V-*")
+            for v in vids:
+                statuses = list(bmap.get(v, {}).keys())
+                flags = ",".join(statuses) if statuses else ""
+                tag = ""
+                if Status.OPEN.value in statuses: tag = Status.OPEN.value
+                elif Status.NOT_A_FINDING.value in statuses: tag = Status.NOT_A_FINDING.value
+                elif Status.NOT_REVIEWED.value in statuses: tag = Status.NOT_REVIEWED.value
+                
+                self._bp_vids_list.insert("", tk.END, iid=v, values=(v, flags), tags=(tag,))
+        
+        def _on_bp_vid_select(self, event):
+            sel = self._bp_vids_list.selection()
+            if not sel: return
+            self._bp_current_vid = sel[0]
+            self._load_bp_editor()
+            
+        def _on_bp_status_select(self, event):
+            self._load_bp_editor()
+            
+        def _load_bp_editor(self):
+            if not self._bp_current_vid: return
+            status = self._bp_status_var.get()
+            bmap = self.proc.boiler.list_all()
+            entry = bmap.get(self._bp_current_vid, {}).get(status, {})
+            self._bp_finding_text.delete("1.0", tk.END)
+            self._bp_comment_text.delete("1.0", tk.END)
+            self._bp_finding_text.insert("1.0", entry.get("finding_details", ""))
+            self._bp_comment_text.insert("1.0", entry.get("comments", ""))
+            
+        def _bp_add_vid(self):
+            vid = simpledialog.askstring("Add VID", "Enter STIG Check ID (e.g. V-12345):")
+            if vid:
+                vid = vid.strip()
+                if not vid.startswith("V-") and vid != "V-*":
+                    msg = f"'{vid}' does not look like a STIG Vuln ID (V-12345).\nForce add?"
+                    if not messagebox.askyesno("Invalid VID format", msg):
+                        return
+                        
+                if not self._bp_vids_list.exists(vid):
+                    self._bp_vids_list.insert("", tk.END, iid=vid, values=(vid, ""))
+                
+                self._bp_vids_list.selection_set(vid)
+                self._bp_vids_list.focus(vid)
+                self._bp_vids_list.see(vid)
+                self._bp_vids_list.event_generate("<<TreeviewSelect>>")
+                
+        def _bp_save(self):
+            if not self._bp_current_vid: return
+            status = self._bp_status_var.get()
+            finding = self._bp_finding_text.get("1.0", "end-1c")
+            comment = self._bp_comment_text.get("1.0", "end-1c")
+            self.proc.boiler.set(self._bp_current_vid, status, finding, comment)
+            self.status_var.set(f"Saved boilerplate for {self._bp_current_vid} / {status}")
+            self._bp_refresh_vids()
+            self._bp_vids_list.selection_set(self._bp_current_vid)
+            
+        def _bp_delete(self):
+            if not self._bp_current_vid: return
+            status = self._bp_status_var.get()
+            if messagebox.askyesno("Confirm Delete", f"Delete boilerplate for {self._bp_current_vid} / {status}?"):
+                if self.proc.boiler.delete(self._bp_current_vid, status):
+                    self.status_var.set("Boilerplate deleted.")
+                    self._bp_refresh_vids()
+                    self._bp_vids_list.selection_set(self._bp_current_vid)
+                    self._load_bp_editor()
+
         # ------------------------------------------------------------ actions
         def _do_create(self):
             if (
@@ -1714,6 +1852,7 @@ if Deps.HAS_TKINTER:
                     messagebox.showerror("Package error", str(result))
                 else:
                     messagebox.showinfo("Evidence Package", f"Package created:\n{result}")
+                    self._refresh_evidence_summary()
 
             self._async(work, done)
 
@@ -2005,21 +2144,34 @@ if Deps.HAS_TKINTER:
                 manifest = getattr(self.evidence, "metadata", {})
                 if not manifest:
                     manifest = getattr(self.evidence, "_manifest", {})
+                
+                # Check for private dictionary _meta
+                if not manifest and hasattr(self.evidence, "_meta"):
+                    manifest = self.evidence._meta
 
                 for vid, items in manifest.items():
                     for ev in items:
+                        # Handle new domain models
+                        filename = ev.filename if hasattr(ev, 'filename') else ev.get("orig_name", ev.get("filename", ""))
+                        category = ev.category if hasattr(ev, 'category') else ev.get("category", "")
+                        timestamp = str(ev.imported) if hasattr(ev, 'imported') else ev.get("timestamp", "")
                         self.evid_tree.insert(
                             "",
                             "end",
                             values=(
                                 vid,
-                                ev.get("orig_name", ev.get("filename", "")),
-                                ev.get("category", ""),
-                                ev.get("timestamp", ""),
+                                filename,
+                                category,
+                                timestamp,
                             ),
                         )
-            except Exception:
-                pass
+                # Update stats label
+                if hasattr(self, "evid_stats_label"):
+                    s = self.evidence.summary()
+                    text = f"Storage: {s['size_mb']:.1f} MB  |  Files: {s['files']}  |  Mapped VIDs: {s['vulnerabilities']}"
+                    self.evid_stats_label.config(text=text)
+            except Exception as e:
+                import traceback; traceback.print_exc()
 
             summary = self.evidence.summary()
             self.evid_status.set(
@@ -2452,6 +2604,17 @@ Shortcuts:
 
         def run(self):
             self.root.mainloop()
+            
+        def _close(self, event=None):
+            if hasattr(self, "create_asset"):
+                self._settings["create_asset"] = self.create_asset.get()
+                self._settings["create_ip"] = self.create_ip.get()
+                self._settings["create_mac"] = self.create_mac.get()
+                self._settings["create_mark"] = self.create_mark.get()
+                self._settings["create_bp"] = self.create_bp.get()
+            _save_settings(self._settings)
+            
+            self.root.destroy()
 
         def _attach_listbox_context_menu(
             self, listbox: "tk.Listbox", file_list: List[str], remove_cb: Callable

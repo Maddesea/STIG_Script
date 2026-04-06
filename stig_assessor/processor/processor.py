@@ -521,8 +521,8 @@ class Proc:
         comment = ""
 
         if apply_boilerplate:
-            finding = self.boiler.find(status, asset=asset, severity=severity)
-            comment = self.boiler.comm(status)
+            finding = self.boiler.get_finding(vid, status, asset=asset, severity=severity)
+            comment = self.boiler.get_comment(vid, status, asset=asset, severity=severity)
 
         status_node = ET.SubElement(vuln_node, "STATUS")
         status_node.text = status
@@ -1069,8 +1069,8 @@ class Proc:
             merged = True
 
         elif apply_boilerplate and status in Sch.STAT_VALS:
-            default_finding = self.boiler.find(status)
-            default_comment = self.boiler.comm(status)
+            default_finding = self.boiler.get_finding(vid, status)
+            default_comment = self.boiler.get_comment(vid, status)
             if default_finding and not current_finding.strip():
                 if finding_node is None:
                     finding_node = ET.SubElement(vuln, "FINDING_DETAILS")
