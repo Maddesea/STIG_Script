@@ -17,21 +17,20 @@ import threading
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Dict, List, Union
 from pathlib import Path
-
-# Import from local models module
-from .models import Hist
-
-# Import VERSION constant
-from stig_assessor.core.constants import VERSION
+from typing import Dict, List, Union
 
 # Import from modular package
 from stig_assessor.core.config import Cfg
+# Import VERSION constant
+from stig_assessor.core.constants import VERSION
 from stig_assessor.core.logging import LOG
-from stig_assessor.xml.sanitizer import San
-from stig_assessor.io.file_ops import FO
 from stig_assessor.exceptions import ParseError, ValidationError
+from stig_assessor.io.file_ops import FO
+from stig_assessor.xml.sanitizer import San
+
+# Import from local models module
+from .models import Hist
 
 
 class HistMgr:
@@ -58,13 +57,14 @@ class HistMgr:
         self._h: Dict[str, List[Hist]] = defaultdict(list)
         self._seen: Dict[str, set] = defaultdict(set)
         self._lock = threading.RLock()
-        
+
         # Initialize SQLite store if available
         self.db = None
         db_path = getattr(Cfg, "HISTORY_DB_FILE", None)
         if db_path:
             try:
                 from .sqlite_store import SQLiteStore
+
                 self.db = SQLiteStore(db_path)
             except (ImportError, OSError, RuntimeError) as exc:
                 LOG.w(f"Failed to initialize SQLite history store: {exc}")
@@ -144,7 +144,11 @@ class HistMgr:
             self._seen[vid].add(digest)
 
             # Save justification recursively to DB if it's considered an override/POA&M
-            if self.db and comm and stat.lower() in ("notafinding", "not_applicable", "open"):
+            if (
+                self.db
+                and comm
+                and stat.lower() in ("notafinding", "not_applicable", "open")
+            ):
                 try:
                     self.db.save_justification(vid, stat, comm, who)
                 except (OSError, RuntimeError) as exc:
@@ -191,8 +195,8 @@ class HistMgr:
 
         # Keep head and tail entries, compress middle
         head = entries[: Cfg.HIST_COMPRESS_HEAD]
-        tail = entries[-Cfg.HIST_COMPRESS_TAIL :]
-        middle = entries[Cfg.HIST_COMPRESS_HEAD : -Cfg.HIST_COMPRESS_TAIL]
+        tail = entries[-Cfg.HIST_COMPRESS_TAIL:]
+        middle = entries[Cfg.HIST_COMPRESS_HEAD: -Cfg.HIST_COMPRESS_TAIL]
 
         if middle:
             # Create compressed entry representing middle entries
@@ -302,22 +306,28 @@ class HistMgr:
             # Add current comment section if present
             if current.strip():
                 parts.extend(["═" * 80, "[CURRENT COMMENT]", current.strip(), "", ""])
-            
+
             # Check for persistent justification in DB if memory doesn't have good history
             if self.db:
                 try:
                     db_just = self.db.get_justification(vid)
-                    if db_just and db_just.get("comments") and db_just.get("comments") not in current:
-                        parts.extend([
-                            "═" * 80, 
-                            f"[PERSISTENT JUSTIFICATION] (from {db_just['who']} at {db_just['updated_at']})", 
-                            db_just['comments'], 
-                            ""
-                        ])
+                    if (
+                        db_just
+                        and db_just.get("comments")
+                        and db_just.get("comments") not in current
+                    ):
+                        parts.extend(
+                            [
+                                "═" * 80,
+                                f"[PERSISTENT JUSTIFICATION] (from {db_just['who']} at {db_just['updated_at']})",
+                                db_just["comments"],
+                                "",
+                            ]
+                        )
                 except (OSError, RuntimeError, KeyError) as e:
                     LOG.d(f"Failed to retrieve DB justification for {vid}: {e}")
 
-            if not history and len(parts) <= 5: # Only current comment added
+            if not history and len(parts) <= 5:  # Only current comment added
                 return current
             elif not history:
                 return "\n".join(parts)
@@ -361,7 +371,8 @@ class HistMgr:
                     "nentries": sum(len(vals) for vals in self._h.values()),
                 },
                 "history": {
-                    vid: [entry.as_dict() for entry in entries] for vid, entries in self._h.items()
+                    vid: [entry.as_dict() for entry in entries]
+                    for vid, entries in self._h.items()
                 },
             }
 

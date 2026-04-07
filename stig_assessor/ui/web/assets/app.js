@@ -56,11 +56,35 @@ function statBox(val, label, color = 'info') {
 
 
 /* ═══════════════════════════════════════════════════════════════════
+   LOADING OVERLAY
+   ═══════════════════════════════════════════════════════════════════ */
+
+function showLoading(msg = 'Processing…') {
+    let overlay = document.getElementById('loading-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'loading-overlay';
+        overlay.className = 'loading-overlay';
+        overlay.innerHTML = `<div class="loading-card"><div class="loading-spinner"></div><div class="loading-text" id="loading-text">${msg}</div></div>`;
+        document.body.appendChild(overlay);
+    }
+    const txt = document.getElementById('loading-text');
+    if (txt) txt.textContent = msg;
+    overlay.classList.add('active');
+}
+
+function hideLoading() {
+    document.getElementById('loading-overlay')?.classList.remove('active');
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
    API LAYER
    ═══════════════════════════════════════════════════════════════════ */
 
-async function postApi(url, payload, btn) {
+async function postApi(url, payload, btn, loadingMsg) {
     if (btn) btn.disabled = true;
+    if (loadingMsg !== false) showLoading(loadingMsg || 'Processing…');
     try {
         const resp = await fetch(url, {
             method: 'POST',
@@ -74,6 +98,7 @@ async function postApi(url, payload, btn) {
         showToast(`Network error: ${err.message}`, 'error');
         return { status: 'error', message: err.message };
     } finally {
+        hideLoading();
         if (btn) btn.disabled = false;
     }
 }
@@ -115,6 +140,28 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('modal-close')?.addEventListener('click', () => {
         document.getElementById('result-modal')?.classList.add('hidden');
     });
+    
+    // A11y Keyboard Handlers
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            const el = document.activeElement;
+            if (el && (el.classList.contains('nav-item') || el.classList.contains('upload-zone') || el.classList.contains('gs-step'))) {
+                e.preventDefault();
+                el.click();
+            }
+        }
+    });
+
+    // Mouse tracking for premium glassmorphism hover effect
+    document.addEventListener('mousemove', e => {
+        document.querySelectorAll('.card').forEach(card => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            card.style.setProperty('--mouse-x', `${x}px`);
+            card.style.setProperty('--mouse-y', `${y}px`);
+        });
+    });
 
     // Init all features
     initDropZones();
@@ -123,6 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
     wireRemediate();
     wireMerge();
     wireAnalytics();
+    wireFleet();
     wireDashboard();
     wireDiff();
     wireDrift();
@@ -130,6 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
     wireBoilerplates();
     wireValidate();
     wireRepair();
+    wireBulkOps();
     wireApiDocs();
 });
 
@@ -182,8 +231,9 @@ function initDropZones() {
     // Merge
     initDZ('merge-base-zone', 'merge-base-file', 'merge-base-label', checkMergeReady);
     initDZ('merge-hist-zone', 'merge-hist-files', 'merge-hist-label', checkMergeReady);
-    // Analytics
+    // Analytics & Fleet
     initDZ('analytics-upload-zone', 'analytics-ckl-file', 'analytics-file-label');
+    initDZ('fleet-upload-zone', 'fleet-zip-file', 'fleet-file-label');
     // Dashboard
     initDZ('dash-upload-zone', 'dash-ckl-file', 'dash-file-label');
     // Diff
@@ -268,11 +318,12 @@ function wireGenerate() {
         const res = await postApi('/api/v1/xccdf_to_ckl', {
             xccdf_b64: await toBase64(file),
             filename: file.name,
+            out_ext: document.getElementById('gen-out-ext')?.value || '.ckl',
             asset,
             ip: document.getElementById('gen-ip')?.value || '',
             mac: document.getElementById('gen-mac')?.value || '',
             role: 'None',
-        }, btn);
+        }, btn, 'Converting XCCDF to CKL…');
 
         if (res.status === 'success') {
             const d = res.data || {};
@@ -301,7 +352,7 @@ function wireExtract() {
             filename: file.name,
             enable_rollbacks: document.getElementById('ext-rollbacks')?.checked || false,
             do_ansible: document.getElementById('ext-ansible')?.checked !== false,
-        }, btn);
+        }, btn, 'Extracting remediation scripts…');
 
         if (res.status === 'success') {
             const s = res.stats || {};
@@ -333,7 +384,7 @@ function wireRemediate() {
             filename: cklFile.name,
             details_mode: document.getElementById('rem-details-mode')?.value || 'prepend',
             comment_mode: document.getElementById('rem-comment-mode')?.value || 'prepend',
-        }, btn);
+        }, btn, 'Applying remediation results…');
 
         if (res.status === 'success') {
             const d = res.data || {};
@@ -366,7 +417,7 @@ function wireMerge() {
             histories_b64: histB64,
             filename: base.name.replace('.ckl', '_merged.ckl'),
             preserve_history: document.getElementById('merge-preserve')?.checked !== false,
-        }, btn);
+        }, btn, 'Merging checklists…');
 
         if (res.status === 'success') {
             const d = res.data || {};
@@ -423,9 +474,117 @@ function wireAnalytics() {
 
             // Search
             const search = document.getElementById('analytics-search');
-            if (search) search.oninput = () => renderAnalyticsTable(details, search.value);
+            let debounceTimer;
+            if (search) {
+                search.oninput = () => {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        renderAnalyticsTable(details, search.value);
+                    }, 300);
+                };
+            }
+
+            // Export CSV
+            const exportBtn = document.getElementById('analytics-export-csv');
+            if (exportBtn) {
+                exportBtn.onclick = () => {
+                    if (!_analyticsData || !_analyticsData.length) return;
+                    const headers = ['VID', 'Status', 'Severity', 'Rule Title'];
+                    const rows = [headers.join(',')];
+                    let currentData = _analyticsData;
+                    const searchVal = search ? search.value.toLowerCase() : '';
+                    if (searchVal) {
+                        currentData = currentData.filter(f => (f.vid||'').toLowerCase().includes(searchVal) || (f.rule_title||'').toLowerCase().includes(searchVal));
+                    }
+                    currentData.forEach(d => {
+                        const row = [d.vid, d.status, d.severity || 'medium', `"${(d.rule_title||'').replace(/"/g, '""')}"`];
+                        rows.push(row.join(','));
+                    });
+                    downloadText(rows.join('\n'), 'analytics_export.csv', 'text/csv');
+                };
+            }
+
+            // Export HTML
+            const htmlBtn = document.getElementById('analytics-export-html');
+            if (htmlBtn) {
+                htmlBtn.onclick = () => {
+                    if (!s.html_report) {
+                        showToast('HTML report is not available for this checklist.', 'error');
+                        return;
+                    }
+                    downloadText(s.html_report, 'compliance_report.html', 'text/html');
+                };
+            }
+
+            // Export POAM
+            const poamBtn = document.getElementById('analytics-export-poam');
+            if (poamBtn) {
+                poamBtn.onclick = async () => {
+                    showToast('Generating POAM...', 'info');
+                    const res = await postApi('/api/v1/export_poam', { ckl_b64: await toBase64(file), filename: file.name });
+                    if (res.status === 'success' && res.data?.poam_b64) {
+                        const dlWrap = document.createElement('a');
+                        dlWrap.href = 'data:text/csv;base64,' + res.data.poam_b64;
+                        dlWrap.download = res.data.filename || 'poam.csv';
+                        dlWrap.click();
+                        showToast('POAM Generated Successfully!', 'success');
+                    }
+                };
+            }
 
             showToast('Analytics loaded!', 'success');
+        }
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   FLEET DASHBOARD
+   ═══════════════════════════════════════════════════════════════════ */
+
+function wireFleet() {
+    document.getElementById('fleet-zip-file')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        showToast('Analyzing Fleet ZIP…', 'info');
+        document.getElementById('fleet-getting-started')?.classList.add('hidden');
+        const res = await postApi('/api/v1/fleet_stats', { zip_b64: await toBase64(file) }, null, 'Processing Enclave Checklists...');
+
+        if (res.status === 'success') {
+            const f = res.fleet_data;
+            document.getElementById('fleet-results')?.classList.remove('hidden');
+
+            document.getElementById('fleet-top-stats').innerHTML =
+                statBox(f.total_assets || 0, 'Total Assets', 'info') +
+                statBox(f.total_vulns || 0, 'Total Vulns', 'info') +
+                statBox(f.by_status?.Open || 0, 'Open Finds', 'danger') +
+                statBox((f.compliance_pct || 0).toFixed(1) + '%', 'Fleet Compliance', 'success');
+
+            drawDonut('fleet-donut-chart', f.by_severity || {});
+            // Use the correct dictionary key here if it exists, otherwise pass empty.
+            if (f.by_status_and_severity && Object.keys(f.by_status_and_severity).length > 0) {
+               renderMatrix('fleet-matrix', f.by_status_and_severity || {});
+            } else {
+               document.getElementById('fleet-matrix').innerHTML = '<div class="sub-text" style="padding:24px;text-align:center;">Detailed status matrix not generated across batch contexts.</div>';
+            }
+
+            const tbody = document.getElementById('fleet-assets-tbody');
+            if (tbody) {
+                tbody.innerHTML = '';
+                (f.asset_compliance || []).forEach(a => {
+                    const tr = document.createElement('tr');
+                    const compClass = a.compliance_pct > 90 ? 'pass' : a.compliance_pct > 70 ? 'warn' : 'fail';
+                    tr.innerHTML = `
+                        <td>${a.file}</td>
+                        <td class="${compClass} font-bold">${a.compliance_pct.toFixed(1)}%</td>
+                        <td>${a.compliant}</td>
+                        <td>${a.reviewed}</td>
+                        <td>${a.total}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            showToast('Fleet analytics loaded!', 'success');
         }
     });
 }
@@ -513,7 +672,7 @@ function drawBarChart(containerId, statusCounts) {
         const v = statusCounts[k]||0;
         const bH = Math.max(3, (v/max)*(h-pad*2));
         const x = startX + i*(barW+gap), y = h-pad-bH;
-        svg += `<rect x="${x}" y="${y}" width="${barW}" height="${bH}" rx="5" fill="${colors[k]}" opacity=".85"><animate attributeName="height" from="0" to="${bH}" dur=".6s" fill="freeze"/><animate attributeName="y" from="${h-pad}" to="${y}" dur=".6s" fill="freeze"/></rect>`;
+        svg += `<rect x="${x}" y="${y}" width="${barW}" height="${bH}" rx="5" fill="${colors[k]}" opacity=".85"><title>${labels[k]}: ${v} vulnerability(ies)</title><animate attributeName="height" from="0" to="${bH}" dur=".6s" fill="freeze"/><animate attributeName="y" from="${h-pad}" to="${y}" dur=".6s" fill="freeze"/></rect>`;
         svg += `<text x="${x+barW/2}" y="${y-6}" text-anchor="middle" fill="white" font-size="13" font-weight="600">${v}</text>`;
         svg += `<text x="${x+barW/2}" y="${h-pad+16}" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="10">${labels[k]}</text>`;
     });
@@ -541,7 +700,7 @@ function drawDonut(containerId, bySeverity) {
         const ix1=cx+ir*Math.cos(cum+a), iy1=cy+ir*Math.sin(cum+a);
         const ix2=cx+ir*Math.cos(cum), iy2=cy+ir*Math.sin(cum);
         const la = a>Math.PI?1:0;
-        svg += `<path d="M${x1},${y1} A${r},${r} 0 ${la},1 ${x2},${y2} L${ix1},${iy1} A${ir},${ir} 0 ${la},0 ${ix2},${iy2} Z" fill="${d.color}" opacity=".85"/>`;
+        svg += `<path d="M${x1},${y1} A${r},${r} 0 ${la},1 ${x2},${y2} L${ix1},${iy1} A${ir},${ir} 0 ${la},0 ${ix2},${iy2} Z" fill="${d.color}" opacity=".85"><title>${d.label}: ${d.value} findings</title></path>`;
         cum += a;
     });
     svg += `<text x="${cx}" y="${cy-4}" text-anchor="middle" fill="white" font-size="20" font-weight="700">${total}</text>`;
@@ -632,6 +791,25 @@ function wireDrift() {
                 statBox(d.regressed?.length||0, 'Regressed', 'danger') +
                 statBox(d.changed?.length||0, 'Changed', 'warn') +
                 statBox(d.new?.length||0, 'New', 'info');
+            const btnExport = document.getElementById('drift-export-csv');
+            if (btnExport) {
+                btnExport.onclick = () => {
+                    const rows = ['VID,Category,From,To'];
+                    Object.entries(d).forEach(([category, items]) => {
+                        if (Array.isArray(items)) {
+                            items.forEach(item => {
+                                rows.push(`${item.vid},${category},${item.from || ''},${item.to || item.status || ''}`);
+                            });
+                        }
+                    });
+                    if (rows.length > 1) {
+                        downloadText(rows.join('\n'), `drift_${asset}.csv`, 'text/csv');
+                    } else {
+                        showToast('No drift data to export', 'warn');
+                    }
+                };
+            }
+
             showToast('Drift analysis done!', 'success');
         }
     });
@@ -847,3 +1025,71 @@ function wireApiDocs() {
     });
     container.innerHTML = html;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   BULK OPERATIONS
+   ═══════════════════════════════════════════════════════════════════ */
+
+function wireBulkOps() {
+    let _bulkFile = null;
+    let _bulkFileB64 = null;
+    
+    document.getElementById('bulk-ckl-file')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        _bulkFile = file;
+        _bulkFileB64 = await toBase64(file);
+        
+        document.getElementById('bulk-file-label').textContent = file.name;
+        document.getElementById('bulk-file-label').classList.remove('hidden');
+        document.getElementById('bulk-form-card')?.classList.remove('hidden');
+        document.getElementById('btn-run-bulk')?.classList.remove('hidden');
+        document.getElementById('btn-dl-bulk')?.classList.add('hidden');
+        showToast('Checklist loaded for bulk edit.', 'success');
+    });
+    
+    document.getElementById('btn-run-bulk')?.addEventListener('click', async () => {
+        if (!_bulkFileB64) return;
+        
+        const severity = document.getElementById('bulk-severity')?.value;
+        const regex_vid = document.getElementById('bulk-regex')?.value;
+        const new_status = document.getElementById('bulk-status')?.value;
+        const new_comment = document.getElementById('bulk-comment')?.value;
+        const append_comment = document.getElementById('bulk-append')?.checked;
+        
+        if (!new_status) {
+            showToast('New Status is required!', 'error');
+            return;
+        }
+        
+        const btn = document.getElementById('btn-run-bulk');
+        showToast('Running Bulk Overrides...', 'info');
+        
+        const res = await postApi('/api/v1/bulk_edit', {
+            ckl_b64: _bulkFileB64,
+            filename: _bulkFile.name,
+            severity,
+            regex_vid,
+            new_status,
+            new_comment,
+            append_comment
+        }, btn, 'Executing Changes...');
+        
+        if (res.status === 'success') {
+            document.getElementById('btn-run-bulk')?.classList.add('hidden');
+            const dlBtn = document.getElementById('btn-dl-bulk');
+            if (dlBtn) {
+                dlBtn.classList.remove('hidden');
+                dlBtn.onclick = () => {
+                   const a = document.createElement('a');
+                   a.href = 'data:application/xml;base64,' + res.data.ckl_b64;
+                   a.download = res.data.filename;
+                   a.click();
+                };
+            }
+            showModal('Success', res.message, statBox(res.data.updates, 'Vulns modified', 'success'));
+            showToast(res.message, 'success');
+        }
+    });
+}
+

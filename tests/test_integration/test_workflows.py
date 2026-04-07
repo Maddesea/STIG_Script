@@ -10,11 +10,11 @@ These tests verify end-to-end functionality across all modules:
 These tests require all modules to be implemented and integrated.
 """
 
-import unittest
-import tempfile
-import shutil
-from pathlib import Path
 import json
+import shutil
+import tempfile
+import unittest
+from pathlib import Path
 
 
 class TestXCCDFtoCKLWorkflow(unittest.TestCase):
@@ -295,5 +295,5 @@ class TestCLIIntegration(unittest.TestCase):
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

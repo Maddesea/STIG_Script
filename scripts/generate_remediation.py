@@ -40,7 +40,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-
 # ═══════════════════════════════════════════════════════════════════════════
 # JSON FORMAT SCHEMA
 # ═══════════════════════════════════════════════════════════════════════════
@@ -55,7 +54,7 @@ EXAMPLE_FORMATS = {
                 "ok": True,
                 "msg": "Successfully remediated",
                 "out": "Command executed successfully",
-                "err": ""
+                "err": "",
             },
             {
                 "vid": "V-123457",
@@ -63,9 +62,9 @@ EXAMPLE_FORMATS = {
                 "ok": False,
                 "msg": "Failed to remediate",
                 "out": "",
-                "err": "Permission denied"
-            }
-        ]
+                "err": "Permission denied",
+            },
+        ],
     },
     "standard_object": {
         "description": "Object with metadata (recommended for tracked deployments)",
@@ -75,7 +74,7 @@ EXAMPLE_FORMATS = {
                 "timestamp": "2025-11-16T12:00:00Z",
                 "hostname": "SERVER-01",
                 "operator": "admin@example.mil",
-                "remediation_version": "1.0"
+                "remediation_version": "1.0",
             },
             "results": [
                 {
@@ -84,10 +83,10 @@ EXAMPLE_FORMATS = {
                     "ok": True,
                     "msg": "Successfully remediated",
                     "out": "Registry key updated",
-                    "err": ""
+                    "err": "",
                 }
-            ]
-        }
+            ],
+        },
     },
     "multi_system": {
         "description": "Multiple systems in one file",
@@ -100,7 +99,7 @@ EXAMPLE_FORMATS = {
                         "ok": True,
                         "msg": "Remediated",
                         "out": "",
-                        "err": ""
+                        "err": "",
                     }
                 ],
                 "SERVER-02": [
@@ -110,18 +109,19 @@ EXAMPLE_FORMATS = {
                         "ok": True,
                         "msg": "Remediated",
                         "out": "",
-                        "err": ""
+                        "err": "",
                     }
-                ]
+                ],
             }
-        }
-    }
+        },
+    },
 }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def get_timestamp() -> str:
     """Get current timestamp in ISO 8601 format with UTC timezone."""
@@ -134,7 +134,7 @@ def create_result(
     msg: str = "",
     out: str = "",
     err: str = "",
-    timestamp: Optional[str] = None
+    timestamp: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Create a single remediation result entry.
@@ -156,7 +156,7 @@ def create_result(
         "ok": bool(ok),
         "msg": msg.strip(),
         "out": out.strip(),
-        "err": err.strip()
+        "err": err.strip(),
     }
 
 
@@ -171,7 +171,9 @@ def validate_vid(vid: str) -> bool:
         return False
 
 
-def extract_vids_from_ckl(ckl_path: Path, status_filter: Optional[str] = None) -> List[str]:
+def extract_vids_from_ckl(
+    ckl_path: Path, status_filter: Optional[str] = None
+) -> List[str]:
     """
     Extract vulnerability IDs from a CKL file.
 
@@ -239,25 +241,27 @@ def read_csv_results(csv_path: Path) -> List[Dict[str, Any]]:
     results = []
 
     try:
-        with open(csv_path, 'r', encoding='utf-8') as f:
+        with open(csv_path, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                vid = row.get('vid', '').strip()
+                vid = row.get("vid", "").strip()
                 if not vid or not validate_vid(vid):
                     print(f"Warning: Skipping invalid VID: {vid}", file=sys.stderr)
                     continue
 
-                ok_val = row.get('ok', 'true').strip().lower()
-                ok = ok_val in ('true', '1', 'yes', 'success')
+                ok_val = row.get("ok", "true").strip().lower()
+                ok = ok_val in ("true", "1", "yes", "success")
 
-                results.append(create_result(
-                    vid=vid,
-                    ok=ok,
-                    msg=row.get('msg', ''),
-                    out=row.get('out', ''),
-                    err=row.get('err', ''),
-                    timestamp=row.get('ts', None)
-                ))
+                results.append(
+                    create_result(
+                        vid=vid,
+                        ok=ok,
+                        msg=row.get("msg", ""),
+                        out=row.get("out", ""),
+                        err=row.get("err", ""),
+                        timestamp=row.get("ts", None),
+                    )
+                )
     except Exception as e:
         print(f"Error: Cannot read CSV file: {e}", file=sys.stderr)
         return []
@@ -267,20 +271,23 @@ def read_csv_results(csv_path: Path) -> List[Dict[str, Any]]:
 
 def generate_template_csv(output_path: Path, vids: List[str]):
     """Generate a template CSV file for manual editing."""
-    with open(output_path, 'w', newline='', encoding='utf-8') as f:
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(['vid', 'ok', 'msg', 'out', 'err'])
+        writer.writerow(["vid", "ok", "msg", "out", "err"])
 
         for vid in vids:
-            writer.writerow([vid, 'true', 'Remediated', '', ''])
+            writer.writerow([vid, "true", "Remediated", "", ""])
 
     print(f"✓ Template CSV generated: {output_path}")
-    print(f"  Edit this file and use: python generate_remediation.py --from-csv {output_path} --output results.json")
+    print(
+        f"  Edit this file and use: python generate_remediation.py --from-csv {output_path} --output results.json"
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # MAIN GENERATION LOGIC
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def generate_simple_array(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Generate simple array format."""
@@ -288,35 +295,30 @@ def generate_simple_array(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]
 
 
 def generate_standard_object(
-    results: List[Dict[str, Any]],
-    meta: Optional[Dict[str, Any]] = None
+    results: List[Dict[str, Any]], meta: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """Generate standard object format with metadata."""
     if meta is None:
         meta = {
             "description": "Remediation results",
             "timestamp": get_timestamp(),
-            "generated_by": "generate_remediation.py v1.0.0"
+            "generated_by": "generate_remediation.py v1.0.0",
         }
 
-    return {
-        "meta": meta,
-        "results": results
-    }
+    return {"meta": meta, "results": results}
 
 
 def generate_multi_system(
-    system_results: Dict[str, List[Dict[str, Any]]]
+    system_results: Dict[str, List[Dict[str, Any]]],
 ) -> Dict[str, Any]:
     """Generate multi-system format."""
-    return {
-        "systems": system_results
-    }
+    return {"systems": system_results}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # CLI COMMANDS
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def cmd_show_examples(args):
     """Show example JSON formats."""
@@ -324,17 +326,20 @@ def cmd_show_examples(args):
         fmt = args.format
         if fmt not in EXAMPLE_FORMATS:
             print(f"Error: Unknown format '{fmt}'", file=sys.stderr)
-            print(f"Available formats: {', '.join(EXAMPLE_FORMATS.keys())}", file=sys.stderr)
+            print(
+                f"Available formats: {', '.join(EXAMPLE_FORMATS.keys())}",
+                file=sys.stderr,
+            )
             return 1
 
         print(f"═══ {EXAMPLE_FORMATS[fmt]['description']} ═══\n")
-        print(json.dumps(EXAMPLE_FORMATS[fmt]['example'], indent=2))
+        print(json.dumps(EXAMPLE_FORMATS[fmt]["example"], indent=2))
     else:
         print("═══ SUPPORTED JSON FORMATS ═══\n")
         for name, info in EXAMPLE_FORMATS.items():
             print(f"Format: {name}")
             print(f"  {info['description']}\n")
-            print(json.dumps(info['example'], indent=2))
+            print(json.dumps(info["example"], indent=2))
             print("\n" + "─" * 80 + "\n")
 
     return 0
@@ -352,7 +357,7 @@ def cmd_generate_single(args):
         ok=args.ok,
         msg=args.msg or ("Remediated" if args.ok else "Failed"),
         out=args.out or "",
-        err=args.err or ""
+        err=args.err or "",
     )
 
     output = generate_simple_array([result])
@@ -368,7 +373,7 @@ def cmd_generate_single(args):
 
 def cmd_generate_batch(args):
     """Generate multiple results from comma-separated VIDs."""
-    vids = [v.strip() for v in args.batch.split(',')]
+    vids = [v.strip() for v in args.batch.split(",")]
 
     results = []
     for vid in vids:
@@ -376,13 +381,15 @@ def cmd_generate_batch(args):
             print(f"Warning: Skipping invalid VID: {vid}", file=sys.stderr)
             continue
 
-        results.append(create_result(
-            vid=vid,
-            ok=args.all_ok if args.all_ok is not None else True,
-            msg=args.msg or ("Remediated" if args.all_ok else "Not remediated"),
-            out=args.out or "",
-            err=args.err or ""
-        ))
+        results.append(
+            create_result(
+                vid=vid,
+                ok=args.all_ok if args.all_ok is not None else True,
+                msg=args.msg or ("Remediated" if args.all_ok else "Not remediated"),
+                out=args.out or "",
+                err=args.err or "",
+            )
+        )
 
     if not results:
         print("Error: No valid VIDs provided", file=sys.stderr)
@@ -415,11 +422,14 @@ def cmd_from_csv(args):
         return 1
 
     if args.format_type == "object":
-        output = generate_standard_object(results, meta={
-            "description": f"Results from {csv_path.name}",
-            "timestamp": get_timestamp(),
-            "source": str(csv_path)
-        })
+        output = generate_standard_object(
+            results,
+            meta={
+                "description": f"Results from {csv_path.name}",
+                "timestamp": get_timestamp(),
+                "source": str(csv_path),
+            },
+        )
     else:
         output = generate_simple_array(results)
 
@@ -456,12 +466,15 @@ def cmd_from_ckl(args):
     results = [create_result(vid=vid, ok=True, msg="Remediated") for vid in vids]
 
     if args.format_type == "object":
-        output = generate_standard_object(results, meta={
-            "description": f"Results from {ckl_path.name}",
-            "timestamp": get_timestamp(),
-            "source": str(ckl_path),
-            "status_filter": args.status
-        })
+        output = generate_standard_object(
+            results,
+            meta={
+                "description": f"Results from {ckl_path.name}",
+                "timestamp": get_timestamp(),
+                "source": str(ckl_path),
+                "status_filter": args.status,
+            },
+        )
     else:
         output = generate_simple_array(results)
 
@@ -501,7 +514,9 @@ def cmd_multi_system(args):
     if args.output:
         Path(args.output).write_text(json.dumps(output, indent=2))
         total = sum(len(r) for r in system_results.values())
-        print(f"✓ Generated multi-system file with {total} total results: {args.output}")
+        print(
+            f"✓ Generated multi-system file with {total} total results: {args.output}"
+        )
     else:
         print(json.dumps(output, indent=2))
 
@@ -511,6 +526,7 @@ def cmd_multi_system(args):
 # ═══════════════════════════════════════════════════════════════════════════
 # INTERACTIVE MODE
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def interactive_mode():
     """Interactive mode for generating remediation files."""
@@ -529,13 +545,19 @@ def interactive_mode():
 
         if choice == "1":
             ckl_path = input("Enter CKL file path: ").strip()
-            status = input("Filter by status (Open/Not_Reviewed/blank for all): ").strip() or None
+            status = (
+                input("Filter by status (Open/Not_Reviewed/blank for all): ").strip()
+                or None
+            )
             output_path = input("Output JSON file path: ").strip()
 
             if Path(ckl_path).exists():
                 vids = extract_vids_from_ckl(Path(ckl_path), status)
                 if vids:
-                    results = [create_result(vid=vid, ok=True, msg="Remediated") for vid in vids]
+                    results = [
+                        create_result(vid=vid, ok=True, msg="Remediated")
+                        for vid in vids
+                    ]
                     output = generate_standard_object(results)
                     Path(output_path).write_text(json.dumps(output, indent=2))
                     print(f"✓ Generated {len(vids)} results: {output_path}")
@@ -588,58 +610,67 @@ def interactive_mode():
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate remediation JSON files for STIG_Script.py",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        epilog=__doc__,
     )
 
     # General options
-    parser.add_argument("-o", "--output", help="Output JSON file path (prints to stdout if omitted)")
+    parser.add_argument(
+        "-o", "--output", help="Output JSON file path (prints to stdout if omitted)"
+    )
     parser.add_argument(
         "--format-type",
         choices=["array", "object"],
         default="array",
-        help="Output format type (default: array)"
+        help="Output format type (default: array)",
     )
 
     # Show examples
     parser.add_argument(
-        "--examples",
-        action="store_true",
-        help="Show example JSON formats and exit"
+        "--examples", action="store_true", help="Show example JSON formats and exit"
     )
     parser.add_argument(
         "--format",
         choices=list(EXAMPLE_FORMATS.keys()),
-        help="Show specific format example"
+        help="Show specific format example",
     )
 
     # Single result
     parser.add_argument("--vid", help="Generate single result for this VID")
-    parser.add_argument("--ok", action="store_true", help="Mark as successful (for single result)")
+    parser.add_argument(
+        "--ok", action="store_true", help="Mark as successful (for single result)"
+    )
     parser.add_argument("--msg", help="Result message")
     parser.add_argument("--out", help="Command output")
     parser.add_argument("--err", help="Error message")
 
     # Batch mode
     parser.add_argument("--batch", help="Comma-separated list of VIDs")
-    parser.add_argument("--all-ok", action="store_true", help="Mark all as successful (batch mode)")
+    parser.add_argument(
+        "--all-ok", action="store_true", help="Mark all as successful (batch mode)"
+    )
 
     # From CSV
-    parser.add_argument("--from-csv", help="Generate from CSV file (vid,ok,msg,out,err)")
+    parser.add_argument(
+        "--from-csv", help="Generate from CSV file (vid,ok,msg,out,err)"
+    )
 
     # From CKL
     parser.add_argument("--from-ckl", help="Extract VIDs from CKL file")
-    parser.add_argument("--status", help="Filter CKL by status (Open, Not_Reviewed, etc.)")
+    parser.add_argument(
+        "--status", help="Filter CKL by status (Open, Not_Reviewed, etc.)"
+    )
     parser.add_argument("--template-csv", help="Generate CSV template instead of JSON")
 
     # Multi-system
     parser.add_argument(
         "--multi-system",
         nargs="+",
-        help="Generate multi-system format from multiple CSV files"
+        help="Generate multi-system format from multiple CSV files",
     )
 
     args = parser.parse_args()

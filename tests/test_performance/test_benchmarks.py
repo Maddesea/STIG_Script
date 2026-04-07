@@ -22,12 +22,12 @@ Requirements:
     pip install pytest-benchmark memory_profiler
 """
 
-import unittest
-import tempfile
 import shutil
+import tempfile
 import time
-from pathlib import Path
+import unittest
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 
 class PerformanceBenchmark(unittest.TestCase):
@@ -101,7 +101,7 @@ class PerformanceBenchmark(unittest.TestCase):
         # Write
         path = self.temp_dir / f"large_{num_vulns}.ckl"
         tree = ET.ElementTree(root)
-        tree.write(path, encoding='utf-8', xml_declaration=True)
+        tree.write(path, encoding="utf-8", xml_declaration=True)
 
         return path
 
@@ -217,15 +217,16 @@ class TestRemediationPerformance(PerformanceBenchmark):
                     "vid": f"V-{100000 + i}",
                     "status": "NotAFinding",
                     "finding_details": f"Fix {i} applied",
-                    "comments": "Automated"
+                    "comments": "Automated",
                 }
                 for i in range(1000)
             ]
         }
 
         import json
+
         results_path = self.temp_dir / "results.json"
-        results_path.write_text(json.dumps(results), encoding='utf-8')
+        results_path.write_text(json.dumps(results), encoding="utf-8")
 
         self.start_timer()
         # processor = FixResPro()
@@ -249,10 +250,11 @@ class TestMemoryUsage(PerformanceBenchmark):
         Requirements:
         - Peak memory < 500MB
         - No memory leaks (return to baseline after)
-        
+
         Uses tracemalloc standard library.
         """
         import tracemalloc
+
         tracemalloc.start()
 
         ckl_path = self.create_large_ckl(15000)
@@ -262,10 +264,10 @@ class TestMemoryUsage(PerformanceBenchmark):
             pass
 
         process_file()
-        
+
         current, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
-        
+
         peak_mb = peak / 1024 / 1024
 
         print(f"\nPeak memory for 15K VULNs: {peak_mb:.1f} MB")
@@ -289,5 +291,5 @@ class TestConcurrentOperations(PerformanceBenchmark):
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

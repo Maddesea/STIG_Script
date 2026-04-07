@@ -15,8 +15,8 @@ from typing import FrozenSet
 # VERSION INFORMATION
 # ──────────────────────────────────────────────────────────────────────────────
 
-VERSION = "8.0.0"
-BUILD_DATE = "2025-11-16"
+VERSION = "8.1.0"
+BUILD_DATE = "2026-04-07"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
 STIG_VIEWER_3_VERSION = "3.3"

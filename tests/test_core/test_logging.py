@@ -1,6 +1,7 @@
 """Tests for logging module."""
 
 import unittest
+
 from stig_assessor.core.logging import Log
 
 

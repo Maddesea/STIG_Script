@@ -4,13 +4,14 @@ All stdlib-only. No external dependencies.
 """
 
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
-from pathlib import Path
-from contextlib import suppress
+
 import json
 import os
 import platform
 import subprocess
+from contextlib import suppress
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # ──────────────────────────────────────────────────────────────────────────────
 # SETTINGS PERSISTENCE
@@ -191,8 +192,10 @@ try:
         def __call__(self, *args, **kwargs):
             if self._after_id:
                 self.widget.after_cancel(self._after_id)
-            self._after_id = self.widget.after(self.delay_ms, self._execute, args, kwargs)
-            
+            self._after_id = self.widget.after(
+                self.delay_ms, self._execute, args, kwargs
+            )
+
         def _execute(self, args, kwargs):
             self._after_id = None
             self.callback(*args, **kwargs)

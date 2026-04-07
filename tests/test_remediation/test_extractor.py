@@ -1,9 +1,9 @@
 """Tests for remediation extractor."""
 
-import unittest
 import tempfile
+import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
 # Note: These tests are designed to work when the full modular system is in place
 # For now, they serve as documentation of expected behavior
@@ -20,8 +20,8 @@ class TestFixExt(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         import shutil
-        shutil.rmtree(self.test_dir, ignore_errors=True)
 
+        shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_extractor_initialization(self):
         """Test FixExt initialization."""
@@ -41,7 +41,6 @@ class TestFixExt(unittest.TestCase):
         extractor = FixExt(self.test_xccdf)
         self.assertEqual(extractor.xccdf.resolve(), self.test_xccdf.resolve())
         self.assertEqual(len(extractor.fixes), 0)
-
 
     def test_extract_fixes(self):
         """Test extracting fixes from XCCDF."""
@@ -123,11 +122,13 @@ class TestFixExtExport(unittest.TestCase):
         </Benchmark>
         """)
         from stig_assessor.remediation import FixExt
+
         self.extractor = FixExt(self.test_xccdf)
         self.extractor.extract()
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_export_to_json(self):
@@ -136,6 +137,7 @@ class TestFixExtExport(unittest.TestCase):
         self.extractor.to_json(out_json)
         self.assertTrue(out_json.exists())
         import json
+
         content = json.loads(out_json.read_text())
         self.assertIn("fixes", content)
         self.assertGreater(len(content["fixes"]), 0)
@@ -158,7 +160,19 @@ class TestFixExtExport(unittest.TestCase):
         """Test PowerShell script generation."""
         # For powershell we need a windows fix
         from stig_assessor.remediation.models import Fix
-        self.extractor.fixes.append(Fix(vid="V-999", rule_id="1", severity="medium", title="t", group_title="g", fix_text="test", fix_command="Set-Item", platform="windows"))
+
+        self.extractor.fixes.append(
+            Fix(
+                vid="V-999",
+                rule_id="1",
+                severity="medium",
+                title="t",
+                group_title="g",
+                fix_text="test",
+                fix_command="Set-Item",
+                platform="windows",
+            )
+        )
         out_ps1 = Path(self.test_dir) / "out.ps1"
         self.extractor.to_powershell(out_ps1)
         self.assertTrue(out_ps1.exists())

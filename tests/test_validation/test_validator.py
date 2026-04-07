@@ -1,15 +1,15 @@
 """
 Tests for STIG Viewer 2.18 compatibility validator.
 
-Team 5 Validation Module Tests 
+Team 5 Validation Module Tests
 (Migrated to standard unittest for zero-dependencies)
 """
 
-import unittest
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
+import unittest
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 from tests.test_utils import sample_ckl_content
 
@@ -19,11 +19,11 @@ class TestValValidation(unittest.TestCase):
 
     def setUp(self):
         self.temp_dir = Path(tempfile.mkdtemp(prefix="stig_val_test_"))
-        
+
         # Valid CKL fixture
         self.valid_ckl_content = sample_ckl_content()
         self.valid_ckl_file = self.temp_dir / "valid.ckl"
-        self.valid_ckl_file.write_text(self.valid_ckl_content, encoding='utf-8')
+        self.valid_ckl_file.write_text(self.valid_ckl_content, encoding="utf-8")
 
     def tearDown(self):
         if self.temp_dir.exists():
@@ -33,6 +33,7 @@ class TestValValidation(unittest.TestCase):
         """Test validation of a valid CKL file."""
         try:
             from stig_assessor.validation import Val
+
             validator = Val()
             is_valid, errors, warnings, info = validator.validate(self.valid_ckl_file)
             self.assertTrue(is_valid)
@@ -44,8 +45,11 @@ class TestValValidation(unittest.TestCase):
         """Test validation of non-existent file."""
         try:
             from stig_assessor.validation import Val
+
             validator = Val()
-            is_valid, errors, warnings, info = validator.validate(self.temp_dir / "nonexistent.ckl")
+            is_valid, errors, warnings, info = validator.validate(
+                self.temp_dir / "nonexistent.ckl"
+            )
             self.assertFalse(is_valid)
             self.assertGreater(len(errors), 0)
         except ImportError:
@@ -55,12 +59,15 @@ class TestValValidation(unittest.TestCase):
         """Test validation of invalid XML content."""
         try:
             from stig_assessor.validation import Val
+
             bad_file = self.temp_dir / "bad.ckl"
-            bad_file.write_text("<CHECKLIST><NOT_CLOSED>", encoding='utf-8')
+            bad_file.write_text("<CHECKLIST><NOT_CLOSED>", encoding="utf-8")
             validator = Val()
             is_valid, errors, warnings, info = validator.validate(bad_file)
             self.assertFalse(is_valid)
-            self.assertTrue(any("parse" in e.lower() or "xml" in e.lower() for e in errors))
+            self.assertTrue(
+                any("parse" in e.lower() or "xml" in e.lower() for e in errors)
+            )
         except ImportError:
             self.skipTest("Modular package not fully available")
 
@@ -68,6 +75,7 @@ class TestValValidation(unittest.TestCase):
         """Test validation of CKL missing ASSET element."""
         try:
             from stig_assessor.validation import Val
+
             content = """<?xml version="1.0"?>
 <CHECKLIST>
     <STIGS>
@@ -77,7 +85,7 @@ class TestValValidation(unittest.TestCase):
     </STIGS>
 </CHECKLIST>"""
             bad_file = self.temp_dir / "no_asset.ckl"
-            bad_file.write_text(content, encoding='utf-8')
+            bad_file.write_text(content, encoding="utf-8")
             validator = Val()
             is_valid, errors, warnings, info = validator.validate(bad_file)
             self.assertFalse(is_valid)
@@ -89,6 +97,7 @@ class TestValValidation(unittest.TestCase):
         """Test validation of CKL missing STIGS element."""
         try:
             from stig_assessor.validation import Val
+
             content = """<?xml version="1.0"?>
 <CHECKLIST>
     <ASSET>
@@ -101,7 +110,7 @@ class TestValValidation(unittest.TestCase):
     </ASSET>
 </CHECKLIST>"""
             bad_file = self.temp_dir / "no_stigs.ckl"
-            bad_file.write_text(content, encoding='utf-8')
+            bad_file.write_text(content, encoding="utf-8")
             validator = Val()
             is_valid, errors, warnings, info = validator.validate(bad_file)
             self.assertFalse(is_valid)
@@ -113,6 +122,7 @@ class TestValValidation(unittest.TestCase):
         """Test validation catches invalid STATUS values."""
         try:
             from stig_assessor.validation import Val
+
             content = """<?xml version="1.0"?>
 <CHECKLIST>
     <ASSET>
@@ -137,7 +147,7 @@ class TestValValidation(unittest.TestCase):
     </STIGS>
 </CHECKLIST>"""
             bad_file = self.temp_dir / "bad_status.ckl"
-            bad_file.write_text(content, encoding='utf-8')
+            bad_file.write_text(content, encoding="utf-8")
             validator = Val()
             is_valid, errors, warnings, info = validator.validate(bad_file)
             self.assertFalse(is_valid)
@@ -149,6 +159,7 @@ class TestValValidation(unittest.TestCase):
         """Test validation catches invalid WEB_OR_DATABASE values."""
         try:
             from stig_assessor.validation import Val
+
             content = """<?xml version="1.0"?>
 <CHECKLIST>
     <ASSET>
@@ -177,7 +188,7 @@ class TestValValidation(unittest.TestCase):
     </STIGS>
 </CHECKLIST>"""
             bad_file = self.temp_dir / "bad_web.ckl"
-            bad_file.write_text(content, encoding='utf-8')
+            bad_file.write_text(content, encoding="utf-8")
             validator = Val()
             is_valid, errors, warnings, info = validator.validate(bad_file)
             self.assertFalse(is_valid)
@@ -189,6 +200,7 @@ class TestValValidation(unittest.TestCase):
         """Test that validation returns statistics in info."""
         try:
             from stig_assessor.validation import Val
+
             validator = Val()
             is_valid, errors, warnings, info = validator.validate(self.valid_ckl_file)
             self.assertTrue(any("vulnerabilities" in i.lower() for i in info))
@@ -198,11 +210,12 @@ class TestValValidation(unittest.TestCase):
     def test_validate_strict_raises(self):
         """Test that validate_strict raises ValidationError on failure."""
         try:
-            from stig_assessor.validation import Val
             from stig_assessor.exceptions import ValidationError
+            from stig_assessor.validation import Val
+
             content = "<CHECKLIST></CHECKLIST>"
             bad_file = self.temp_dir / "minimal.ckl"
-            bad_file.write_text(content, encoding='utf-8')
+            bad_file.write_text(content, encoding="utf-8")
             validator = Val()
             with self.assertRaises(ValidationError):
                 validator.validate_strict(bad_file)
@@ -213,6 +226,7 @@ class TestValValidation(unittest.TestCase):
         """Test that non-standard MARKING produces a warning."""
         try:
             from stig_assessor.validation import Val
+
             content = """<?xml version="1.0"?>
 <CHECKLIST>
     <ASSET>
@@ -241,7 +255,7 @@ class TestValValidation(unittest.TestCase):
     </STIGS>
 </CHECKLIST>"""
             file = self.temp_dir / "custom_marking.ckl"
-            file.write_text(content, encoding='utf-8')
+            file.write_text(content, encoding="utf-8")
             validator = Val()
             is_valid, errors, warnings, info = validator.validate(file)
             self.assertTrue(any("MARKING" in w for w in warnings))
@@ -256,6 +270,7 @@ class TestValXmlStructure(unittest.TestCase):
         """Test XML structure validation with valid root."""
         try:
             from stig_assessor.validation import Val
+
             xml_str = """<CHECKLIST>
                 <ASSET></ASSET>
                 <STIGS>
@@ -276,6 +291,7 @@ class TestValXmlStructure(unittest.TestCase):
         """Test XML structure validation with wrong root element."""
         try:
             from stig_assessor.validation import Val
+
             xml_str = "<WRONGROOT></WRONGROOT>"
             root = ET.fromstring(xml_str)
             validator = Val()
@@ -293,6 +309,7 @@ class TestValSingletonInstance(unittest.TestCase):
         """Test that singleton validator instance is available."""
         try:
             from stig_assessor.validation import validator
+
             self.assertIsNotNone(validator)
         except ImportError:
             self.skipTest("Modular package not fully available")
@@ -301,9 +318,11 @@ class TestValSingletonInstance(unittest.TestCase):
         """Test that singleton is an instance of Val."""
         try:
             from stig_assessor.validation import Val, validator
+
             self.assertIsInstance(validator, Val)
         except ImportError:
             self.skipTest("Modular package not fully available")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -10,10 +10,11 @@ Team: 7 (Phase 2)
 """
 
 from __future__ import annotations
-from typing import Dict, Optional, Any
-from pathlib import Path
-from xml.etree.ElementTree import Element
+
 import json
+from pathlib import Path
+from typing import Any, Dict, Optional
+from xml.etree.ElementTree import Element
 
 from stig_assessor.core.constants import Status
 
@@ -51,8 +52,8 @@ class BP:
 
     def load(self) -> None:
         """Load templates from file."""
-        from stig_assessor.io.file_ops import FO
         from stig_assessor.core.logging import LOG
+        from stig_assessor.io.file_ops import FO
 
         if not self.template_file.exists():
             LOG.i("No boilerplate file found, using defaults")
@@ -67,9 +68,9 @@ class BP:
                 self._load_defaults()
                 self.save()
                 return
-                
+
             raw_templates = json.loads(content)
-            
+
             migrated = False
             self.templates = {}
             for vid, statuses in raw_templates.items():
@@ -78,16 +79,16 @@ class BP:
                     if isinstance(value, str):
                         self.templates[vid][status] = {
                             "finding_details": value,
-                            "comments": "Reviewed by automated script."
+                            "comments": "Reviewed by automated script.",
                         }
                         migrated = True
                     else:
                         self.templates[vid][status] = value
-            
+
             if migrated:
                 LOG.i("Migrated legacy string boilerplates to dictionary format.")
                 self.save()
-                
+
             LOG.i(f"Loaded {len(self.templates)} boilerplate templates")
         except (OSError, ValueError, TypeError) as e:
             LOG.e(f"Failed to load boilerplate: {e}")
@@ -96,10 +97,11 @@ class BP:
     def save(self) -> None:
         """Save templates to file."""
         self._write_to_path(self.template_file)
-        
+
     def _write_to_path(self, target_path: Path) -> None:
-        from stig_assessor.io.file_ops import FO
         from stig_assessor.exceptions import FileError
+        from stig_assessor.io.file_ops import FO
+
         try:
             content = json.dumps(self.templates, indent=2, ensure_ascii=False)
             with FO.atomic(target_path, bak=False) as f:
@@ -110,11 +112,12 @@ class BP:
     def export(self, path: str) -> None:
         """Export boilerplates to a specific JSON file."""
         self._write_to_path(Path(path))
-        
+
     def imp(self, path: str) -> None:
         """Import boilerplates dynamically from JSON file and merge them."""
-        from stig_assessor.io.file_ops import FO
         from stig_assessor.core.logging import LOG
+        from stig_assessor.io.file_ops import FO
+
         try:
             p = Path(path)
             if not p.exists():
@@ -126,12 +129,21 @@ class BP:
                     self.templates[vid] = {}
                 for status, value in statuses.items():
                     if isinstance(value, str):
-                        self.templates[vid][status] = {"finding_details": value, "comments": "Imported comment template"}
+                        self.templates[vid][status] = {
+                            "finding_details": value,
+                            "comments": "Imported comment template",
+                        }
                     else:
                         self.templates[vid][status] = value
             self.save()
             LOG.i(f"Imported boilerplates from {path}")
-        except (json.JSONDecodeError, OSError, TypeError, ValueError, KeyError) as e:
+        except (
+            json.JSONDecodeError,
+            OSError,
+            TypeError,
+            ValueError,
+            KeyError,
+        ) as e:
             LOG.e(f"Import boilerplate failed: {e}")
 
     def _resolve(self, vid: str, status: str, field: str, **kwargs) -> Optional[str]:
@@ -143,10 +155,10 @@ class BP:
                 raw_text = entry.get(field)
                 if raw_text is not None:
                     break
-        
+
         if raw_text is None:
             return None
-            
+
         return raw_text.format(**kwargs) if kwargs else raw_text
 
     def get_finding(self, vid: str, status: str, **kwargs) -> Optional[str]:
@@ -158,7 +170,7 @@ class BP:
     # Legacy shims mapped to global V-* for processor compatibility if vid wasn't passed
     def find(self, status: str, **kwargs) -> Optional[str]:
         return self.get_finding("V-*", status, **kwargs)
-        
+
     def comm(self, status: str, **kwargs) -> Optional[str]:
         return self.get_comment("V-*", status, **kwargs)
 
@@ -168,7 +180,7 @@ class BP:
             self.templates[vid] = {}
         self.templates[vid][status] = {
             "finding_details": finding,
-            "comments": comment
+            "comments": comment,
         }
         self.save()
 
@@ -189,14 +201,16 @@ class BP:
         self.save()
         return True
 
-    def apply_to_vuln(self, vuln_elem: Element, vid: str, status: str, **kwargs) -> bool:
+    def apply_to_vuln(
+        self, vuln_elem: Element, vid: str, status: str, **kwargs
+    ) -> bool:
         """Apply boilerplate to VULN element."""
         from stig_assessor.xml.schema import Sch
         from stig_assessor.xml.utils import XmlUtils
 
         finding_text = self.get_finding(vid, status, **kwargs)
         comments_text = self.get_comment(vid, status, **kwargs)
-        
+
         applied = False
 
         if finding_text:
@@ -223,22 +237,23 @@ class BP:
             "V-*": {
                 Status.NOT_A_FINDING.value: {
                     "finding_details": "This control is satisfied. Evidence: {asset}",
-                    "comments": "Reviewed by automated script."
+                    "comments": "Reviewed by automated script.",
                 },
                 Status.NOT_APPLICABLE.value: {
                     "finding_details": "This control does not apply because: [justification]",
-                    "comments": "Not applicable to {asset} configuration."
+                    "comments": "Not applicable to {asset} configuration.",
                 },
                 Status.OPEN.value: {
                     "finding_details": "This control is not satisfied. Findings: [describe issue]",
-                    "comments": "Remediation pending for {asset}."
-                }
+                    "comments": "Remediation pending for {asset}.",
+                },
             }
         }
 
     def list_all(self) -> Dict[str, Dict[str, Any]]:
         """Get all templates."""
         import copy
+
         return copy.deepcopy(self.templates)
 
 

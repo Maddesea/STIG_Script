@@ -10,6 +10,9 @@ Tests the HistMgr class including:
 - Thread safety
 """
 
+from stig_assessor.core.config import Cfg
+from stig_assessor.history.models import Hist
+from stig_assessor.history.manager import HistMgr
 import unittest
 import tempfile
 import json
@@ -20,9 +23,6 @@ import sys
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from stig_assessor.history.manager import HistMgr
-from stig_assessor.history.models import Hist
-from stig_assessor.core.config import Cfg
 
 # Disable sqlite DB connection during tests to avoid inter-test state leakage
 Cfg.HISTORY_DB_FILE = None
@@ -49,7 +49,7 @@ class TestHistMgrBasics(unittest.TestCase):
             comm="Needs remediation",
             src="manual",
             sev="high",
-            who="analyst1"
+            who="analyst1",
         )
 
         self.assertTrue(result)
@@ -58,11 +58,7 @@ class TestHistMgrBasics(unittest.TestCase):
     def test_add_entry_with_invalid_vid(self):
         """Test that invalid VID is rejected."""
         result = self.mgr.add(
-            vid="",
-            stat="Open",
-            find="Finding",
-            comm="Comment",
-            src="test"
+            vid="", stat="Open", find="Finding", comm="Comment", src="test"
         )
 
         # Should fail validation
@@ -70,24 +66,14 @@ class TestHistMgrBasics(unittest.TestCase):
 
     def test_add_entry_with_empty_find_and_comm(self):
         """Test that entry with no finding or comment is rejected."""
-        result = self.mgr.add(
-            vid="V-12345",
-            stat="Open",
-            find="",
-            comm="",
-            src="test"
-        )
+        result = self.mgr.add(vid="V-12345", stat="Open", find="", comm="", src="test")
 
         self.assertFalse(result)
 
     def test_add_entry_with_only_find(self):
         """Test that entry with only finding is accepted."""
         result = self.mgr.add(
-            vid="V-12345",
-            stat="Open",
-            find="Finding details",
-            comm="",
-            src="test"
+            vid="V-12345", stat="Open", find="Finding details", comm="", src="test"
         )
 
         self.assertTrue(result)
@@ -95,11 +81,7 @@ class TestHistMgrBasics(unittest.TestCase):
     def test_add_entry_with_only_comm(self):
         """Test that entry with only comment is accepted."""
         result = self.mgr.add(
-            vid="V-12345",
-            stat="Open",
-            find="",
-            comm="Comment here",
-            src="test"
+            vid="V-12345", stat="Open", find="", comm="Comment here", src="test"
         )
 
         self.assertTrue(result)
@@ -122,7 +104,7 @@ class TestHistMgrDeduplication(unittest.TestCase):
             comm="Comment",
             src="test",
             sev="high",
-            who="analyst"
+            who="analyst",
         )
 
         # Try to add duplicate
@@ -133,7 +115,7 @@ class TestHistMgrDeduplication(unittest.TestCase):
             comm="Comment",
             src="test",
             sev="high",
-            who="analyst"
+            who="analyst",
         )
 
         self.assertTrue(result1)
@@ -143,19 +125,11 @@ class TestHistMgrDeduplication(unittest.TestCase):
     def test_different_entries_not_duplicates(self):
         """Test that different entries are not considered duplicates."""
         result1 = self.mgr.add(
-            vid="V-12345",
-            stat="Open",
-            find="Finding 1",
-            comm="Comment",
-            src="test"
+            vid="V-12345", stat="Open", find="Finding 1", comm="Comment", src="test"
         )
 
         result2 = self.mgr.add(
-            vid="V-12345",
-            stat="Open",
-            find="Finding 2",
-            comm="Comment",
-            src="test"
+            vid="V-12345", stat="Open", find="Finding 2", comm="Comment", src="test"
         )
 
         self.assertTrue(result1)
@@ -171,16 +145,12 @@ class TestHistMgrDeduplication(unittest.TestCase):
                 stat="Open",
                 find=f"Finding {i}",
                 comm="Comment",
-                src="test"
+                src="test",
             )
 
         # Try to add duplicate of first entry
         result = self.mgr.add(
-            vid="V-12345",
-            stat="Open",
-            find="Finding 0",
-            comm="Comment",
-            src="test"
+            vid="V-12345", stat="Open", find="Finding 0", comm="Comment", src="test"
         )
 
         self.assertFalse(result)
@@ -226,19 +196,12 @@ class TestHistMgrCompression(unittest.TestCase):
         # Add more than MAX_HIST entries
         for i in range(Cfg.MAX_HIST + 10):
             self.mgr.add(
-                vid="V-12345",
-                stat="Open",
-                find=f"Finding {i}",
-                comm="",
-                src="test"
+                vid="V-12345", stat="Open", find=f"Finding {i}", comm="", src="test"
             )
 
         # Should be compressed to approximately MAX_HIST entries
         # (head + compressed + tail)
-        self.assertLessEqual(
-            len(self.mgr._h["V-12345"]),
-            Cfg.MAX_HIST
-        )
+        self.assertLessEqual(len(self.mgr._h["V-12345"]), Cfg.MAX_HIST)
 
     def test_compression_preserves_head_and_tail(self):
         """Test that compression keeps head and tail entries."""
@@ -249,6 +212,7 @@ class TestHistMgrCompression(unittest.TestCase):
         # So we need middle = MAX_HIST - HEAD - TAIL > 0
         # 200 - 15 - 100 = 85, so we need more than 200 entries
         import time
+
         for i in range(Cfg.MAX_HIST + 50):
             # Add unique entries with slight delay to ensure different timestamps
             self.mgr.add(
@@ -256,7 +220,7 @@ class TestHistMgrCompression(unittest.TestCase):
                 stat="Open",
                 find=f"Finding {i}",
                 comm=f"Comment {i}",  # Make each unique
-                src="test"
+                src="test",
             )
 
         entries = self.mgr._h["V-12345"]
@@ -292,11 +256,7 @@ class TestHistMgrMergeFinding(unittest.TestCase):
         """Test merge_find includes history."""
         # Add some history
         self.mgr.add(
-            vid="V-12345",
-            stat="Open",
-            find="Historical finding",
-            comm="",
-            src="manual"
+            vid="V-12345", stat="Open", find="Historical finding", comm="", src="manual"
         )
 
         current = "Current finding"
@@ -314,13 +274,7 @@ class TestHistMgrMergeFinding(unittest.TestCase):
 
         # Add entry with very long finding
         long_find = "X" * (Cfg.MAX_FIND + 1000)
-        self.mgr.add(
-            vid="V-12345",
-            stat="Open",
-            find=long_find,
-            comm="",
-            src="test"
-        )
+        self.mgr.add(vid="V-12345", stat="Open", find=long_find, comm="", src="test")
 
         result = self.mgr.merge_find("V-12345")
 
@@ -335,7 +289,8 @@ class TestHistMgrMergeComments(unittest.TestCase):
     def setUp(self):
         """Create a new HistMgr for each test."""
         from unittest.mock import patch
-        self.patcher = patch('stig_assessor.core.config.Cfg.HISTORY_DB_FILE', None)
+
+        self.patcher = patch("stig_assessor.core.config.Cfg.HISTORY_DB_FILE", None)
         self.patcher.start()
         self.mgr = HistMgr()
 
@@ -353,11 +308,7 @@ class TestHistMgrMergeComments(unittest.TestCase):
         """Test merge_comm includes history."""
         # Add some history
         self.mgr.add(
-            vid="V-12345",
-            stat="Open",
-            find="",
-            comm="Historical comment",
-            src="manual"
+            vid="V-12345", stat="Open", find="", comm="Historical comment", src="manual"
         )
 
         current = "Current comment"
@@ -372,21 +323,11 @@ class TestHistMgrMergeComments(unittest.TestCase):
     def test_merge_comm_skips_empty_comments(self):
         """Test that merge_comm skips entries with empty comments."""
         # Add entry with no comment (should be skipped in comment history)
-        self.mgr.add(
-            vid="V-12345",
-            stat="Open",
-            find="Finding",
-            comm="",
-            src="test"
-        )
+        self.mgr.add(vid="V-12345", stat="Open", find="Finding", comm="", src="test")
 
         # Add entry with comment
         self.mgr.add(
-            vid="V-12345",
-            stat="Open",
-            find="",
-            comm="Actual comment",
-            src="test"
+            vid="V-12345", stat="Open", find="", comm="Actual comment", src="test"
         )
 
         result = self.mgr.merge_comm("V-12345")
@@ -410,6 +351,7 @@ class TestHistMgrExportImport(unittest.TestCase):
     def tearDown(self):
         """Clean up temporary files."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_export_empty_history(self):
@@ -431,18 +373,14 @@ class TestHistMgrExportImport(unittest.TestCase):
         """Test exporting history with entries."""
         # Add some entries
         self.mgr.add(
-            vid="V-12345",
-            stat="Open",
-            find="Finding 1",
-            comm="Comment 1",
-            src="manual"
+            vid="V-12345", stat="Open", find="Finding 1", comm="Comment 1", src="manual"
         )
         self.mgr.add(
             vid="V-67890",
             stat="NotAFinding",
             find="Finding 2",
             comm="Comment 2",
-            src="xccdf"
+            src="xccdf",
         )
 
         self.mgr.export(self.export_path)
@@ -464,7 +402,7 @@ class TestHistMgrExportImport(unittest.TestCase):
                 "generated": datetime.now(timezone.utc).isoformat(),
                 "version": "7.3.0",
                 "nvulns": 1,
-                "nentries": 1
+                "nentries": 1,
             },
             "history": {
                 "V-12345": [
@@ -476,10 +414,10 @@ class TestHistMgrExportImport(unittest.TestCase):
                         "src": "manual",
                         "chk": "abc123",
                         "sev": "high",
-                        "who": "analyst"
+                        "who": "analyst",
                     }
                 ]
-            }
+            },
         }
 
         # Write to file
@@ -501,7 +439,7 @@ class TestHistMgrExportImport(unittest.TestCase):
             find="Finding 1",
             comm="Comment 1",
             src="manual",
-            sev="high"
+            sev="high",
         )
         self.mgr.add(
             vid="V-12345",
@@ -509,7 +447,7 @@ class TestHistMgrExportImport(unittest.TestCase):
             find="Finding 2",
             comm="Comment 2",
             src="xccdf",
-            sev="medium"
+            sev="medium",
         )
 
         # Export
@@ -541,7 +479,7 @@ class TestHistMgrThreadSafety(unittest.TestCase):
                     stat="Open",
                     find=f"Finding {i}",
                     comm=f"Comment {i}",
-                    src=f"thread-{thread_id}"
+                    src=f"thread-{thread_id}",
                 )
 
         # Create multiple threads

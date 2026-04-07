@@ -11,8 +11,8 @@ Public API:
 
 from __future__ import annotations
 
+from stig_assessor.evidence.manager import EVIDENCE, EvidenceMgr
 from stig_assessor.evidence.models import EvidenceMeta
-from stig_assessor.evidence.manager import EvidenceMgr, EVIDENCE
 
 __all__ = [
     "EvidenceMeta",

@@ -7,9 +7,9 @@ Tests cover:
 - Cleanup callback registration
 """
 
+import tempfile
 import unittest
 from pathlib import Path
-import tempfile
 
 from stig_assessor.core.state import GlobalState
 

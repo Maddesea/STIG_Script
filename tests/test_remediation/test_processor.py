@@ -4,11 +4,12 @@ This module tests the FixResPro class for loading remediation results
 and applying them to CKL files.
 """
 
-import unittest
 import json
 import tempfile
-from pathlib import Path
+import unittest
 from datetime import datetime, timezone
+from pathlib import Path
+
 from stig_assessor.remediation.models import FixResult
 from stig_assessor.remediation.processor import FixResPro
 
@@ -25,7 +26,7 @@ class TestFixResult(unittest.TestCase):
             ok=True,
             message="Test message",
             output="Test output",
-            error=""
+            error="",
         )
 
         result_dict = result.as_dict()
@@ -45,7 +46,7 @@ class TestFixResult(unittest.TestCase):
             "ok": True,
             "msg": "Remediation successful",
             "output": "Command executed",
-            "error": ""
+            "error": "",
         }
 
         result = FixResult.from_dict(data)
@@ -59,10 +60,7 @@ class TestFixResult(unittest.TestCase):
 
     def test_from_dict_minimal(self):
         """Test creating FixResult from minimal dictionary."""
-        data = {
-            "vid": "V-789012",
-            "ok": False
-        }
+        data = {"vid": "V-789012", "ok": False}
 
         result = FixResult.from_dict(data)
 
@@ -94,6 +92,7 @@ class TestFixResPro(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_init(self):
@@ -109,14 +108,14 @@ class TestFixResPro(unittest.TestCase):
                 "vid": "V-111111",
                 "ok": True,
                 "msg": "Fixed",
-                "ts": "2025-11-16T10:00:00Z"
+                "ts": "2025-11-16T10:00:00Z",
             },
             {
                 "vid": "V-222222",
                 "ok": False,
                 "msg": "Failed",
-                "ts": "2025-11-16T10:01:00Z"
-            }
+                "ts": "2025-11-16T10:01:00Z",
+            },
         ]
 
         # Write test file
@@ -137,9 +136,7 @@ class TestFixResPro(unittest.TestCase):
         """Test loading JSON with 'results' key."""
         test_data = {
             "meta": {"tool": "test", "version": "1.0"},
-            "results": [
-                {"vid": "V-333333", "ok": True, "msg": "Success"}
-            ]
+            "results": [{"vid": "V-333333", "ok": True, "msg": "Success"}],
         }
 
         test_file = Path(self.temp_dir) / "results_object.json"
@@ -156,12 +153,8 @@ class TestFixResPro(unittest.TestCase):
         """Test loading JSON in multi-system format."""
         test_data = {
             "systems": {
-                "server1": [
-                    {"vid": "V-444444", "ok": True, "msg": "Fixed on server1"}
-                ],
-                "server2": [
-                    {"vid": "V-555555", "ok": True, "msg": "Fixed on server2"}
-                ]
+                "server1": [{"vid": "V-444444", "ok": True, "msg": "Fixed on server1"}],
+                "server2": [{"vid": "V-555555", "ok": True, "msg": "Fixed on server2"}],
             }
         }
 
@@ -211,7 +204,7 @@ class TestFixResPro(unittest.TestCase):
 
         test_data = [
             {"vid": "V-100000", "ok": False, "msg": "Older", "ts": ts1},
-            {"vid": "V-100000", "ok": True, "msg": "Newer", "ts": ts2}
+            {"vid": "V-100000", "ok": True, "msg": "Newer", "ts": ts2},
         ]
 
         test_file = Path(self.temp_dir) / "results_dedup.json"
@@ -266,14 +259,14 @@ class TestFixResPro(unittest.TestCase):
                 vid="V-111111",
                 ts=datetime.now(timezone.utc),
                 ok=True,
-                message="Success"
+                message="Success",
             ),
             "V-222222": FixResult(
                 vid="V-222222",
                 ts=datetime.now(timezone.utc),
                 ok=False,
-                message="Failed"
-            )
+                message="Failed",
+            ),
         }
 
         report = self.processor.generate_report(format="text")
@@ -291,7 +284,7 @@ class TestFixResPro(unittest.TestCase):
                 vid="V-111111",
                 ts=datetime.now(timezone.utc),
                 ok=True,
-                message="Success"
+                message="Success",
             )
         }
 
@@ -309,7 +302,7 @@ class TestFixResPro(unittest.TestCase):
                 vid="V-111111",
                 ts=datetime.now(timezone.utc),
                 ok=True,
-                message="Success"
+                message="Success",
             )
         }
 
@@ -331,6 +324,7 @@ class TestFixResProIntegration(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_batch_load_multiple_files(self):
@@ -357,9 +351,13 @@ class TestFixResProIntegration(unittest.TestCase):
     def test_load_and_merge_with_deduplication_across_files(self):
         """Test that loading multiple files deduplicates across batches."""
         # First file with older timestamp
-        file1_data = [{"vid": "V-333333", "ok": False, "msg": "Old", "ts": "2025-11-16T10:00:00Z"}]
+        file1_data = [
+            {"vid": "V-333333", "ok": False, "msg": "Old", "ts": "2025-11-16T10:00:00Z"}
+        ]
         # Second file with newer timestamp for same VID
-        file2_data = [{"vid": "V-333333", "ok": True, "msg": "New", "ts": "2025-11-16T12:00:00Z"}]
+        file2_data = [
+            {"vid": "V-333333", "ok": True, "msg": "New", "ts": "2025-11-16T12:00:00Z"}
+        ]
 
         file1 = Path(self.temp_dir) / "old.json"
         file2 = Path(self.temp_dir) / "new.json"

@@ -9,15 +9,15 @@ Tests the Hist dataclass including:
 - Content hashing for deduplication
 """
 
-import unittest
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
 import sys
+import unittest
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+from stig_assessor.history.models import Hist
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from stig_assessor.history.models import Hist
 
 
 class TestHistDataclass(unittest.TestCase):
@@ -34,7 +34,7 @@ class TestHistDataclass(unittest.TestCase):
             src="manual",
             chk="abc123",
             sev="high",
-            who="analyst1"
+            who="analyst1",
         )
 
         self.assertEqual(entry.ts, ts)
@@ -73,14 +73,7 @@ class TestHistPostInit(unittest.TestCase):
     def test_timezone_aware_conversion(self):
         """Test that naive timestamps are converted to UTC."""
         naive_ts = datetime(2025, 1, 1, 12, 0, 0)
-        entry = Hist(
-            ts=naive_ts,
-            stat="Open",
-            find="",
-            comm="",
-            src="test",
-            chk="123"
-        )
+        entry = Hist(ts=naive_ts, stat="Open", find="", comm="", src="test", chk="123")
 
         # Should be converted to UTC
         self.assertIsNotNone(entry.ts.tzinfo)
@@ -94,7 +87,7 @@ class TestHistPostInit(unittest.TestCase):
             find="",
             comm="",
             src="test",
-            chk="123"
+            chk="123",
         )
 
         # Status should be normalized (exact behavior depends on San.status)
@@ -108,7 +101,7 @@ class TestHistPostInit(unittest.TestCase):
             find="",
             comm="",
             src="test",
-            chk="123"
+            chk="123",
         )
 
         # Should fall back to Not_Reviewed
@@ -123,7 +116,7 @@ class TestHistPostInit(unittest.TestCase):
             comm="",
             src="test",
             chk="123",
-            sev="high"
+            sev="high",
         )
 
         # Severity should be normalized
@@ -138,7 +131,7 @@ class TestHistPostInit(unittest.TestCase):
             comm="",
             src="test",
             chk="123",
-            sev="InvalidSeverity"
+            sev="InvalidSeverity",
         )
 
         # Should fall back to medium
@@ -153,7 +146,7 @@ class TestHistPostInit(unittest.TestCase):
             comm="",
             src="test",
             chk="123",
-            who=""  # Empty username
+            who="",  # Empty username
         )
 
         # Should have a default username from environment or "System"
@@ -175,7 +168,7 @@ class TestHistSerialization(unittest.TestCase):
             src="manual",
             chk="abc123",
             sev="high",
-            who="analyst1"
+            who="analyst1",
         )
 
         result = entry.as_dict()
@@ -200,7 +193,7 @@ class TestHistSerialization(unittest.TestCase):
             "src": "manual",
             "chk": "abc123",
             "sev": "high",
-            "who": "analyst1"
+            "who": "analyst1",
         }
 
         entry = Hist.from_dict(data)
@@ -216,9 +209,7 @@ class TestHistSerialization(unittest.TestCase):
 
     def test_from_dict_with_missing_fields(self):
         """Test deserialization with missing optional fields."""
-        data = {
-            "stat": "Open"
-        }
+        data = {"stat": "Open"}
 
         entry = Hist.from_dict(data)
 
@@ -237,7 +228,7 @@ class TestHistSerialization(unittest.TestCase):
             "find": "",
             "comm": "",
             "src": "test",
-            "chk": "123"
+            "chk": "123",
         }
 
         entry = Hist.from_dict(data)
@@ -254,7 +245,7 @@ class TestHistSerialization(unittest.TestCase):
             "find": "",
             "comm": "",
             "src": "test",
-            "chk": "123"
+            "chk": "123",
         }
 
         entry = Hist.from_dict(data)
@@ -273,7 +264,7 @@ class TestHistSerialization(unittest.TestCase):
             src="manual",
             chk="abc",
             sev="high",
-            who="analyst"
+            who="analyst",
         )
 
         # Convert to dict and back
@@ -300,7 +291,7 @@ class TestHistContentHash(unittest.TestCase):
             src="test",
             chk="123",
             sev="high",
-            who="analyst"
+            who="analyst",
         )
 
         hash_val = entry.content_hash()
@@ -319,7 +310,7 @@ class TestHistContentHash(unittest.TestCase):
             src="test",
             chk="abc",
             sev="high",
-            who="analyst"
+            who="analyst",
         )
         entry2 = Hist(
             ts=ts,
@@ -329,7 +320,7 @@ class TestHistContentHash(unittest.TestCase):
             src="test",
             chk="xyz",  # Different chk
             sev="high",
-            who="analyst"
+            who="analyst",
         )
 
         # Hash should be based on content (stat, find, comm, sev, who)
@@ -350,7 +341,7 @@ class TestHistContentHash(unittest.TestCase):
             src="test",
             chk="abc",
             sev="high",
-            who="analyst"
+            who="analyst",
         )
         entry2 = Hist(
             ts=ts,
@@ -360,7 +351,7 @@ class TestHistContentHash(unittest.TestCase):
             src="test",
             chk="abc",
             sev="high",
-            who="analyst"
+            who="analyst",
         )
 
         hash1 = entry1.content_hash()
@@ -396,7 +387,7 @@ class TestHistEdgeCases(unittest.TestCase):
             src="test",
             chk="",
             sev="medium",
-            who=""
+            who="",
         )
 
         # Should handle empty strings gracefully

@@ -11,6 +11,7 @@ Team 3 Module - Dependencies:
 """
 
 from __future__ import annotations
+
 import os
 import re
 import shutil
@@ -20,7 +21,7 @@ import zipfile
 from contextlib import contextmanager, suppress
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Generator, IO, List, Optional, Tuple, Union
+from typing import IO, Any, Dict, Generator, List, Optional, Tuple, Union
 
 # XML imports
 try:
@@ -29,22 +30,16 @@ try:
 except ImportError:
     raise ImportError("xml.etree.ElementTree is required but not available")
 
-# Import from our package
-from stig_assessor.exceptions import FileError, ValidationError, ParseError
-from stig_assessor.core.constants import (
-    ENCODINGS,
-    LARGE_FILE_THRESHOLD,
-    MAX_XML_SIZE,
-    MAX_RETRIES,
-    RETRY_DELAY,
-)
-
 # Import from core infrastructure (Team 1)
 from stig_assessor.core.config import Cfg
-from stig_assessor.core.state import GLOBAL_STATE as GLOBAL
-from stig_assessor.core.logging import LOG
+from stig_assessor.core.constants import (ENCODINGS, LARGE_FILE_THRESHOLD,
+                                          MAX_RETRIES, MAX_XML_SIZE,
+                                          RETRY_DELAY)
 from stig_assessor.core.deps import Deps
-
+from stig_assessor.core.logging import LOG
+from stig_assessor.core.state import GLOBAL_STATE as GLOBAL
+# Import from our package
+from stig_assessor.exceptions import FileError, ParseError, ValidationError
 # Import from XML foundation (Team 2)
 from stig_assessor.xml.sanitizer import San
 
@@ -103,7 +98,10 @@ class FO:
     @contextmanager
     @retry()
     def atomic(
-        target: Union[str, Path], mode: str = "w", enc: str = "utf-8", bak: bool = True
+        target: Union[str, Path],
+        mode: str = "w",
+        enc: str = "utf-8",
+        bak: bool = True,
     ) -> Generator[IO, None, None]:
         """Atomic file write with automatic rollback on failure.
 
@@ -127,7 +125,9 @@ class FO:
         try:
             if bak and target.exists() and target.is_file():
                 timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
-                backup_path = Cfg.BACKUP_DIR / f"{target.stem}_{timestamp}{target.suffix}.bak"
+                backup_path = (
+                    Cfg.BACKUP_DIR / f"{target.stem}_{timestamp}{target.suffix}.bak"
+                )
                 shutil.copy2(str(target), str(backup_path))
 
             fd, tmp_name = tempfile.mkstemp(
@@ -233,7 +233,7 @@ class FO:
                 key=lambda p: p.stat().st_mtime,
                 reverse=True,
             )
-            for old in backups[Cfg.KEEP_BACKUPS :]:
+            for old in backups[Cfg.KEEP_BACKUPS:]:
                 with suppress(OSError):
                     old.unlink()
 
@@ -311,7 +311,9 @@ class FO:
         # Security: validate file size before parsing to prevent resource exhaustion
         file_size = path.stat().st_size
         if file_size > MAX_XML_SIZE:
-            raise ValidationError(f"XML file too large: {file_size} bytes (max: {MAX_XML_SIZE})")
+            raise ValidationError(
+                f"XML file too large: {file_size} bytes (max: {MAX_XML_SIZE})"
+            )
 
         # Security: require defusedxml for large files to prevent XML bomb attacks
         if not Deps.HAS_DEFUSEDXML:
@@ -351,7 +353,11 @@ class FO:
                     tmp.write(content)
                     tmp_name = tmp.name
                 try:
-                    tree = ET.parse(tmp_name, parser=parser) if parser else ET.parse(tmp_name)
+                    tree = (
+                        ET.parse(tmp_name, parser=parser)
+                        if parser
+                        else ET.parse(tmp_name)
+                    )
                     LOG.i("XML parsed successfully after entity sanitisation")
                     return tree
                 finally:
@@ -381,7 +387,9 @@ class FO:
         path = San.path(path, exist=True, file=True)
         file_size = path.stat().st_size
         if file_size > MAX_CKLB_SIZE:
-            raise ValidationError(f"CKLB file too large: {file_size} bytes (max: {MAX_CKLB_SIZE})")
+            raise ValidationError(
+                f"CKLB file too large: {file_size} bytes (max: {MAX_CKLB_SIZE})"
+            )
 
         try:
             content = FO.read(path)
@@ -392,10 +400,12 @@ class FO:
             raise ParseError(f"Error reading CKLB: {err}")
 
     @staticmethod
-    def write_ckl(root: ET.Element, path: Union[str, Path], backup: bool = False) -> None:
+    def write_ckl(
+        root: ET.Element, path: Union[str, Path], backup: bool = False
+    ) -> None:
         """Write ElementTree to CKL XML file atomically.
         Uses binary mode writing to avoid cross-platform newline mangling.
-        
+
         Args:
             root: XML Element tree root
             path: Output file path
@@ -404,12 +414,14 @@ class FO:
         path = San.path(path, mkpar=True)
         with FO.atomic(path, mode="wb", bak=backup) as handle:
             handle.write(b'<?xml version="1.0" encoding="UTF-8"?>\n')
-            handle.write(b'<!-- STIG Assessor Generated -->\n')
+            handle.write(b"<!-- STIG Assessor Generated -->\n")
             xml_text = ET.tostring(root, encoding="unicode", method="xml")
             handle.write(xml_text.encode("utf-8"))
 
     @staticmethod
-    def write_cklb(data: Dict[str, Any], path: Union[str, Path], backup: bool = False) -> None:
+    def write_cklb(
+        data: Dict[str, Any], path: Union[str, Path], backup: bool = False
+    ) -> None:
         """Write dictionary to CKLB JSON file atomically.
 
         Args:
@@ -425,7 +437,9 @@ class FO:
     @staticmethod
     @retry(attempts=2)
     def zip(
-        out_path: Union[str, Path], files: Dict[str, Union[str, Path]], base: Optional[str] = None
+        out_path: Union[str, Path],
+        files: Dict[str, Union[str, Path]],
+        base: Optional[str] = None,
     ) -> Path:
         """Create ZIP archive with atomic write.
 
@@ -450,14 +464,21 @@ class FO:
             tmp_zip = Path(tmp_name)
 
             failed_files: List[str] = []
-            with zipfile.ZipFile(tmp_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
+            with zipfile.ZipFile(
+                tmp_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True
+            ) as archive:
                 for arcname, source in files.items():
                     try:
                         source_path = San.path(source, exist=True, file=True)
                         final_arcname = f"{base}/{arcname}" if base else arcname
                         archive.write(str(source_path), arcname=final_arcname)
                         added += 1
-                    except (OSError, ValueError, zipfile.BadZipFile, ValidationError) as exc:
+                    except (
+                        OSError,
+                        ValueError,
+                        zipfile.BadZipFile,
+                        ValidationError,
+                    ) as exc:
                         LOG.w(f"Skipping {arcname}: {exc}")
                         failed_files.append(f"{arcname} ({exc})")
 

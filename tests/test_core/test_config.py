@@ -9,11 +9,11 @@ Tests cover:
 - Path validation
 """
 
-import unittest
-import tempfile
 import shutil
+import tempfile
+import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from stig_assessor.core.config import Cfg
 
@@ -71,6 +71,7 @@ class TestCfgInit(unittest.TestCase):
         """Verify writable directory detection."""
         # The APP_DIR should be writable since Cfg.init() creates it
         import os
+
         self.assertTrue(os.access(Cfg.APP_DIR, os.W_OK))
 
     def test_readonly_fallback(self):

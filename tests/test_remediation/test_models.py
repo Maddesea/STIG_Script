@@ -1,6 +1,7 @@
 """Tests for remediation models."""
 
 import unittest
+
 from stig_assessor.remediation.models import Fix
 
 
@@ -17,7 +18,7 @@ class TestFix(unittest.TestCase):
             group_title="Test Group",
             fix_text="This is the fix text",
             fix_command="chmod 755 /etc/test",
-            platform="linux"
+            platform="linux",
         )
 
         self.assertEqual(fix.vid, "V-123456")
@@ -35,7 +36,7 @@ class TestFix(unittest.TestCase):
             group_title="Test Group",
             fix_text="Fix text",
             cci=["CCI-001", "CCI-002", "CCI-003"],
-            legacy=["V-1", "V-2"]
+            legacy=["V-1", "V-2"],
         )
 
         result = fix.as_dict()
@@ -54,7 +55,7 @@ class TestFix(unittest.TestCase):
             severity="low",
             title="Test",
             group_title="Group",
-            fix_text="Fix"
+            fix_text="Fix",
         )
 
         self.assertIsNone(fix.fix_command)
@@ -75,7 +76,7 @@ class TestFix(unittest.TestCase):
             title="Test",
             group_title="Group",
             fix_text="Fix",
-            cci=cci_list
+            cci=cci_list,
         )
 
         result = fix.as_dict()

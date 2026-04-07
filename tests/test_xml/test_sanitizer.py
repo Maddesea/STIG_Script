@@ -9,12 +9,12 @@ Tests cover:
 - XML sanitization and entity escaping
 """
 
-import unittest
 import tempfile
+import unittest
 from pathlib import Path
 
-from stig_assessor.xml.sanitizer import San
 from stig_assessor.exceptions import ValidationError
+from stig_assessor.xml.sanitizer import San
 
 
 class TestPathValidation(unittest.TestCase):
@@ -297,7 +297,7 @@ class TestXMLSanitization(unittest.TestCase):
         result = San.xml("test\x00value")
         self.assertEqual(result, "testvalue")
 
-        result = San.xml("test\x1Fvalue")
+        result = San.xml("test\x1fvalue")
         self.assertEqual(result, "testvalue")
 
     def test_none_returns_empty(self):
@@ -321,7 +321,7 @@ class TestXMLSanitization(unittest.TestCase):
         result = San.xml("<script>alert('test & \"value\"')</script>")
         self.assertEqual(
             result,
-            "&lt;script&gt;alert(&apos;test &amp; &quot;value&quot;&apos;)&lt;/script&gt;"
+            "&lt;script&gt;alert(&apos;test &amp; &quot;value&quot;&apos;)&lt;/script&gt;",
         )
 
 

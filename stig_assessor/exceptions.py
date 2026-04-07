@@ -7,7 +7,8 @@ better error diagnostics and debugging.
 """
 
 from __future__ import annotations
-from typing import Optional, Dict, Any
+
+from typing import Any, Dict, Optional
 
 
 class STIGError(Exception):
@@ -36,16 +37,10 @@ class STIGError(Exception):
 class ValidationError(STIGError):
     """Raised when validation fails (STIG Viewer compatibility)."""
 
-    pass
-
 
 class FileError(STIGError):
     """Raised when file operations fail."""
 
-    pass
-
 
 class ParseError(STIGError):
     """Raised when XML parsing fails."""
-
-    pass

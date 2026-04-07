@@ -8,29 +8,29 @@ Team: 9 - Evidence Management
 """
 
 from __future__ import annotations
-from pathlib import Path
-from typing import Dict, List, Any, Union
+
+import hashlib
+import json
+import os
+import re
+import shutil
+import sys
+import tempfile
+import threading
+import zipfile
 from collections import defaultdict
 from contextlib import suppress
 from datetime import datetime, timezone
-import json
-import threading
-import hashlib
-import shutil
-import tempfile
-import zipfile
-import re
-import os
-import sys
+from pathlib import Path
+from typing import Any, Dict, List, Union
 
-from stig_assessor.evidence.models import EvidenceMeta
 from stig_assessor.core.config import Cfg
-from stig_assessor.core.logging import LOG
 from stig_assessor.core.constants import CHUNK_SIZE, LARGE_EVIDENCE_THRESHOLD
-from stig_assessor.xml.sanitizer import San
-from stig_assessor.io.file_ops import FO
+from stig_assessor.core.logging import LOG
+from stig_assessor.evidence.models import EvidenceMeta
 from stig_assessor.exceptions import ValidationError
-
+from stig_assessor.io.file_ops import FO
+from stig_assessor.xml.sanitizer import San
 
 SAFE_FILENAME_RE = re.compile(r"[^\w.-]")
 
@@ -85,7 +85,9 @@ class EvidenceMgr:
                 try:
                     vid = San.vuln(vid)
                 except ValidationError as exc:
-                    LOG.w(f"Skipping badly formed VID '{vid}' during evidence meta load: {exc}")
+                    LOG.w(
+                        f"Skipping badly formed VID '{vid}' during evidence meta load: {exc}"
+                    )
                     continue
 
                 self._meta[vid] = []
@@ -103,7 +105,8 @@ class EvidenceMgr:
         Writes metadata to meta.json using atomic write if available.
         """
         payload = {
-            vid: [entry.as_dict() for entry in entries] for vid, entries in self._meta.items()
+            vid: [entry.as_dict() for entry in entries]
+            for vid, entries in self._meta.items()
         }
 
         with FO.atomic(self.meta_file) as handle:
@@ -167,7 +170,9 @@ class EvidenceMgr:
                         if existing_path.exists():
                             return existing_path
                         else:
-                            LOG.w(f"Duplicate entry exists but file missing: {existing_path}")
+                            LOG.w(
+                                f"Duplicate entry exists but file missing: {existing_path}"
+                            )
                             self._meta[vid].remove(entry)
                             break
 
@@ -219,7 +224,9 @@ class EvidenceMgr:
             copied = 0
             # Pull meta out of lock to avoid blocking IO
             with self._lock:
-                meta_snapshot = {vid: list(entries) for vid, entries in self._meta.items()}
+                meta_snapshot = {
+                    vid: list(entries) for vid, entries in self._meta.items()
+                }
 
             for vid, entries in meta_snapshot.items():
                 source_dir = self.base / vid
@@ -272,11 +279,13 @@ class EvidenceMgr:
 
         with LOG.context(op="package_evidence"):
             LOG.i(f"Packaging evidence into {zip_path}")
-            
+
             files: Dict[str, Path] = {}
             with self._lock:
-                meta_snapshot = {vid: list(entries) for vid, entries in self._meta.items()}
-                
+                meta_snapshot = {
+                    vid: list(entries) for vid, entries in self._meta.items()
+                }
+
             for vid, entries in meta_snapshot.items():
                 for entry in entries:
                     source = self.base / vid / entry.filename
@@ -336,19 +345,26 @@ class EvidenceMgr:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir)
 
-                if hasattr(shutil, "unpack_archive") and sys.version_info >= (3, 12):
+                if hasattr(shutil, "unpack_archive") and sys.version_info >= (
+                    3,
+                    12,
+                ):
                     shutil.unpack_archive(package, extract_dir=tmp_path, filter="data")
                 else:
                     with zipfile.ZipFile(package, "r") as archive:
                         for member in archive.namelist():
                             member_path = Path(member)
                             if member_path.is_absolute() or ".." in member_path.parts:
-                                raise ValidationError(f"Archive contains path traversal: {member}")
+                                raise ValidationError(
+                                    f"Archive contains path traversal: {member}"
+                                )
                             target_path = (tmp_path / member).resolve()
                             try:
                                 target_path.relative_to(tmp_path.resolve())
                             except ValueError:
-                                raise ValidationError(f"Archive path escapes extraction directory: {member}")
+                                raise ValidationError(
+                                    f"Archive path escapes extraction directory: {member}"
+                                )
                         archive.extractall(tmp_path)
 
                 # Find evidence directory
@@ -386,7 +402,12 @@ class EvidenceMgr:
                                 description = entry.get("description", "")
                                 category = entry.get("category", "general")
                                 break
-                        self.import_file(vid, file, description=description, category=category)
+                        self.import_file(
+                            vid,
+                            file,
+                            description=description,
+                            category=category,
+                        )
                         extracted += 1
 
             LOG.i(f"Imported {extracted} evidence files from package")

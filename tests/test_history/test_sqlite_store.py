@@ -1,8 +1,8 @@
 """Unit tests for the SQLite history and drift tracking engine."""
 
-import unittest
-import tempfile
 import shutil
+import tempfile
+import unittest
 from pathlib import Path
 
 from stig_assessor.history.sqlite_store import SQLiteStore
@@ -29,7 +29,9 @@ class TestSQLiteStore(unittest.TestCase):
         """Schema should contain assessments, findings, and justifications tables."""
         with self.store._get_conn() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+            )
             tables = {row[0] for row in cursor.fetchall()}
         self.assertIn("assessments", tables)
         self.assertIn("findings", tables)
@@ -50,9 +52,17 @@ class TestSQLiteStore(unittest.TestCase):
     def test_save_assessment_returns_id(self):
         """save_assessment should return a positive integer ID."""
         results = [
-            {"vid": "V-12345", "status": "Open", "severity": "high", "find": "details", "comm": "comment"},
+            {
+                "vid": "V-12345",
+                "status": "Open",
+                "severity": "high",
+                "find": "details",
+                "comm": "comment",
+            },
         ]
-        aid = self.store.save_assessment("SERVER-01", "test.ckl", "Windows STIG", results)
+        aid = self.store.save_assessment(
+            "SERVER-01", "test.ckl", "Windows STIG", results
+        )
         self.assertIsInstance(aid, int)
         self.assertGreater(aid, 0)
 
@@ -60,13 +70,21 @@ class TestSQLiteStore(unittest.TestCase):
         """Saved findings should be queryable from the findings table."""
         results = [
             {"vid": "V-100", "status": "NotAFinding", "severity": "medium"},
-            {"vid": "V-200", "status": "Open", "severity": "high", "find": "open finding"},
+            {
+                "vid": "V-200",
+                "status": "Open",
+                "severity": "high",
+                "find": "open finding",
+            },
         ]
         aid = self.store.save_assessment("SERVER-01", "test.ckl", "RHEL STIG", results)
 
         with self.store._get_conn() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT vid, status FROM findings WHERE assessment_id = ? ORDER BY vid", (aid,))
+            cursor.execute(
+                "SELECT vid, status FROM findings WHERE assessment_id = ? ORDER BY vid",
+                (aid,),
+            )
             rows = cursor.fetchall()
 
         self.assertEqual(len(rows), 2)
@@ -87,7 +105,9 @@ class TestSQLiteStore(unittest.TestCase):
 
     def test_save_and_get_justification(self):
         """Justifications should round-trip correctly."""
-        self.store.save_justification("V-999", "NotAFinding", "Mitigated by policy", "admin")
+        self.store.save_justification(
+            "V-999", "NotAFinding", "Mitigated by policy", "admin"
+        )
         just = self.store.get_justification("V-999")
         self.assertIsNotNone(just)
         self.assertEqual(just["status"], "NotAFinding")

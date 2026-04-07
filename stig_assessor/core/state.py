@@ -1,14 +1,15 @@
 """Global state management and shutdown coordination."""
 
 from __future__ import annotations
-from typing import Optional, List, Callable
-from pathlib import Path
-from contextlib import suppress
-import threading
-import signal
+
 import atexit
-import sys
 import gc
+import signal
+import sys
+import threading
+from contextlib import suppress
+from pathlib import Path
+from typing import Callable, List, Optional
 
 
 class GlobalState:
@@ -66,7 +67,10 @@ class GlobalState:
         """Register application signal handlers for graceful shutdown operations."""
 
         def handler(sig, frame):
-            print(f"\n[SIGNAL {sig}] Shutting down gracefully...", file=sys.stderr)
+            print(
+                f"\n[SIGNAL {sig}] Shutting down gracefully...",
+                file=sys.stderr,
+            )
             self.shutdown.set()
             self.cleanup()
             sys.exit(0)

@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "stig-assessor"
+version = "8.0.0"
+description = "Air-gapped, zero-dependency STIG compliance assessment tool for DoD environments"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "STIG Assessor Development Team"},
+]
+keywords = ["stig", "disa", "compliance", "security", "checklist", "ckl", "xccdf", "dod"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11 (offline)",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: System :: Systems Administration",
+]
+
+[project.scripts]
+stig-assessor = "stig_assessor.ui.cli:main"
+
+[project.optional-dependencies]
+# defusedxml recommended for enhanced XML security (not required)
+secure = ["defusedxml>=0.7"]
+# sv_ttk provides premium Sun Valley theme for GUI
+gui-theme = ["sv-ttk>=2.5"]
+
+[project.urls]
+Repository = "https://github.com/stig-assessor/stig-assessor"
+Documentation = "https://github.com/stig-assessor/stig-assessor/blob/main/README.md"
+
+[tool.setuptools.packages.find]
+include = ["stig_assessor*"]
+
+[tool.setuptools.package-data]
+"stig_assessor.ui.web.assets" = ["*.html", "*.css", "*.js"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

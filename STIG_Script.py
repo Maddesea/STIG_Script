@@ -109,16 +109,16 @@ import tempfile
 import threading
 import time
 import uuid
-import warnings
 import zipfile
 from collections import OrderedDict, defaultdict
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, Generator, IO, Iterable, List, Optional, Tuple, Union
-from enum import Enum
+from typing import (IO, Any, Callable, Dict, Generator, Iterable, List,
+                    Optional, Tuple, Union)
 
 # Warning suppression removed per audit #15 to enable detection of outdated dependencies
 
@@ -126,8 +126,8 @@ from enum import Enum
 # CONSTANTS
 # ──────────────────────────────────────────────────────────────────────────────
 
-VERSION = "7.4.3"
-BUILD_DATE = "2026-01-02"
+VERSION = "8.1.0"
+BUILD_DATE = "2026-04-07"
 APP_NAME = "STIG Assessor Complete"
 STIG_VIEWER_VERSION = "2.18"
 
@@ -138,15 +138,15 @@ RETRY_DELAY = 0.5
 MAX_XML_SIZE = 500 * 1024 * 1024
 
 # Command extraction limits
-MIN_CMD_LENGTH = 5           # Minimum characters for a valid command
-MAX_CMD_LENGTH = 2000        # Maximum characters for extracted commands
-MAX_CMD_REASONABLE = 500     # Reasonable limit for display in exports
+MIN_CMD_LENGTH = 5  # Minimum characters for a valid command
+MAX_CMD_LENGTH = 2000  # Maximum characters for extracted commands
+MAX_CMD_REASONABLE = 500  # Reasonable limit for display in exports
 
 # Title/text truncation limits
-TITLE_MAX_LONG = 300         # Maximum rule title length in VULN element
-TITLE_MAX_MEDIUM = 200       # Truncation for JSON export
-TITLE_MAX_SHORT = 120        # Truncation for CSV export
-GROUP_TITLE_MAX = 80         # Maximum group title in CSV
+TITLE_MAX_LONG = 300  # Maximum rule title length in VULN element
+TITLE_MAX_MEDIUM = 200  # Truncation for JSON export
+TITLE_MAX_SHORT = 120  # Truncation for CSV export
+GROUP_TITLE_MAX = 80  # Maximum group title in CSV
 
 ENCODINGS = [
     "utf-8",
@@ -167,9 +167,9 @@ ENCODINGS = [
 # Status icons (consistent across all GUI elements)
 ICON_SUCCESS = "\u2714"  # ✔
 ICON_FAILURE = "\u2718"  # ✘
-ICON_WARNING = "\u26A0"  # ⚠
-ICON_INFO = "\u2139"     # ℹ
-ICON_PENDING = "\u23F3"  # ⏳
+ICON_WARNING = "\u26a0"  # ⚠
+ICON_INFO = "\u2139"  # ℹ
+ICON_PENDING = "\u23f3"  # ⏳
 
 # Widget sizing
 GUI_ENTRY_WIDTH = 70
@@ -199,6 +199,7 @@ GUI_FONT_HEADING = ("TkDefaultFont", 12, "bold")
 
 class Status(str, Enum):
     """STIG finding status values (STIG Viewer compatible)."""
+
     NOT_A_FINDING = "NotAFinding"
     OPEN = "Open"
     NOT_REVIEWED = "Not_Reviewed"
@@ -217,9 +218,10 @@ class Status(str, Enum):
 
 class Severity(str, Enum):
     """STIG severity levels (CAT I/II/III)."""
-    HIGH = "high"      # CAT I
+
+    HIGH = "high"  # CAT I
     MEDIUM = "medium"  # CAT II
-    LOW = "low"        # CAT III
+    LOW = "low"  # CAT III
 
     @classmethod
     def is_valid(cls, value: str) -> bool:
@@ -282,8 +284,12 @@ class GlobalState:
 
     def _setup_signals(self) -> None:
         """Register signal handlers for graceful shutdown on SIGINT/SIGTERM."""
+
         def handler(sig, frame):
-            print(f"\n[SIGNAL {sig}] Shutting down gracefully...", file=sys.stderr)
+            print(
+                f"\n[SIGNAL {sig}] Shutting down gracefully...",
+                file=sys.stderr,
+            )
             self.shutdown.set()
             # Note: cleanup is registered with atexit and will be called automatically
             # We raise SystemExit instead of calling sys.exit() to allow proper stack unwinding
@@ -327,7 +333,7 @@ class GlobalState:
         # Use test_and_set pattern with lock for thread-safe idempotent cleanup
         with self._lock:
             # Check if cleanup has already been performed
-            if getattr(self, '_cleanup_done', False):
+            if getattr(self, "_cleanup_done", False):
                 return
             self._cleanup_done = True
 
@@ -468,8 +474,9 @@ class Deps:
     def check(cls) -> None:
         """Detect available optional dependencies and set HAS_* flags."""
         with suppress(Exception):
-            from defusedxml import ElementTree as DET
             from io import StringIO
+
+            from defusedxml import ElementTree as DET
 
             DET.parse(StringIO("<test/>"))
             cls.HAS_DEFUSEDXML = True
@@ -485,12 +492,12 @@ class Deps:
             cls.HAS_TKINTER = True
 
         with suppress(Exception):
-            import fcntl  # noqa: F401
+            import fcntl  # noqa: F401, F811
 
             cls.HAS_FCNTL = True
 
         with suppress(Exception):
-            import msvcrt  # noqa: F401
+            import msvcrt  # noqa: F401, F811
 
             cls.HAS_MSVCRT = True
 
@@ -501,33 +508,50 @@ class Deps:
 
         if cls.HAS_DEFUSEDXML:
             import defusedxml.ElementTree as DET
+
             # Patch parsing methods to secure implementations while keeping ET builders
             ET.parse = DET.parse
             ET.fromstring = DET.fromstring
             ET.XMLParser = DET.XMLParser
         else:
+
             class SafeXMLParser(ET.XMLParser):
                 def __init__(self, *args, **kwargs):
                     super().__init__(*args, **kwargs)
-                    
-                    if hasattr(self, 'parser'):
+
+                    if hasattr(self, "parser"):
                         self.parser.EntityDeclHandler = self._forbid_entity
                         self.parser.ExternalEntityRefHandler = self._forbid_external
-                        
-                def _forbid_entity(self, entityName, is_parameter_entity, value, base, systemId, publicId, notationName):
-                    raise ValueError(f"XML Entity Processing (Billion Laughs) is forbidden for security: '{entityName}'")
-                    
+
+                def _forbid_entity(
+                    self,
+                    entityName,
+                    is_parameter_entity,
+                    value,
+                    base,
+                    systemId,
+                    publicId,
+                    notationName,
+                ):
+                    raise ValueError(
+                        f"XML Entity Processing (Billion Laughs) is forbidden for security: '{entityName}'"
+                    )
+
                 def _forbid_external(self, context, base, systemId, publicId):
-                    raise ValueError(f"External XML Entity Reference (XXE) is forbidden for security: '{systemId}'")
+                    raise ValueError(
+                        f"External XML Entity Reference (XXE) is forbidden for security: '{systemId}'"
+                    )
 
             def safe_parse(source, parser=None):
-                if parser is None: parser = SafeXMLParser()
+                if parser is None:
+                    parser = SafeXMLParser()
                 tree = ET.ElementTree()
                 tree.parse(source, parser)
                 return tree
 
             def safe_fromstring(text, parser=None):
-                if parser is None: parser = SafeXMLParser()
+                if parser is None:
+                    parser = SafeXMLParser()
                 parser.feed(text)
                 return parser.close()
 
@@ -681,7 +705,15 @@ class Cfg:
         if cls.PY_VER < cls.MIN_PY:
             errs.append(f"Python {cls.MIN_PY[0]}.{cls.MIN_PY[1]}+ required")
 
-        for module in ("json", "hashlib", "pathlib", "logging", "zipfile", "csv", "uuid"):
+        for module in (
+            "json",
+            "hashlib",
+            "pathlib",
+            "logging",
+            "zipfile",
+            "csv",
+            "uuid",
+        ):
             try:
                 __import__(module)
             except Exception as e:
@@ -834,7 +866,10 @@ class Log:
         try:
             getattr(self.log, level)(self._context_str() + str(message), exc_info=exc)
         except Exception as exc_info:
-            print(f"[{level.upper()}] {message} (Log Failed: {exc_info})", file=sys.stderr)
+            print(
+                f"[{level.upper()}] {message} (Log Failed: {exc_info})",
+                file=sys.stderr,
+            )
 
     def d(self, msg: str) -> None:
         """Log a DEBUG message. Use for detailed diagnostic information."""
@@ -984,7 +1019,7 @@ class Sch:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-EXCESSIVE_NEWLINE_RE = re.compile(r'\n\s*\n\s*\n+')
+EXCESSIVE_NEWLINE_RE = re.compile(r"\n\s*\n\s*\n+")
 
 
 class XmlUtils:
@@ -1035,7 +1070,9 @@ class XmlUtils:
         return None
 
     @staticmethod
-    def collect_text(elem: ET.Element, xpath: str, default: str = "", join_with: str = "\n") -> str:
+    def collect_text(
+        elem: ET.Element, xpath: str, default: str = "", join_with: str = "\n"
+    ) -> str:
         """
         Collect and join text content from multiple XML elements.
 
@@ -1164,15 +1201,16 @@ class XmlUtils:
 
             if parts:
                 # Join with newlines to preserve command structure
-                result = '\n'.join(parts)
+                result = "\n".join(parts)
                 # Clean up excessive blank lines but keep structure
-                result = EXCESSIVE_NEWLINE_RE.sub('\n\n', result)
+                result = EXCESSIVE_NEWLINE_RE.sub("\n\n", result)
                 return result.strip()
         except Exception as exc:
             LOG.d(f"itertext() extraction failed: {exc}")
 
         # Method 2: Manual traversal for complex mixed content
         try:
+
             def extract_text_recursive(element) -> List[str]:
                 texts = []
                 if element.text:
@@ -1191,8 +1229,8 @@ class XmlUtils:
 
             parts = extract_text_recursive(elem)
             if parts:
-                result = '\n'.join(parts)
-                result = EXCESSIVE_NEWLINE_RE.sub('\n\n', result)
+                result = "\n".join(parts)
+                result = EXCESSIVE_NEWLINE_RE.sub("\n\n", result)
                 return result.strip()
         except Exception as exc:
             LOG.d(f"Recursive extraction failed: {exc}")
@@ -1259,7 +1297,9 @@ class San:
 
     ASSET = re.compile(r"^[a-zA-Z0-9._-]{1,255}$")
     # IP regex now rejects leading zeros (e.g., 192.001.001.001)
-    IP = re.compile(r"^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$")
+    IP = re.compile(
+        r"^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$"
+    )
     MAC = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")
     VULN = re.compile(r"^V-\d{1,10}$")
     UUID = re.compile(r"^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$", re.I)
@@ -1325,7 +1365,9 @@ class San:
                                     # Python 3.9+ has is_relative_to()
                                     if hasattr(target, "is_relative_to"):
                                         if not target.is_relative_to(expected_base):
-                                            raise ValidationError(f"Symlink escape attempt detected: {parent}")
+                                            raise ValidationError(
+                                                f"Symlink escape attempt detected: {parent}"
+                                            )
                                     else:
                                         # Fallback: use resolve and path prefix validation
                                         # Safer than commonpath which has cross-drive vulnerabilities on Windows
@@ -1336,16 +1378,27 @@ class San:
                                             target_str = str(target_resolved)
                                             base_str = str(base_resolved)
                                             # Add separator to prevent matching "/foo" with "/foobar"
-                                            if not target_str.startswith(base_str + os.sep) and target_str != base_str:
-                                                raise ValidationError(f"Symlink escape attempt detected: {parent}")
-                                        except (ValueError, OSError) as e:
+                                            if (
+                                                not target_str.startswith(
+                                                    base_str + os.sep
+                                                )
+                                                and target_str != base_str
+                                            ):
+                                                raise ValidationError(
+                                                    f"Symlink escape attempt detected: {parent}"
+                                                )
+                                        except (ValueError, OSError):
                                             # If resolve fails, try relative_to() as final fallback
                                             try:
                                                 target.relative_to(expected_base)
                                             except ValueError:
-                                                raise ValidationError(f"Symlink escape attempt detected: {parent}")
+                                                raise ValidationError(
+                                                    f"Symlink escape attempt detected: {parent}"
+                                                )
                                 except (ValueError, TypeError) as ve:
-                                    raise ValidationError(f"Symlink validation failed: {parent}: {ve}")
+                                    raise ValidationError(
+                                        f"Symlink validation failed: {parent}: {ve}"
+                                    )
                     except ValidationError:
                         raise
                     except Exception as symlink_err:
@@ -1431,7 +1484,9 @@ class San:
             raise ValidationError(f"Invalid IP format: {value}")
         octets = value.split(".")
         if len(octets) != 4:
-            raise ValidationError(f"IP must have exactly 4 octets, got {len(octets)}: {value}")
+            raise ValidationError(
+                f"IP must have exactly 4 octets, got {len(octets)}: {value}"
+            )
         for idx, octet in enumerate(octets):
             # Check for leading zeros (except "0" itself)
             if len(octet) > 1 and octet[0] == "0":
@@ -1441,7 +1496,9 @@ class San:
             except ValueError:
                 raise ValidationError(f"IP octet {idx + 1} is not numeric: {octet}")
             if not (0 <= oct_val <= 255):
-                raise ValidationError(f"IP octet {idx + 1} out of range (0-255): {oct_val}")
+                raise ValidationError(
+                    f"IP octet {idx + 1} out of range (0-255): {oct_val}"
+                )
         return value
 
     @staticmethod
@@ -1543,7 +1600,9 @@ class San:
         value = str(value).strip().lower()
         if value not in Sch.SEV_VALS:
             if strict:
-                raise ValidationError(f"Invalid severity: {value} (must be one of: {', '.join(Sch.SEV_VALS)})")
+                raise ValidationError(
+                    f"Invalid severity: {value} (must be one of: {', '.join(Sch.SEV_VALS)})"
+                )
             LOG.w(f"Invalid severity '{value}', defaulting to 'medium'")
             return "medium"
         return value
@@ -1572,7 +1631,9 @@ class San:
                 value = str(value)
             except Exception as exc:
                 # Cannot convert to string, return empty
-                LOG.w(f"Failed to convert value to string for XML sanitization: {type(value)} - {exc}")
+                LOG.w(
+                    f"Failed to convert value to string for XML sanitization: {type(value)} - {exc}"
+                )
                 return ""
         value = San.CTRL.sub("", value)
         value = (
@@ -1648,7 +1709,9 @@ class FO:
         try:
             if bak and target.exists() and target.is_file():
                 timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
-                backup_path = Cfg.BACKUP_DIR / f"{target.stem}_{timestamp}{target.suffix}.bak"
+                backup_path = (
+                    Cfg.BACKUP_DIR / f"{target.stem}_{timestamp}{target.suffix}.bak"
+                )
                 shutil.copy2(str(target), str(backup_path))
 
             fd, tmp_name = tempfile.mkstemp(
@@ -1691,20 +1754,26 @@ class FO:
                         break
                     except PermissionError:
                         if attempt < max_attempts - 1:
-                            time.sleep(0.1 * (2 ** attempt))  # Exponential backoff: 0.1, 0.2, 0.4, 0.8s
+                            time.sleep(
+                                0.1 * (2**attempt)
+                            )  # Exponential backoff: 0.1, 0.2, 0.4, 0.8s
                         else:
-                            LOG.w(f"Could not delete target file after {max_attempts} attempts, replace may fail")
+                            LOG.w(
+                                f"Could not delete target file after {max_attempts} attempts, replace may fail"
+                            )
 
             # Perform atomic replace with final retry for Windows file locking
             try:
                 tmp_path.replace(target)
             except OSError as e:
                 # Safely check for Windows error code 32 (file in use)
-                winerror = getattr(e, 'winerror', None)
+                winerror = getattr(e, "winerror", None)
                 if Cfg.IS_WIN and winerror == 32:
                     LOG.d("Replace failed due to file lock, retrying with delay")
                     time.sleep(1.0)  # One final longer delay
-                    tmp_path.replace(target)  # Final attempt, let exception propagate if still fails
+                    tmp_path.replace(
+                        target
+                    )  # Final attempt, let exception propagate if still fails
                 else:
                     raise
             tmp_path = None
@@ -1726,8 +1795,13 @@ class FO:
                     shutil.copy2(str(backup_path), str(target))
                     LOG.i(f"Restored from backup: {backup_path}")
                 except Exception as rollback_err:
-                    LOG.c(f"CRITICAL: Rollback failed! Manual recovery needed. Backup: {backup_path}", exc=True)
-                    raise FileError(f"Atomic write failed AND rollback failed: {exc}. Backup at: {backup_path}") from rollback_err
+                    LOG.c(
+                        f"CRITICAL: Rollback failed! Manual recovery needed. Backup: {backup_path}",
+                        exc=True,
+                    )
+                    raise FileError(
+                        f"Atomic write failed AND rollback failed: {exc}. Backup at: {backup_path}"
+                    ) from rollback_err
             raise FileError(f"Atomic write failed: {exc}")
         finally:
             if tmp_path and tmp_path.exists():
@@ -1742,7 +1816,7 @@ class FO:
                 key=lambda p: p.stat().st_mtime,
                 reverse=True,
             )
-            for old in backups[Cfg.KEEP_BACKUPS :]:
+            for old in backups[Cfg.KEEP_BACKUPS:]:
                 with suppress(Exception):
                     old.unlink()
 
@@ -1791,7 +1865,9 @@ class FO:
         # Security: validate file size before parsing to prevent resource exhaustion
         file_size = path.stat().st_size
         if file_size > MAX_XML_SIZE:
-            raise ValidationError(f"XML file too large: {file_size} bytes (max: {MAX_XML_SIZE})")
+            raise ValidationError(
+                f"XML file too large: {file_size} bytes (max: {MAX_XML_SIZE})"
+            )
 
         # Security: require defusedxml for large files to prevent XML bomb attacks
         if not Deps.HAS_DEFUSEDXML:
@@ -1801,7 +1877,9 @@ class FO:
                     f"Install defusedxml (pip install defusedxml) or use a smaller file. "
                     f"Without defusedxml, only files under {LARGE_FILE_THRESHOLD / 1024 / 1024:.1f}MB can be parsed."
                 )
-            LOG.w("Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious")
+            LOG.w(
+                "Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious"
+            )
 
         try:
             return ET.parse(str(path))
@@ -1810,7 +1888,9 @@ class FO:
             try:
                 # Only read full file if it's reasonably sized
                 if file_size > LARGE_FILE_THRESHOLD:
-                    LOG.w(f"Large file ({file_size} bytes) requires entity sanitization, may be slow")
+                    LOG.w(
+                        f"Large file ({file_size} bytes) requires entity sanitization, may be slow"
+                    )
 
                 content = FO.read(path)
                 content = AMPERSAND_RE.sub("&amp;", content)
@@ -1831,7 +1911,11 @@ class FO:
 
     @staticmethod
     @retry(attempts=2)
-    def zip(out_path: Union[str, Path], files: Dict[str, Union[str, Path]], base: Optional[str] = None) -> Path:
+    def zip(
+        out_path: Union[str, Path],
+        files: Dict[str, Union[str, Path]],
+        base: Optional[str] = None,
+    ) -> Path:
         out_path = San.path(out_path, mkpar=True)
         tmp_zip: Optional[Path] = None
         added = 0
@@ -1842,7 +1926,9 @@ class FO:
             tmp_zip = Path(tmp_name)
 
             failed_files: List[str] = []
-            with zipfile.ZipFile(tmp_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
+            with zipfile.ZipFile(
+                tmp_zip, "w", zipfile.ZIP_DEFLATED, allowZip64=True
+            ) as archive:
                 for arcname, source in files.items():
                     try:
                         source_path = San.path(source, exist=True, file=True)
@@ -1874,7 +1960,9 @@ class FO:
                     tmp_zip.unlink()
 
     @staticmethod
-    def write_ckl(root: ET.Element, out: Union[str, Path], backup: bool = False) -> None:
+    def write_ckl(
+        root: ET.Element, out: Union[str, Path], backup: bool = False
+    ) -> None:
         """
         Write a CKL XML document to file with proper STIG Viewer formatting.
 
@@ -2056,7 +2144,7 @@ class HistMgr:
                 return False
             # If history is longer than window, check older entries too
             if len(self._h[vid]) > Cfg.DEDUP_CHECK_WINDOW:
-                older_entries = self._h[vid][:-Cfg.DEDUP_CHECK_WINDOW]
+                older_entries = self._h[vid][: -Cfg.DEDUP_CHECK_WINDOW]
                 if any(entry.chk == digest for entry in older_entries):
                     LOG.d(f"Duplicate found in older history for {vid}")
                     return False
@@ -2096,14 +2184,18 @@ class HistMgr:
         # Bounds check: ensure compression parameters are valid
         # HIST_COMPRESS_HEAD + HIST_COMPRESS_TAIL must be less than MAX_HIST
         # and less than current entry count to leave room for middle entries
-        min_entries_for_compression = Cfg.HIST_COMPRESS_HEAD + Cfg.HIST_COMPRESS_TAIL + 1
+        min_entries_for_compression = (
+            Cfg.HIST_COMPRESS_HEAD + Cfg.HIST_COMPRESS_TAIL + 1
+        )
         if len(entries) < min_entries_for_compression:
-            LOG.d(f"Skipping compression for {vid}: not enough entries ({len(entries)} < {min_entries_for_compression})")
+            LOG.d(
+                f"Skipping compression for {vid}: not enough entries ({len(entries)} < {min_entries_for_compression})"
+            )
             return
 
-        head = entries[:Cfg.HIST_COMPRESS_HEAD]
+        head = entries[: Cfg.HIST_COMPRESS_HEAD]
         tail = entries[-Cfg.HIST_COMPRESS_TAIL:]
-        middle = entries[Cfg.HIST_COMPRESS_HEAD:-Cfg.HIST_COMPRESS_TAIL]
+        middle = entries[Cfg.HIST_COMPRESS_HEAD: -Cfg.HIST_COMPRESS_TAIL]
 
         if middle:
             # Use "Not_Reviewed" as placeholder status since "compressed" is not a valid
@@ -2309,7 +2401,9 @@ class HistMgr:
                 slot.sort(key=lambda e: e.ts)
 
         if skipped_vids > 0 or skipped_entries > 0:
-            LOG.w(f"History import: skipped {skipped_vids} invalid VIDs, {skipped_entries} invalid entries, {duplicate_entries} duplicates")
+            LOG.w(
+                f"History import: skipped {skipped_vids} invalid VIDs, {skipped_entries} invalid entries, {duplicate_entries} duplicates"
+            )
         LOG.i(f"Imported {imported} history entries")
         return imported
 
@@ -2555,7 +2649,9 @@ class Val:
     checking for required elements, valid status values, and proper formatting.
     """
 
-    def validate(self, path: Union[str, Path]) -> Tuple[bool, List[str], List[str], List[str]]:
+    def validate(
+        self, path: Union[str, Path]
+    ) -> Tuple[bool, List[str], List[str], List[str]]:
         """
         Validate a CKL file for STIG Viewer compatibility.
 
@@ -2613,10 +2709,17 @@ class Val:
     def _validate_asset(self, asset, errors: List[str], warnings_: List[str]) -> None:
         """Validate ASSET element for required fields and valid values."""
         values = {child.tag: (child.text or "") for child in asset}
-        required = ["ROLE", "ASSET_TYPE", "MARKING", "HOST_NAME", "TARGET_KEY", "WEB_OR_DATABASE"]
-        for field in required:
-            if field not in values:
-                errors.append(f"Missing ASSET field: {field}")
+        required = [
+            "ROLE",
+            "ASSET_TYPE",
+            "MARKING",
+            "HOST_NAME",
+            "TARGET_KEY",
+            "WEB_OR_DATABASE",
+        ]
+        for fld in required:
+            if fld not in values:
+                errors.append(f"Missing ASSET field: {fld}")
 
         marking = values.get("MARKING", "")
         if marking and marking not in Sch.MARKS:
@@ -2696,14 +2799,14 @@ class Val:
                                 )
 
                 if not severity_found:
-                    warnings_.append(f"iSTIG #{idx}, VULN {vuln_num or vuln_idx}: Missing Severity")
+                    warnings_.append(
+                        f"iSTIG #{idx}, VULN {vuln_num or vuln_idx}: Missing Severity"
+                    )
 
         info.append(f"Total vulnerabilities: {total_vulns}")
         if total_vulns:
             reviewed = sum(
-                status_counts[s]
-                for s in status_counts
-                if s not in ("Not_Reviewed", "")
+                status_counts[s] for s in status_counts if s not in ("Not_Reviewed", "")
             )
             pct = reviewed * 100 / total_vulns
             info.append(f"Reviewed: {reviewed}/{total_vulns} ({pct:.1f}%)")
@@ -2848,7 +2951,9 @@ class Proc:
         total = processed + skipped
         error_rate = (skipped / total) * 100 if total > 0 else 0
         if error_rate > Cfg.ERROR_RATE_WARN_THRESHOLD:
-            LOG.w(f"High error rate: {error_rate:.1f}% of vulnerabilities failed to process")
+            LOG.w(
+                f"High error rate: {error_rate:.1f}% of vulnerabilities failed to process"
+            )
             LOG.w(f"First 5 errors: {errors[:5]}")
             if error_rate > Cfg.ERROR_RATE_FAIL_THRESHOLD:
                 raise ParseError(
@@ -2858,21 +2963,30 @@ class Proc:
                     f"Sample errors: {'; '.join(errors[:3])}"
                 )
 
-        LOG.i(f"Processed: {processed} | Skipped: {skipped} | Error rate: {error_rate:.1f}%")
+        LOG.i(
+            f"Processed: {processed} | Skipped: {skipped} | Error rate: {error_rate:.1f}%"
+        )
 
         XmlUtils.indent_xml(checklist)
 
         if dry:
             LOG.i("Dry-run requested, checklist not written")
             LOG.clear()
-            return {"ok": True, "processed": processed, "skipped": skipped, "errors": errors}
+            return {
+                "ok": True,
+                "processed": processed,
+                "skipped": skipped,
+                "errors": errors,
+            }
 
         self._write_ckl(checklist, out)
 
         try:
             ok, errs, _, _ = self.validator.validate(out)
             if not ok:
-                raise ValidationError(f"Generated CKL failed validation: {errs[0] if errs else 'Unknown error'}")
+                raise ValidationError(
+                    f"Generated CKL failed validation: {errs[0] if errs else 'Unknown error'}"
+                )
         except ValidationError:
             raise
         except Exception as exc:
@@ -2880,7 +2994,13 @@ class Proc:
 
         LOG.i(f"Checklist created: {out}")
         LOG.clear()
-        return {"ok": True, "output": str(out), "processed": processed, "skipped": skipped, "errors": errors}
+        return {
+            "ok": True,
+            "output": str(out),
+            "processed": processed,
+            "skipped": skipped,
+            "errors": errors,
+        }
 
     # ------------------------------------------------------------------- helpers
     def _namespace(self, root: ET.Element) -> Dict[str, str]:
@@ -2972,11 +3092,13 @@ class Proc:
             "WEB_DB_SITE": "",
             "WEB_DB_INSTANCE": "",
         }
-        for field in Sch.ASSET:
-            node = ET.SubElement(asset_node, field)
-            node.text = values.get(field, "")
+        for fld in Sch.ASSET:
+            node = ET.SubElement(asset_node, fld)
+            node.text = values.get(fld, "")
 
-    def _build_stig_info(self, parent: ET.Element, xccdf: Path, meta: Dict[str, str]) -> None:
+    def _build_stig_info(
+        self, parent: ET.Element, xccdf: Path, meta: Dict[str, str]
+    ) -> None:
         """
         Build and append the STIG_INFO configuration node for the target CKL.
 
@@ -3000,12 +3122,12 @@ class Proc:
             "source": meta.get("source", "STIG.DOD.MIL"),
         }
 
-        for field in Sch.STIG:
+        for fld in Sch.STIG:
             si_data = ET.SubElement(stig_info, "SI_DATA")
             name = ET.SubElement(si_data, "SID_NAME")
-            name.text = field
+            name.text = fld
             data = ET.SubElement(si_data, "SID_DATA")
-            value = values.get(field, "")
+            value = values.get(fld, "")
             if value:
                 data.text = value
 
@@ -3098,9 +3220,21 @@ class Proc:
         check_text = ""
         check_ref = "M"
         if check_elem is not None:
-            check_content = check_elem.find("ns:check-content", ns) if ns else check_elem.find("check-content")
-            check_text = self._collect_fix_text(check_content) if check_content is not None else ""
-            check_content_ref = check_elem.find("ns:check-content-ref", ns) if ns else check_elem.find("check-content-ref")
+            check_content = (
+                check_elem.find("ns:check-content", ns)
+                if ns
+                else check_elem.find("check-content")
+            )
+            check_text = (
+                self._collect_fix_text(check_content)
+                if check_content is not None
+                else ""
+            )
+            check_content_ref = (
+                check_elem.find("ns:check-content-ref", ns)
+                if ns
+                else check_elem.find("check-content-ref")
+            )
             if check_content_ref is not None:
                 ref_name = check_content_ref.get("name", "M")
                 if ref_name:
@@ -3282,7 +3416,9 @@ class Proc:
         if stigs is None:
             raise ParseError("Base checklist missing STIGS")
 
-        total_vulns = sum(len(istig.findall("VULN")) for istig in stigs.findall("iSTIG"))
+        total_vulns = sum(
+            len(istig.findall("VULN")) for istig in stigs.findall("iSTIG")
+        )
         if total_vulns == 0:
             raise ParseError("Base checklist contains no vulnerabilities")
 
@@ -3309,7 +3445,12 @@ class Proc:
         self._write_ckl(root, out)
         LOG.i(f"Merged checklist saved to {out}")
         LOG.clear()
-        return {"updated": updated, "skipped": skipped, "dry_run": False, "output": str(out)}
+        return {
+            "updated": updated,
+            "skipped": skipped,
+            "dry_run": False,
+            "output": str(out),
+        }
 
     # ------------------------------------------------------------------ diff
     def diff(
@@ -3369,36 +3510,46 @@ class Proc:
 
             differences = []
             if v1["status"] != v2["status"]:
-                differences.append({
-                    "field": "status",
-                    "from": v1["status"],
-                    "to": v2["status"],
-                })
+                differences.append(
+                    {
+                        "field": "status",
+                        "from": v1["status"],
+                        "to": v2["status"],
+                    }
+                )
             if v1["severity"] != v2["severity"]:
-                differences.append({
-                    "field": "severity",
-                    "from": v1["severity"],
-                    "to": v2["severity"],
-                })
+                differences.append(
+                    {
+                        "field": "severity",
+                        "from": v1["severity"],
+                        "to": v2["severity"],
+                    }
+                )
             if v1["finding_details"] != v2["finding_details"]:
-                differences.append({
-                    "field": "finding_details",
-                    "from_length": len(v1["finding_details"]),
-                    "to_length": len(v2["finding_details"]),
-                })
+                differences.append(
+                    {
+                        "field": "finding_details",
+                        "from_length": len(v1["finding_details"]),
+                        "to_length": len(v2["finding_details"]),
+                    }
+                )
             if v1["comments"] != v2["comments"]:
-                differences.append({
-                    "field": "comments",
-                    "from_length": len(v1["comments"]),
-                    "to_length": len(v2["comments"]),
-                })
+                differences.append(
+                    {
+                        "field": "comments",
+                        "from_length": len(v1["comments"]),
+                        "to_length": len(v2["comments"]),
+                    }
+                )
 
             if differences:
-                changed.append({
-                    "vid": vid,
-                    "rule_title": v1.get("rule_title", "Unknown"),
-                    "differences": differences,
-                })
+                changed.append(
+                    {
+                        "vid": vid,
+                        "rule_title": v1.get("rule_title", "Unknown"),
+                        "differences": differences,
+                    }
+                )
             else:
                 unchanged.append(vid)
 
@@ -3468,7 +3619,9 @@ class Proc:
 
         return vulns
 
-    def _print_diff_summary(self, results: Dict[str, Any], name1: str, name2: str) -> None:
+    def _print_diff_summary(
+        self, results: Dict[str, Any], name1: str, name2: str
+    ) -> None:
         """Print a summary of the diff results."""
         s = results["summary"]
         print(f"\n{'='*80}")
@@ -3494,11 +3647,17 @@ class Proc:
                     elif diff["field"] == "severity":
                         print(f"  Severity: {diff['from']} → {diff['to']}")
                     else:
-                        print(f"  {diff['field']} changed ({diff.get('from_length', 0)} → {diff.get('to_length', 0)} chars)")
+                        print(
+                            f"  {diff['field']} changed ({diff.get('from_length', 0)} → {diff.get('to_length', 0)} chars)"
+                        )
             if len(results["changed"]) > 10:
-                print(f"\n... and {len(results['changed']) - 10} more changed vulnerabilities")
+                print(
+                    f"\n... and {len(results['changed']) - 10} more changed vulnerabilities"
+                )
 
-    def _print_diff_detailed(self, results: Dict[str, Any], name1: str, name2: str) -> None:
+    def _print_diff_detailed(
+        self, results: Dict[str, Any], name1: str, name2: str
+    ) -> None:
         """Print detailed diff results."""
         self._print_diff_summary(results, name1, name2)
 
@@ -3551,7 +3710,9 @@ class Proc:
                 for sd in vuln.findall("STIG_DATA"):
                     attr = sd.findtext("VULN_ATTRIBUTE")
                     if attr == "Severity":
-                        severity = San.sev(sd.findtext("ATTRIBUTE_DATA", default="medium"))
+                        severity = San.sev(
+                            sd.findtext("ATTRIBUTE_DATA", default="medium")
+                        )
 
                 if finding.strip() or comment.strip():
                     self.history.add(
@@ -3563,7 +3724,9 @@ class Proc:
                         sev=severity,
                     )
 
-    def _merge_vuln(self, vuln: ET.Element, preserve_history: bool, apply_boilerplate: bool) -> bool:
+    def _merge_vuln(
+        self, vuln: ET.Element, preserve_history: bool, apply_boilerplate: bool
+    ) -> bool:
         """
         Integrate historical data into an existing STIG vulnerability node.
 
@@ -3584,12 +3747,20 @@ class Proc:
             return False
 
         status_node = vuln.find("STATUS")
-        status = status_node.text.strip() if status_node is not None and status_node.text else "Not_Reviewed"
+        status = (
+            status_node.text.strip()
+            if status_node is not None and status_node.text
+            else "Not_Reviewed"
+        )
         finding_node = vuln.find("FINDING_DETAILS")
         comment_node = vuln.find("COMMENTS")
 
-        current_finding = finding_node.text if finding_node is not None and finding_node.text else ""
-        current_comment = comment_node.text if comment_node is not None and comment_node.text else ""
+        current_finding = (
+            finding_node.text if finding_node is not None and finding_node.text else ""
+        )
+        current_comment = (
+            comment_node.text if comment_node is not None and comment_node.text else ""
+        )
 
         merged = False
 
@@ -3623,7 +3794,9 @@ class Proc:
         return merged
 
     # ------------------------------------------------------------ new features v7.2.0
-    def repair(self, ckl_path: Union[str, Path], out_path: Union[str, Path]) -> Dict[str, Any]:
+    def repair(
+        self, ckl_path: Union[str, Path], out_path: Union[str, Path]
+    ) -> Dict[str, Any]:
         """
         Repair corrupted CKL file by fixing common issues.
 
@@ -3663,18 +3836,29 @@ class Proc:
                             # Try to fix common typos
                             if status_val.lower().replace(" ", "_") == "not_a_finding":
                                 status_node.text = "NotAFinding"
-                                repairs.append(f"Fixed status typo: '{status_val}' → 'NotAFinding'")
+                                repairs.append(
+                                    f"Fixed status typo: '{status_val}' → 'NotAFinding'"
+                                )
                             elif status_val.lower() == "open":
                                 status_node.text = "Open"
-                                repairs.append(f"Fixed status case: '{status_val}' → 'Open'")
-                            elif "not" in status_val.lower() and "applicable" in status_val.lower():
+                                repairs.append(
+                                    f"Fixed status case: '{status_val}' → 'Open'"
+                                )
+                            elif (
+                                "not" in status_val.lower()
+                                and "applicable" in status_val.lower()
+                            ):
                                 status_node.text = "Not_Applicable"
-                                repairs.append(f"Fixed status typo: '{status_val}' → 'Not_Applicable'")
+                                repairs.append(
+                                    f"Fixed status typo: '{status_val}' → 'Not_Applicable'"
+                                )
                             else:
                                 # Can't fix, set to Not_Reviewed
                                 old_val = status_val
                                 status_node.text = "Not_Reviewed"
-                                repairs.append(f"Reset invalid status: '{old_val}' → 'Not_Reviewed'")
+                                repairs.append(
+                                    f"Reset invalid status: '{old_val}' → 'Not_Reviewed'"
+                                )
 
         # Repair 2: Add missing required elements
         asset = root.find("ASSET")
@@ -3692,11 +3876,11 @@ class Proc:
             "WEB_OR_DATABASE": "false",
         }
         asset_children = {child.tag: child for child in asset}
-        for field, default_val in required_fields.items():
-            if field not in asset_children:
-                elem = ET.SubElement(asset, field)
+        for fld, default_val in required_fields.items():
+            if fld not in asset_children:
+                elem = ET.SubElement(asset, fld)
                 elem.text = default_val
-                repairs.append(f"Added missing ASSET/{field}")
+                repairs.append(f"Added missing ASSET/{fld}")
 
         # Repair 3: Remove excessively long content (prevents STIG Viewer crashes)
         if stigs is not None:
@@ -3707,13 +3891,19 @@ class Proc:
                     finding_node = vuln.find("FINDING_DETAILS")
                     if finding_node is not None and finding_node.text:
                         if len(finding_node.text) > Cfg.MAX_FIND:
-                            finding_node.text = finding_node.text[:Cfg.MAX_FIND - 15] + "\n[TRUNCATED]"
-                            repairs.append(f"Truncated oversized FINDING_DETAILS for {vid}")
+                            finding_node.text = (
+                                finding_node.text[: Cfg.MAX_FIND - 15] + "\n[TRUNCATED]"
+                            )
+                            repairs.append(
+                                f"Truncated oversized FINDING_DETAILS for {vid}"
+                            )
 
                     comment_node = vuln.find("COMMENTS")
                     if comment_node is not None and comment_node.text:
                         if len(comment_node.text) > Cfg.MAX_COMM:
-                            comment_node.text = comment_node.text[:Cfg.MAX_COMM - 15] + "\n[TRUNCATED]"
+                            comment_node.text = (
+                                comment_node.text[: Cfg.MAX_COMM - 15] + "\n[TRUNCATED]"
+                            )
                             repairs.append(f"Truncated oversized COMMENTS for {vid}")
 
         # Write repaired checklist
@@ -3777,7 +3967,9 @@ class Proc:
                 asset_name = f"{asset_prefix}_{xccdf_file.stem.replace(' ', '_').replace('-', '_')}"
                 out_file = out_dir / f"{xccdf_file.stem}.ckl"
 
-                LOG.i(f"[{idx}/{len(xccdf_files)}] Converting {xccdf_file.name} → {out_file.name}")
+                LOG.i(
+                    f"[{idx}/{len(xccdf_files)}] Converting {xccdf_file.name} → {out_file.name}"
+                )
 
                 result = self.xccdf_to_ckl(
                     xccdf_file,
@@ -3786,20 +3978,26 @@ class Proc:
                     apply_boilerplate=apply_boilerplate,
                 )
 
-                successes.append({
-                    "file": xccdf_file.name,
-                    "output": out_file.name,
-                    "processed": result.get("processed", 0),
-                })
+                successes.append(
+                    {
+                        "file": xccdf_file.name,
+                        "output": out_file.name,
+                        "processed": result.get("processed", 0),
+                    }
+                )
 
             except Exception as exc:
                 LOG.e(f"Failed to convert {xccdf_file.name}: {exc}")
-                failures.append({
-                    "file": xccdf_file.name,
-                    "error": str(exc),
-                })
+                failures.append(
+                    {
+                        "file": xccdf_file.name,
+                        "error": str(exc),
+                    }
+                )
 
-        LOG.i(f"Batch conversion complete: {len(successes)} successes, {len(failures)} failures")
+        LOG.i(
+            f"Batch conversion complete: {len(successes)} successes, {len(failures)} failures"
+        )
         LOG.clear()
 
         return {
@@ -3879,7 +4077,9 @@ class Proc:
 
         return checksum.hexdigest()
 
-    def generate_stats(self, ckl_path: Union[str, Path], *, output_format: str = "text") -> Union[str, Dict[str, Any]]:
+    def generate_stats(
+        self, ckl_path: Union[str, Path], *, output_format: str = "text"
+    ) -> Union[str, Dict[str, Any]]:
         """
         Generate compliance statistics for a checklist.
 
@@ -3922,7 +4122,11 @@ class Proc:
 
                     # Get status
                     status_node = vuln.find("STATUS")
-                    status = status_node.text.strip() if status_node is not None and status_node.text else "Not_Reviewed"
+                    status = (
+                        status_node.text.strip()
+                        if status_node is not None and status_node.text
+                        else "Not_Reviewed"
+                    )
                     stats["by_status"][status] += 1
 
                     # Get severity
@@ -3937,14 +4141,20 @@ class Proc:
                     stats["by_status_and_severity"][severity][status] += 1
 
         # Calculate completion percentage
-        reviewed = sum(stats["by_status"][s] for s in stats["by_status"] if s != "Not_Reviewed")
+        reviewed = sum(
+            stats["by_status"][s] for s in stats["by_status"] if s != "Not_Reviewed"
+        )
         stats["reviewed"] = reviewed
-        stats["completion_pct"] = (reviewed / stats["total_vulns"] * 100) if stats["total_vulns"] > 0 else 0
+        stats["completion_pct"] = (
+            (reviewed / stats["total_vulns"] * 100) if stats["total_vulns"] > 0 else 0
+        )
 
         # Calculate compliance percentage (NotAFinding / total reviewed)
         not_a_finding = stats["by_status"].get("NotAFinding", 0)
         stats["compliant"] = not_a_finding
-        stats["compliance_pct"] = (not_a_finding / reviewed * 100) if reviewed > 0 else 0
+        stats["compliance_pct"] = (
+            (not_a_finding / reviewed * 100) if reviewed > 0 else 0
+        )
 
         LOG.clear()
 
@@ -3955,7 +4165,8 @@ class Proc:
             result["by_status"] = dict(stats["by_status"])
             result["by_severity"] = dict(stats["by_severity"])
             result["by_status_and_severity"] = {
-                sev: dict(statuses) for sev, statuses in stats["by_status_and_severity"].items()
+                sev: dict(statuses)
+                for sev, statuses in stats["by_status_and_severity"].items()
             }
             return result
         elif output_format == "csv":
@@ -3967,29 +4178,39 @@ class Proc:
         """Format statistics as human-readable text."""
         lines = []
         lines.append("=" * 80)
-        lines.append(f"STIG Compliance Statistics")
+        lines.append("STIG Compliance Statistics")
         lines.append("=" * 80)
         lines.append(f"File: {stats['file']}")
         lines.append(f"Generated: {stats['generated']}")
         lines.append("")
         lines.append(f"Total Vulnerabilities: {stats['total_vulns']}")
         lines.append(f"Reviewed: {stats['reviewed']} ({stats['completion_pct']:.1f}%)")
-        lines.append(f"Compliant: {stats['compliant']} ({stats['compliance_pct']:.1f}% of reviewed)")
+        lines.append(
+            f"Compliant: {stats['compliant']} ({stats['compliance_pct']:.1f}% of reviewed)"
+        )
         lines.append("")
         lines.append("Status Breakdown:")
         lines.append("-" * 40)
-        for status in sorted(stats['by_status'].keys()):
-            count = stats['by_status'][status]
-            pct = (count / stats['total_vulns'] * 100) if stats['total_vulns'] > 0 else 0
+        for status in sorted(stats["by_status"].keys()):
+            count = stats["by_status"][status]
+            pct = (
+                (count / stats["total_vulns"] * 100) if stats["total_vulns"] > 0 else 0
+            )
             lines.append(f"  {status:20} {count:6} ({pct:5.1f}%)")
         lines.append("")
         lines.append("Severity Breakdown:")
         lines.append("-" * 40)
         for severity in ["high", "medium", "low"]:
-            if severity in stats['by_severity']:
-                count = stats['by_severity'][severity]
-                pct = (count / stats['total_vulns'] * 100) if stats['total_vulns'] > 0 else 0
-                lines.append(f"  CAT {['I', 'II', 'III'][['high', 'medium', 'low'].index(severity)]:3} ({severity:6}) {count:6} ({pct:5.1f}%)")
+            if severity in stats["by_severity"]:
+                count = stats["by_severity"][severity]
+                pct = (
+                    (count / stats["total_vulns"] * 100)
+                    if stats["total_vulns"] > 0
+                    else 0
+                )
+                lines.append(
+                    f"  CAT {['I', 'II', 'III'][['high', 'medium', 'low'].index(severity)]:3} ({severity:6}) {count:6} ({pct:5.1f}%)"
+                )
         lines.append("=" * 80)
         return "\n".join(lines)
 
@@ -4006,12 +4227,12 @@ class Proc:
         lines.append(f"Compliance %,{stats['compliance_pct']:.1f}")
         lines.append("")
         lines.append("Status,Count")
-        for status in sorted(stats['by_status'].keys()):
+        for status in sorted(stats["by_status"].keys()):
             lines.append(f"{status},{stats['by_status'][status]}")
         lines.append("")
         lines.append("Severity,Count")
         for severity in ["high", "medium", "low"]:
-            if severity in stats['by_severity']:
+            if severity in stats["by_severity"]:
                 lines.append(f"{severity},{stats['by_severity'][severity]}")
         return "\n".join(lines)
 
@@ -4084,56 +4305,72 @@ class FixExt:
         result = result.replace("\n", "`n")
         return result
 
-    CODE_BLOCK = re.compile(r"```(?:bash|sh|shell|zsh|powershell|ps1|ps|cmd|bat)\s*(.*?)```", re.DOTALL | re.IGNORECASE)
+    CODE_BLOCK = re.compile(
+        r"```(?:bash|sh|shell|zsh|powershell|ps1|ps|cmd|bat)\s*(.*?)```",
+        re.DOTALL | re.IGNORECASE,
+    )
     TRIPLE_TICK = re.compile(r"```(.*?)```", re.DOTALL)
     SHELL_PROMPT = re.compile(r"(?m)^(?:\$|#|>)\s*(.+)")
     POWERSHELL_PROMPT = re.compile(r"(?m)^(?:PS [^>]+>|\w:\\[^>]*>)\s*(.+)")
     BULLET_CMD = re.compile(r"(?m)^(?:[-*+]|\d+\.)\s*(?:Run|Execute)\s*[:\-]?\s*(.+)")
     INLINE_CMD = re.compile(r"`([^`]+)`")
     COMMAND_LINE = re.compile(r"(?m)^\s*(?:#|sudo)\s+(.+)$")
-    PLAIN_COMMAND = re.compile(r"(?:run|execute|use)\s+(?:the\s+)?(?:following\s+)?(?:command|commands?)[\s:]+(.+?)(?:\n|$)", re.IGNORECASE)
-    CONFIG_FILE = re.compile(r"(?:edit|modify|update)\s+(?:the\s+)?(?:file\s+)?([/\w.-]+(?:/[\w.-]+)*)", re.IGNORECASE)
-    SCRIPT_BLOCK = re.compile(r"(?:#!/bin/(?:bash|sh)|@echo off)(.*?)(?=\n\n|\Z)", re.DOTALL)
-    SERVICE_CMD = re.compile(r"^\s*(?:systemctl|service)\s+(?:start|stop|restart|enable|disable|status)\s+\S+", re.MULTILINE)
+    PLAIN_COMMAND = re.compile(
+        r"(?:run|execute|use)\s+(?:the\s+)?(?:following\s+)?(?:command|commands?)[\s:]+(.+?)(?:\n|$)",
+        re.IGNORECASE,
+    )
+    CONFIG_FILE = re.compile(
+        r"(?:edit|modify|update)\s+(?:the\s+)?(?:file\s+)?([/\w.-]+(?:/[\w.-]+)*)",
+        re.IGNORECASE,
+    )
+    SCRIPT_BLOCK = re.compile(
+        r"(?:#!/bin/(?:bash|sh)|@echo off)(.*?)(?=\n\n|\Z)", re.DOTALL
+    )
+    SERVICE_CMD = re.compile(
+        r"^\s*(?:systemctl|service)\s+(?:start|stop|restart|enable|disable|status)\s+\S+",
+        re.MULTILINE,
+    )
     AUDIT_CMD = re.compile(r"^\s*(?:auditctl|ausearch|aureport)\s+.+", re.MULTILINE)
-    SELINUX_CMD = re.compile(r"^\s*(?:semanage|setsebool|restorecon|chcon|getenforce|setenforce)\s+.+", re.MULTILINE)
+    SELINUX_CMD = re.compile(
+        r"^\s*(?:semanage|setsebool|restorecon|chcon|getenforce|setenforce)\s+.+",
+        re.MULTILINE,
+    )
 
     # Pre-compiled patterns for _extract_command (performance optimization)
     RUN_COMMAND_PATTERN = re.compile(
         r"(?:run|execute|use|enter|type)\s+(?:the\s+)?(?:following\s+)?(?:command|commands?)[\s:]+\n(.+?)(?:\n\n|\Z)",
-        re.IGNORECASE | re.DOTALL
+        re.IGNORECASE | re.DOTALL,
     )
     UNIX_CMD_PATTERN = re.compile(
         r"^\s*(?:sudo\s+)?(?:chmod|chown|chgrp|systemctl|service|grep|sed|awk|find|rpm|yum|dnf|apt-get|"
         r"apt|mount|umount|useradd|usermod|passwd|groupadd|ln|cp|mv|rm|mkdir|touch|cat|echo|vi|nano|"
         r"gsettings|dconf|auditctl|ausearch|aureport|restorecon|semanage|setsebool|firewall-cmd)\s+.+",
-        re.MULTILINE
+        re.MULTILINE,
     )
     PS_CMDLET_PATTERN = re.compile(
         r"^\s*(?:Set-|Get-|New-|Remove-|Add-|Enable-|Disable-|Test-|Invoke-)[A-Za-z]+(?:\s+-[A-Za-z]+\s+[^\n]+)+",
-        re.MULTILINE
+        re.MULTILINE,
     )
     REG_CMD_PATTERN = re.compile(
         r"^\s*reg(?:\.exe)?\s+(?:add|delete|query|import|export)\s+.+",
-        re.MULTILINE | re.IGNORECASE
+        re.MULTILINE | re.IGNORECASE,
     )
     EDIT_FILE_PATTERN = re.compile(
         r"(?:edit|modify|update|change)\s+(?:the\s+)?(?:file|configuration)\s+([/\w.-]+(?:/[\w.-]+)*)",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
     GPO_PATTERN = re.compile(
         r"(?:Computer Configuration|User Configuration)\s*>>?\s*.+?(?:>>?\s*.+?)*",
-        re.IGNORECASE
+        re.IGNORECASE,
     )
     MULTILINE_CMD_PATTERN = re.compile(
         r"(?:^|\n)((?:(?:sudo\s+)?(?:\w+(?:/\w+)*|\w+)\s+[^\n]+\n?){2,})",
-        re.MULTILINE
+        re.MULTILINE,
     )
     COLON_CMD_PATTERN = re.compile(
         r"(?:Command|Solution|Fix|Remediation|Action):\s*\n?(.+?)(?:\n\n|\Z)",
-        re.IGNORECASE | re.DOTALL
+        re.IGNORECASE | re.DOTALL,
     )
-
 
     def __init__(self, xccdf: Union[str, Path]):
         self.xccdf = San.path(xccdf, exist=True, file=True)
@@ -4233,7 +4470,9 @@ class FixExt:
         title = text(find("title"))
         rule_version = text(find("version"))
 
-        group_title_elem = group.find("ns:title", self.ns) if self.ns else group.find("title")
+        group_title_elem = (
+            group.find("ns:title", self.ns) if self.ns else group.find("title")
+        )
         group_title = text(group_title_elem) if group_title_elem is not None else vid
 
         # Extract fix text
@@ -4243,7 +4482,7 @@ class FixExt:
             fix_text = self._collect_text(fix_elem)
             if not fix_text.strip():
                 LOG.w(f"{vid}: Empty fixtext extracted, checking attributes")
-                fix_text = fix_elem.get('fixref', '') or fix_elem.get('id', '')
+                fix_text = fix_elem.get("fixref", "") or fix_elem.get("id", "")
 
         if not fix_text.strip():
             LOG.d(f"{vid}: Skipping - no fix text available")
@@ -4254,7 +4493,11 @@ class FixExt:
         check_text = ""
         check_command = None
         if check_elem is not None:
-            check_content = check_elem.find("ns:check-content", self.ns) if self.ns else check_elem.find("check-content")
+            check_content = (
+                check_elem.find("ns:check-content", self.ns)
+                if self.ns
+                else check_elem.find("check-content")
+            )
             if check_content is not None:
                 check_text = self._collect_text(check_content)
                 check_command = self._extract_command(check_text)
@@ -4366,7 +4609,7 @@ class FixExt:
         if gpo_matches:
             # Format as a configuration instruction
             for gpo_path in gpo_matches:
-                clean_path = gpo_path.replace('>>', '\\').strip()
+                clean_path = gpo_path.replace(">>", "\\").strip()
                 candidates.append(f"# Group Policy:\n# {clean_path}")
 
         # ═══ PATTERN 11: Multi-line command blocks ═══
@@ -4374,7 +4617,19 @@ class FixExt:
         for match in self.MULTILINE_CMD_PATTERN.finditer(text_block):
             block = match.group(1).strip()
             # Verify it looks like commands (has common command words)
-            if any(cmd in block for cmd in ['chmod', 'chown', 'systemctl', 'grep', 'sed', 'echo', 'Set-', 'Get-']):
+            if any(
+                cmd in block
+                for cmd in [
+                    "chmod",
+                    "chown",
+                    "systemctl",
+                    "grep",
+                    "sed",
+                    "echo",
+                    "Set-",
+                    "Get-",
+                ]
+            ):
                 candidates.append(block)
 
         # ═══ PATTERN 12: Commands after colons ═══
@@ -4397,11 +4652,14 @@ class FixExt:
             for line in cand.strip().splitlines():
                 line = line.strip()
                 # Skip empty lines and pure comment lines
-                if not line or (line.startswith('#') and not any(cmd in line for cmd in ['chmod', 'chown', 'Edit'])):
+                if not line or (
+                    line.startswith("#")
+                    and not any(cmd in line for cmd in ["chmod", "chown", "Edit"])
+                ):
                     continue
                 lines.append(line)
 
-            cmd = '\n'.join(lines)
+            cmd = "\n".join(lines)
 
             # Validation: must meet minimum criteria
             if len(cmd) < MIN_CMD_LENGTH:
@@ -4423,14 +4681,46 @@ class FixExt:
         # Return the longest/most substantial command
         return max(commands, key=lambda x: len(x)).strip()
 
-
     def _detect_platform(self, text_block: str, cmd: Optional[str]) -> str:
         combined = f"{text_block}\n{cmd or ''}".lower()
-        if any(token in combined for token in ("powershell", "set-mdp", "new-item", "registry", "gpo", "windows")):
+        if any(
+            token in combined
+            for token in (
+                "powershell",
+                "set-mdp",
+                "new-item",
+                "registry",
+                "gpo",
+                "windows",
+            )
+        ):
             return "windows"
-        if any(token in combined for token in ("systemctl", "chmod", "chown", "/etc/", "apt-get", "yum", "dnf", "rpm", "bash")):
+        if any(
+            token in combined
+            for token in (
+                "systemctl",
+                "chmod",
+                "chown",
+                "/etc/",
+                "apt-get",
+                "yum",
+                "dnf",
+                "rpm",
+                "bash",
+            )
+        ):
             return "linux"
-        if any(token in combined for token in ("cisco", "ios", "switchport", "interface", "router", "show running-config")):
+        if any(
+            token in combined
+            for token in (
+                "cisco",
+                "ios",
+                "switchport",
+                "interface",
+                "router",
+                "show running-config",
+            )
+        ):
             return "network"
         return "generic"
 
@@ -4492,7 +4782,12 @@ class FixExt:
                 )
         LOG.i(f"Fixes exported to CSV: {path}")
 
-    def to_bash(self, path: Union[str, Path], severity_filter: Optional[List[str]] = None, dry_run: bool = False) -> None:
+    def to_bash(
+        self,
+        path: Union[str, Path],
+        severity_filter: Optional[List[str]] = None,
+        dry_run: bool = False,
+    ) -> None:
         path = San.path(path, mkpar=True)
 
         # Validate severity filter values
@@ -4500,7 +4795,9 @@ class FixExt:
             valid_severities = Severity.all_values()
             invalid = [s for s in severity_filter if s not in valid_severities]
             if invalid:
-                LOG.w(f"Invalid severity filter values ignored: {invalid}. Valid: {sorted(valid_severities)}")
+                LOG.w(
+                    f"Invalid severity filter values ignored: {invalid}. Valid: {sorted(valid_severities)}"
+                )
                 severity_filter = [s for s in severity_filter if s in valid_severities]
                 if not severity_filter:
                     severity_filter = None  # Reset if all were invalid
@@ -4508,7 +4805,9 @@ class FixExt:
         fixes = [
             fix
             for fix in self.fixes
-            if fix.fix_command and fix.platform in ("linux", "generic") and (not severity_filter or fix.severity in severity_filter)
+            if fix.fix_command
+            and fix.platform in ("linux", "generic")
+            and (not severity_filter or fix.severity in severity_filter)
         ]
         if not fixes:
             LOG.w("No Linux/generic fixes with commands found")
@@ -4523,18 +4822,18 @@ class FixExt:
             "set -euo pipefail",
             "",
             "DRY_RUN=" + ("1" if dry_run else "0"),
-            "LOG_FILE=\"stig_fix_$(date +%Y%m%d_%H%M%S).log\"",
-            "RESULT_FILE=\"stig_results_$(date +%Y%m%d_%H%M%S).json\"",
+            'LOG_FILE="stig_fix_$(date +%Y%m%d_%H%M%S).log"',
+            'RESULT_FILE="stig_results_$(date +%Y%m%d_%H%M%S).json"',
             "",
-            "echo \"Remediation started\" | tee -a \"$LOG_FILE\"",
+            'echo "Remediation started" | tee -a "$LOG_FILE"',
             "declare -i PASS=0 FAIL=0 SKIP=0",
             "declare -a RESULTS=()",
             "",
             "record_result() {",
-            "  local vid=\"$1\"",
-            "  local ok=\"$2\"",
-            "  local msg=\"$3\"",
-            "  RESULTS+=('{\"vid\":\"'\"$vid\"'\",\"ok\":'\"$ok\"',\"msg\":\"'\"${msg//\"/\\\"}\"'\",\"ts\":\"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'\"}')",
+            '  local vid="$1"',
+            '  local ok="$2"',
+            '  local msg="$3"',
+            '  RESULTS+=(\'{"vid":"\'"$vid"\'","ok":\'"$ok"\',"msg":"\'"${msg//"/\\"}"\'","ts":"\'$(date -u +%Y-%m-%dT%H:%M:%SZ)\'"}\')',
             "}",
             "",
         ]
@@ -4542,39 +4841,45 @@ class FixExt:
         for idx, fix in enumerate(fixes, 1):
             # Escape title for safe echo in double quotes
             safe_title = self._escape_bash_double_quote(fix.title[:60])
-            lines.append(f"echo \"[{idx}/{len(fixes)}] {fix.vid} - {safe_title}\" | tee -a \"$LOG_FILE\"")
+            lines.append(
+                f'echo "[{idx}/{len(fixes)}] {fix.vid} - {safe_title}" | tee -a "$LOG_FILE"'
+            )
             if dry_run:
                 # Use heredoc for safe multi-line command display
                 safe_cmd = self._escape_bash_double_quote(fix.fix_command)
-                lines.append(f"echo \"  [DRY-RUN] Would execute:\\n{safe_cmd}\" | tee -a \"$LOG_FILE\"")
-                lines.append(f"record_result \"{fix.vid}\" true \"dry_run\"")
+                lines.append(
+                    f'echo "  [DRY-RUN] Would execute:\\n{safe_cmd}" | tee -a "$LOG_FILE"'
+                )
+                lines.append(f'record_result "{fix.vid}" true "dry_run"')
                 lines.append("((PASS++))")
                 lines.append("")
                 continue
 
             lines.append(
-                "{\n" + "\n".join(f"  {line}" for line in fix.fix_command.splitlines()) + "\n} >>\"$LOG_FILE\" 2>&1"
+                "{\n"
+                + "\n".join(f"  {line}" for line in fix.fix_command.splitlines())
+                + '\n} >>"$LOG_FILE" 2>&1'
             )
             lines.append("if [ $? -eq 0 ]; then")
-            lines.append("  echo \"  ✔ Success\" | tee -a \"$LOG_FILE\"")
-            lines.append(f"  record_result \"{fix.vid}\" true \"success\"")
+            lines.append('  echo "  ✔ Success" | tee -a "$LOG_FILE"')
+            lines.append(f'  record_result "{fix.vid}" true "success"')
             lines.append("  ((PASS++))")
             lines.append("else")
-            lines.append("  echo \"  ✘ Failed\" | tee -a \"$LOG_FILE\"")
-            lines.append(f"  record_result \"{fix.vid}\" false \"failed\"")
+            lines.append('  echo "  ✘ Failed" | tee -a "$LOG_FILE"')
+            lines.append(f'  record_result "{fix.vid}" false "failed"')
             lines.append("  ((FAIL++))")
             lines.append("fi")
             lines.append("")
 
         lines.extend(
             [
-                "echo \"Summary: PASS=$PASS FAIL=$FAIL SKIP=$SKIP\" | tee -a \"$LOG_FILE\"",
-                "printf '{\\n  \"meta\": {\\n    \"generated\": \"%s\",\\n    \"mode\": \"%s\",\\n    \"total\": %d,\\n    \"pass\": %d,\\n    \"fail\": %d,\\n    \"skip\": %d\\n  },\\n  \"results\": [\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \"$([ \"$DRY_RUN\" -eq 1 ] && echo 'dry' || echo 'live')\" $((PASS+FAIL+SKIP)) $PASS $FAIL $SKIP > \"$RESULT_FILE\"",
-                "for i in \"${!RESULTS[@]}\"; do",
-                "  printf '    %s%s\\n' \"${RESULTS[$i]}\" $([ \"$i\" -lt $(( ${#RESULTS[@]} - 1 )) ] && echo ',' ) >> \"$RESULT_FILE\"",
+                'echo "Summary: PASS=$PASS FAIL=$FAIL SKIP=$SKIP" | tee -a "$LOG_FILE"',
+                'printf \'{\\n  "meta": {\\n    "generated": "%s",\\n    "mode": "%s",\\n    "total": %d,\\n    "pass": %d,\\n    "fail": %d,\\n    "skip": %d\\n  },\\n  "results": [\\n\' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$([ "$DRY_RUN" -eq 1 ] && echo \'dry\' || echo \'live\')" $((PASS+FAIL+SKIP)) $PASS $FAIL $SKIP > "$RESULT_FILE"',
+                'for i in "${!RESULTS[@]}"; do',
+                '  printf \'    %s%s\\n\' "${RESULTS[$i]}" $([ "$i" -lt $(( ${#RESULTS[@]} - 1 )) ] && echo \',\' ) >> "$RESULT_FILE"',
                 "done",
                 "printf '  ]\\n}\\n' >> \"$RESULT_FILE\"",
-                "echo \"Results saved to $RESULT_FILE\" | tee -a \"$LOG_FILE\"",
+                'echo "Results saved to $RESULT_FILE" | tee -a "$LOG_FILE"',
             ]
         )
 
@@ -4585,10 +4890,17 @@ class FixExt:
             try:
                 os.chmod(path, 0o750)
             except OSError as err:
-                LOG.w(f"Could not safely set executable permissions on {path} (Check context rights): {err}")
+                LOG.w(
+                    f"Could not safely set executable permissions on {path} (Check context rights): {err}"
+                )
         LOG.i(f"Bash remediation script generated: {path} ({len(fixes)} fixes)")
 
-    def to_powershell(self, path: Union[str, Path], severity_filter: Optional[List[str]] = None, dry_run: bool = False) -> None:
+    def to_powershell(
+        self,
+        path: Union[str, Path],
+        severity_filter: Optional[List[str]] = None,
+        dry_run: bool = False,
+    ) -> None:
         path = San.path(path, mkpar=True)
 
         # Validate severity filter values
@@ -4596,7 +4908,9 @@ class FixExt:
             valid_severities = Severity.all_values()
             invalid = [s for s in severity_filter if s not in valid_severities]
             if invalid:
-                LOG.w(f"Invalid severity filter values ignored: {invalid}. Valid: {sorted(valid_severities)}")
+                LOG.w(
+                    f"Invalid severity filter values ignored: {invalid}. Valid: {sorted(valid_severities)}"
+                )
                 severity_filter = [s for s in severity_filter if s in valid_severities]
                 if not severity_filter:
                     severity_filter = None  # Reset if all were invalid
@@ -4604,7 +4918,9 @@ class FixExt:
         fixes = [
             fix
             for fix in self.fixes
-            if fix.fix_command and fix.platform in ("windows", "generic") and (not severity_filter or fix.severity in severity_filter)
+            if fix.fix_command
+            and fix.platform in ("windows", "generic")
+            and (not severity_filter or fix.severity in severity_filter)
         ]
         if not fixes:
             LOG.w("No Windows/generic fixes with commands found")
@@ -4635,11 +4951,11 @@ class FixExt:
         for idx, fix in enumerate(fixes, 1):
             # Escape title for safe Write-Host in double quotes
             safe_title = self._escape_powershell_string(fix.title[:60])
-            lines.append(f"Write-Host \"[{idx}/{len(fixes)}] {fix.vid} - {safe_title}\"")
+            lines.append(f'Write-Host "[{idx}/{len(fixes)}] {fix.vid} - {safe_title}"')
             if dry_run:
                 safe_cmd = self._escape_powershell_string(fix.fix_command)
-                lines.append(f"Write-Host \"  [DRY-RUN] Would execute:`n{safe_cmd}\"")
-                lines.append(f"Add-Result \"{fix.vid}\" $true \"dry_run\"")
+                lines.append(f'Write-Host "  [DRY-RUN] Would execute:`n{safe_cmd}"')
+                lines.append(f'Add-Result "{fix.vid}" $true "dry_run"')
                 # Note: No PowerShell 'Continue' needed here - Python's continue skips try/catch generation
                 lines.append("")
                 continue
@@ -4647,11 +4963,11 @@ class FixExt:
             lines.append("try {")
             for line in fix.fix_command.splitlines():
                 lines.append(f"    {line}")
-            lines.append("    Write-Host \"  ✔ Success\"")
-            lines.append(f"    Add-Result \"{fix.vid}\" $true \"success\"")
+            lines.append('    Write-Host "  ✔ Success"')
+            lines.append(f'    Add-Result "{fix.vid}" $true "success"')
             lines.append("} catch {")
-            lines.append("    Write-Warning \"  ✘ Failed: $($_.Exception.Message)\"")
-            lines.append(f"    Add-Result \"{fix.vid}\" $false $_.Exception.Message")
+            lines.append('    Write-Warning "  ✘ Failed: $($_.Exception.Message)"')
+            lines.append(f'    Add-Result "{fix.vid}" $false $_.Exception.Message')
             lines.append("}")
             lines.append("")
 
@@ -4757,18 +5073,20 @@ class FixResPro:
 
         try:
             content = FO.read(path)
-            
+
             # Auto-detect CSV format via file extension
             if str(path).lower().endswith(".csv"):
                 import csv
                 import io
+
                 reader = csv.DictReader(io.StringIO(content))
                 entries = []
                 for row in reader:
                     # Map CSV columns to expected JSON-like dict schema
                     entry = {
                         "vid": row.get("vid") or row.get("Vuln_ID", ""),
-                        "ok": row.get("ok", "false").lower() in ("true", "1", "yes", "success"),
+                        "ok": row.get("ok", "false").lower()
+                        in ("true", "1", "yes", "success"),
                         "msg": row.get("msg", ""),
                         "output": row.get("out", ""),
                         "error": row.get("err", ""),
@@ -4815,9 +5133,11 @@ class FixResPro:
                             # Tag each result with source system
                             for entry in system_results:
                                 if isinstance(entry, dict):
-                                    entry['_source_system'] = system_name
+                                    entry["_source_system"] = system_name
                             entries.extend(system_results)
-                            LOG.d(f"  Loaded {len(system_results)} from system '{system_name}'")
+                            LOG.d(
+                                f"  Loaded {len(system_results)} from system '{system_name}'"
+                            )
 
             # Format 4: Alternative keys
             elif "vulnerabilities" in payload:
@@ -4843,7 +5163,9 @@ class FixResPro:
                         f"'vulnerabilities', 'entries', or direct array. Found: {list(payload.keys())}"
                     )
         else:
-            raise ParseError(f"JSON must be object or array, got {type(payload).__name__}")
+            raise ParseError(
+                f"JSON must be object or array, got {type(payload).__name__}"
+            )
 
         if not isinstance(entries, list):
             raise ParseError(f"Results must be array, got {type(entries).__name__}")
@@ -4887,7 +5209,9 @@ class FixResPro:
                 self.results[vid] = result
 
         unique_count = len(dedup)
-        LOG.i(f"Loaded {unique_count} unique results from {imported} total entries (skipped {skipped})")
+        LOG.i(
+            f"Loaded {unique_count} unique results from {imported} total entries (skipped {skipped})"
+        )
         LOG.clear()
 
         return unique_count, skipped
@@ -4963,7 +5287,15 @@ class FixResPro:
 
             existing = finding_node.text or ""
             if existing.strip():
-                combined = "\n".join(summary) + "\n\n" + "═" * 80 + "\n[PREVIOUS]\n" + "═" * 80 + "\n\n" + existing
+                combined = (
+                    "\n".join(summary)
+                    + "\n\n"
+                    + "═" * 80
+                    + "\n[PREVIOUS]\n"
+                    + "═" * 80
+                    + "\n\n"
+                    + existing
+                )
             else:
                 combined = "\n".join(summary)
             if len(combined) > Cfg.MAX_FIND:
@@ -5092,7 +5424,10 @@ class EvidenceMgr:
                     vid = San.vuln(vid)
                 except Exception as vid_err:
                     import logging
-                    getattr(logging, 'debug', print)(f"Invalid VID skipped during import: {vid_err}")
+
+                    getattr(logging, "debug", print)(
+                        f"Invalid VID skipped during import: {vid_err}"
+                    )
                     continue
                 self._meta[vid] = []
                 for entry in entries:
@@ -5102,7 +5437,10 @@ class EvidenceMgr:
 
     # ------------------------------------------------------------------- save
     def _save(self) -> None:
-        payload = {vid: [entry.as_dict() for entry in entries] for vid, entries in self._meta.items()}
+        payload = {
+            vid: [entry.as_dict() for entry in entries]
+            for vid, entries in self._meta.items()
+        }
         with FO.atomic(self.meta_file) as handle:
             json.dump(payload, handle, indent=2, ensure_ascii=False)
 
@@ -5147,7 +5485,9 @@ class EvidenceMgr:
                     if existing_path.exists():
                         return existing_path
                     else:
-                        LOG.w(f"Duplicate entry exists but file missing: {existing_path}")
+                        LOG.w(
+                            f"Duplicate entry exists but file missing: {existing_path}"
+                        )
                         # Mark stale metadata entry for removal (don't modify list while iterating)
                         stale_entry = entry
                         break
@@ -5209,7 +5549,10 @@ class EvidenceMgr:
         metadata_path = dest_dir / "evidence_meta.json"
         with FO.atomic(metadata_path) as handle:
             json.dump(
-                {vid: [entry.as_dict() for entry in entries] for vid, entries in self._meta.items()},
+                {
+                    vid: [entry.as_dict() for entry in entries]
+                    for vid, entries in self._meta.items()
+                },
                 handle,
                 indent=2,
                 ensure_ascii=False,
@@ -5237,7 +5580,10 @@ class EvidenceMgr:
         meta_path = Path(tmp_meta.name)
         with tmp_meta:
             json.dump(
-                {vid: [entry.as_dict() for entry in entries] for vid, entries in self._meta.items()},
+                {
+                    vid: [entry.as_dict() for entry in entries]
+                    for vid, entries in self._meta.items()
+                },
                 tmp_meta,
                 indent=2,
                 ensure_ascii=False,
@@ -5271,18 +5617,24 @@ class EvidenceMgr:
                     # Normalize the path and check for traversal attempts
                     member_path = Path(member)
                     if member_path.is_absolute():
-                        raise ValidationError(f"Archive contains absolute path: {member}")
+                        raise ValidationError(
+                            f"Archive contains absolute path: {member}"
+                        )
 
                     # Check for parent directory references
                     if ".." in member_path.parts:
-                        raise ValidationError(f"Archive contains path traversal: {member}")
+                        raise ValidationError(
+                            f"Archive contains path traversal: {member}"
+                        )
 
                     # Verify resolved path stays within extraction directory
                     target_path = (tmp_path / member).resolve()
                     try:
                         target_path.relative_to(tmp_path.resolve())
                     except ValueError:
-                        raise ValidationError(f"Archive path escapes extraction directory: {member}")
+                        raise ValidationError(
+                            f"Archive path escapes extraction directory: {member}"
+                        )
 
                 # Safe to extract after validation
                 archive.extractall(tmp_path)
@@ -5306,7 +5658,9 @@ class EvidenceMgr:
                 try:
                     vid = San.vuln(vid)
                 except ValidationError as exc:
-                    LOG.w(f"Skipping invalid vulnerability directory '{vid_dir.name}': {exc}")
+                    LOG.w(
+                        f"Skipping invalid vulnerability directory '{vid_dir.name}': {exc}"
+                    )
                     continue
                 for file in vid_dir.iterdir():
                     if not file.is_file():
@@ -5318,7 +5672,9 @@ class EvidenceMgr:
                             description = entry.get("description", "")
                             category = entry.get("category", "general")
                             break
-                    self.import_file(vid, file, description=description, category=category)
+                    self.import_file(
+                        vid, file, description=description, category=category
+                    )
                     extracted += 1
 
         LOG.i(f"Imported {extracted} evidence files from package")
@@ -5329,7 +5685,9 @@ class EvidenceMgr:
     def summary(self) -> Dict[str, Any]:
         with self._lock:
             total_files = sum(len(entries) for entries in self._meta.values())
-            total_size = sum(entry.file_size for entries in self._meta.values() for entry in entries)
+            total_size = sum(
+                entry.file_size for entries in self._meta.values() for entry in entries
+            )
             return {
                 "vulnerabilities": len(self._meta),
                 "files": total_files,
@@ -5450,18 +5808,36 @@ if Deps.HAS_TKINTER:
 
             file_menu = tk.Menu(menu, tearoff=0)
             menu.add_cascade(label="File", menu=file_menu)
-            file_menu.add_command(label="Save Preset...", command=self._save_preset, accelerator="Ctrl+S")
-            file_menu.add_command(label="Load Preset...", command=self._load_preset, accelerator="Ctrl+O")
+            file_menu.add_command(
+                label="Save Preset...",
+                command=self._save_preset,
+                accelerator="Ctrl+S",
+            )
+            file_menu.add_command(
+                label="Load Preset...",
+                command=self._load_preset,
+                accelerator="Ctrl+O",
+            )
             file_menu.add_separator()
-            file_menu.add_command(label="Exit", command=self._close, accelerator="Ctrl+Q")
+            file_menu.add_command(
+                label="Exit", command=self._close, accelerator="Ctrl+Q"
+            )
 
             tools_menu = tk.Menu(menu, tearoff=0)
             menu.add_cascade(label="Tools", menu=tools_menu)
-            tools_menu.add_command(label="Export History...", command=self._export_history)
-            tools_menu.add_command(label="Import History...", command=self._import_history)
+            tools_menu.add_command(
+                label="Export History...", command=self._export_history
+            )
+            tools_menu.add_command(
+                label="Import History...", command=self._import_history
+            )
             tools_menu.add_separator()
-            tools_menu.add_command(label="Export Boilerplates...", command=self._export_boiler)
-            tools_menu.add_command(label="Import Boilerplates...", command=self._import_boiler)
+            tools_menu.add_command(
+                label="Export Boilerplates...", command=self._export_boiler
+            )
+            tools_menu.add_command(
+                label="Import Boilerplates...", command=self._import_boiler
+            )
             tools_menu.add_separator()
             tools_menu.add_command(label="Cleanup Old Files", command=self._cleanup_old)
 
@@ -5507,17 +5883,19 @@ if Deps.HAS_TKINTER:
             r = 0
             ttk.Label(frame, text="XCCDF File:").grid(row=r, column=0, sticky="w")
             self.create_xccdf = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.create_xccdf, width=GUI_ENTRY_WIDTH).grid(
-                row=r, column=1, padx=GUI_PADDING
+            ttk.Entry(
+                frame, textvariable=self.create_xccdf, width=GUI_ENTRY_WIDTH
+            ).grid(row=r, column=1, padx=GUI_PADDING)
+            ttk.Button(frame, text="Browse...", command=self._browse_create_xccdf).grid(
+                row=r, column=2
             )
-            ttk.Button(frame, text="Browse...", command=self._browse_create_xccdf).grid(row=r, column=2)
             r += 1
 
             ttk.Label(frame, text="Asset Name: *").grid(row=r, column=0, sticky="w")
             self.create_asset = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.create_asset, width=GUI_ENTRY_WIDTH).grid(
-                row=r, column=1, padx=GUI_PADDING
-            )
+            ttk.Entry(
+                frame, textvariable=self.create_asset, width=GUI_ENTRY_WIDTH
+            ).grid(row=r, column=1, padx=GUI_PADDING)
             r += 1
 
             ttk.Label(frame, text="IP Address:").grid(row=r, column=0, sticky="w")
@@ -5550,7 +5928,9 @@ if Deps.HAS_TKINTER:
             ttk.Entry(frame, textvariable=self.create_out, width=GUI_ENTRY_WIDTH).grid(
                 row=r, column=1, padx=GUI_PADDING
             )
-            ttk.Button(frame, text="Browse...", command=self._browse_create_out).grid(row=r, column=2)
+            ttk.Button(frame, text="Browse...", command=self._browse_create_out).grid(
+                row=r, column=2
+            )
             r += 1
 
             self.create_bp = tk.BooleanVar(value=False)
@@ -5585,23 +5965,37 @@ if Deps.HAS_TKINTER:
             ttk.Entry(frame, textvariable=self.merge_base, width=GUI_ENTRY_WIDTH).grid(
                 row=r, column=1, padx=GUI_PADDING
             )
-            ttk.Button(frame, text="Browse...", command=self._browse_merge_base).grid(row=r, column=2)
+            ttk.Button(frame, text="Browse...", command=self._browse_merge_base).grid(
+                row=r, column=2
+            )
             r += 1
 
-            ttk.Label(frame, text="Historical Files:").grid(row=r, column=0, sticky="nw")
+            ttk.Label(frame, text="Historical Files:").grid(
+                row=r, column=0, sticky="nw"
+            )
             list_frame = ttk.Frame(frame)
             list_frame.grid(row=r, column=1, padx=GUI_PADDING, sticky="ew")
-            self.merge_list = tk.Listbox(list_frame, height=GUI_LISTBOX_HEIGHT, width=GUI_LISTBOX_WIDTH)
+            self.merge_list = tk.Listbox(
+                list_frame, height=GUI_LISTBOX_HEIGHT, width=GUI_LISTBOX_WIDTH
+            )
             self.merge_list.pack(side="left", fill="both", expand=True)
-            scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.merge_list.yview)
+            scrollbar = ttk.Scrollbar(
+                list_frame, orient="vertical", command=self.merge_list.yview
+            )
             scrollbar.pack(side="right", fill="y")
             self.merge_list.config(yscrollcommand=scrollbar.set)
 
             btn_frame = ttk.Frame(frame)
             btn_frame.grid(row=r, column=2, sticky="n")
-            ttk.Button(btn_frame, text="Add...", command=self._add_merge_hist).pack(fill="x", pady=2)
-            ttk.Button(btn_frame, text="Remove", command=self._remove_merge_hist).pack(fill="x", pady=2)
-            ttk.Button(btn_frame, text="Clear", command=self._clear_merge_hist).pack(fill="x", pady=2)
+            ttk.Button(btn_frame, text="Add...", command=self._add_merge_hist).pack(
+                fill="x", pady=2
+            )
+            ttk.Button(btn_frame, text="Remove", command=self._remove_merge_hist).pack(
+                fill="x", pady=2
+            )
+            ttk.Button(btn_frame, text="Clear", command=self._clear_merge_hist).pack(
+                fill="x", pady=2
+            )
             self.merge_histories: List[str] = []
             r += 1
 
@@ -5610,15 +6004,31 @@ if Deps.HAS_TKINTER:
             ttk.Entry(frame, textvariable=self.merge_out, width=GUI_ENTRY_WIDTH).grid(
                 row=r, column=1, padx=GUI_PADDING
             )
-            ttk.Button(frame, text="Browse...", command=self._browse_merge_out).grid(row=r, column=2)
+            ttk.Button(frame, text="Browse...", command=self._browse_merge_out).grid(
+                row=r, column=2
+            )
             r += 1
 
             options = ttk.LabelFrame(frame, text="Options", padding=GUI_PADDING_LARGE)
-            options.grid(row=r, column=0, columnspan=3, sticky="ew", pady=GUI_PADDING_LARGE)
+            options.grid(
+                row=r,
+                column=0,
+                columnspan=3,
+                sticky="ew",
+                pady=GUI_PADDING_LARGE,
+            )
             self.merge_preserve = tk.BooleanVar(value=True)
-            ttk.Checkbutton(options, text="Preserve full history", variable=self.merge_preserve).pack(anchor="w")
+            ttk.Checkbutton(
+                options,
+                text="Preserve full history",
+                variable=self.merge_preserve,
+            ).pack(anchor="w")
             self.merge_bp = tk.BooleanVar(value=True)
-            ttk.Checkbutton(options, text="Apply boilerplates when missing", variable=self.merge_bp).pack(anchor="w")
+            ttk.Checkbutton(
+                options,
+                text="Apply boilerplates when missing",
+                variable=self.merge_bp,
+            ).pack(anchor="w")
             r += 1
 
             ttk.Button(
@@ -5642,22 +6052,34 @@ if Deps.HAS_TKINTER:
             r = 0
             ttk.Label(frame, text="XCCDF File:").grid(row=r, column=0, sticky="w")
             self.extract_xccdf = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.extract_xccdf, width=GUI_ENTRY_WIDTH).grid(
-                row=r, column=1, padx=GUI_PADDING
-            )
-            ttk.Button(frame, text="Browse...", command=self._browse_extract_xccdf).grid(row=r, column=2)
+            ttk.Entry(
+                frame, textvariable=self.extract_xccdf, width=GUI_ENTRY_WIDTH
+            ).grid(row=r, column=1, padx=GUI_PADDING)
+            ttk.Button(
+                frame, text="Browse...", command=self._browse_extract_xccdf
+            ).grid(row=r, column=2)
             r += 1
 
             ttk.Label(frame, text="Output Directory:").grid(row=r, column=0, sticky="w")
             self.extract_outdir = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.extract_outdir, width=GUI_ENTRY_WIDTH).grid(
-                row=r, column=1, padx=GUI_PADDING
+            ttk.Entry(
+                frame, textvariable=self.extract_outdir, width=GUI_ENTRY_WIDTH
+            ).grid(row=r, column=1, padx=GUI_PADDING)
+            ttk.Button(frame, text="Browse...", command=self._browse_extract_out).grid(
+                row=r, column=2
             )
-            ttk.Button(frame, text="Browse...", command=self._browse_extract_out).grid(row=r, column=2)
             r += 1
 
-            formats = ttk.LabelFrame(frame, text="Export Formats", padding=GUI_PADDING_LARGE)
-            formats.grid(row=r, column=0, columnspan=3, sticky="ew", pady=GUI_PADDING_LARGE)
+            formats = ttk.LabelFrame(
+                frame, text="Export Formats", padding=GUI_PADDING_LARGE
+            )
+            formats.grid(
+                row=r,
+                column=0,
+                columnspan=3,
+                sticky="ew",
+                pady=GUI_PADDING_LARGE,
+            )
             self.extract_json = tk.BooleanVar(value=True)
             self.extract_csv = tk.BooleanVar(value=True)
             self.extract_bash = tk.BooleanVar(value=True)
@@ -5705,18 +6127,30 @@ if Deps.HAS_TKINTER:
             r = 0
 
             # ═══ BATCH IMPORT ═══
-            batch_frame = ttk.LabelFrame(frame, text="Batch Import (Multiple JSON Files)", padding=GUI_PADDING_LARGE)
+            batch_frame = ttk.LabelFrame(
+                frame,
+                text="Batch Import (Multiple JSON Files)",
+                padding=GUI_PADDING_LARGE,
+            )
             batch_frame.grid(row=r, column=0, columnspan=3, sticky="ew", pady=(0, 10))
 
-            ttk.Label(batch_frame, text="Results Files:").grid(row=0, column=0, sticky="nw", padx=5, pady=5)
+            ttk.Label(batch_frame, text="Results Files:").grid(
+                row=0, column=0, sticky="nw", padx=5, pady=5
+            )
 
             list_container = ttk.Frame(batch_frame)
             list_container.grid(row=0, column=1, padx=5, sticky="ew")
 
-            self.results_list = tk.Listbox(list_container, height=5, width=65, selectmode=tk.EXTENDED)
+            self.results_list = tk.Listbox(
+                list_container, height=5, width=65, selectmode=tk.EXTENDED
+            )
             self.results_list.pack(side="left", fill="both", expand=True)
 
-            scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=self.results_list.yview)
+            scrollbar = ttk.Scrollbar(
+                list_container,
+                orient="vertical",
+                command=self.results_list.yview,
+            )
             scrollbar.pack(side="right", fill="y")
             self.results_list.config(yscrollcommand=scrollbar.set)
 
@@ -5724,34 +6158,67 @@ if Deps.HAS_TKINTER:
 
             btn_container = ttk.Frame(batch_frame)
             btn_container.grid(row=0, column=2, sticky="n", padx=5)
-            ttk.Button(btn_container, text="Add Files…", command=self._add_results_files, width=15).pack(fill="x", pady=2)
-            ttk.Button(btn_container, text="Remove", command=self._remove_results_file, width=15).pack(fill="x", pady=2)
-            ttk.Button(btn_container, text="Clear All", command=self._clear_results_files, width=15).pack(fill="x", pady=2)
+            ttk.Button(
+                btn_container,
+                text="Add Files…",
+                command=self._add_results_files,
+                width=15,
+            ).pack(fill="x", pady=2)
+            ttk.Button(
+                btn_container,
+                text="Remove",
+                command=self._remove_results_file,
+                width=15,
+            ).pack(fill="x", pady=2)
+            ttk.Button(
+                btn_container,
+                text="Clear All",
+                command=self._clear_results_files,
+                width=15,
+            ).pack(fill="x", pady=2)
 
             batch_frame.columnconfigure(1, weight=1)
             r += 1
 
             # ═══ SINGLE FILE (LEGACY) ═══
-            single_frame = ttk.LabelFrame(frame, text="Single File Import", padding=GUI_PADDING_LARGE)
+            single_frame = ttk.LabelFrame(
+                frame, text="Single File Import", padding=GUI_PADDING_LARGE
+            )
             single_frame.grid(row=r, column=0, columnspan=3, sticky="ew", pady=(0, 10))
 
-            ttk.Label(single_frame, text="Results JSON:").grid(row=0, column=0, sticky="w", padx=5)
+            ttk.Label(single_frame, text="Results JSON:").grid(
+                row=0, column=0, sticky="w", padx=5
+            )
             self.results_json = tk.StringVar()
-            ttk.Entry(single_frame, textvariable=self.results_json, width=70).grid(row=0, column=1, padx=5)
-            ttk.Button(single_frame, text="Browse…", command=self._browse_results_json).grid(row=0, column=2, padx=5)
+            ttk.Entry(single_frame, textvariable=self.results_json, width=70).grid(
+                row=0, column=1, padx=5
+            )
+            ttk.Button(
+                single_frame, text="Browse…", command=self._browse_results_json
+            ).grid(row=0, column=2, padx=5)
             r += 1
 
             # ═══ TARGET CHECKLIST ═══
-            ttk.Label(frame, text="Target Checklist (CKL):").grid(row=r, column=0, sticky="w")
+            ttk.Label(frame, text="Target Checklist (CKL):").grid(
+                row=r, column=0, sticky="w"
+            )
             self.results_ckl = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.results_ckl, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_results_ckl).grid(row=r, column=2)
+            ttk.Entry(frame, textvariable=self.results_ckl, width=70).grid(
+                row=r, column=1, padx=5
+            )
+            ttk.Button(frame, text="Browse…", command=self._browse_results_ckl).grid(
+                row=r, column=2
+            )
             r += 1
 
             ttk.Label(frame, text="Output CKL:").grid(row=r, column=0, sticky="w")
             self.results_out = tk.StringVar()
-            ttk.Entry(frame, textvariable=self.results_out, width=70).grid(row=r, column=1, padx=5)
-            ttk.Button(frame, text="Browse…", command=self._browse_results_out).grid(row=r, column=2)
+            ttk.Entry(frame, textvariable=self.results_out, width=70).grid(
+                row=r, column=1, padx=5
+            )
+            ttk.Button(frame, text="Browse…", command=self._browse_results_out).grid(
+                row=r, column=2
+            )
             r += 1
 
             # ═══ OPTIONS ═══
@@ -5764,21 +6231,28 @@ if Deps.HAS_TKINTER:
             r += 1
 
             self.results_dry = tk.BooleanVar(value=False)
-            ttk.Checkbutton(frame, text="Dry run (preview only)", variable=self.results_dry).grid(
-                row=r, column=1, sticky="w"
-            )
+            ttk.Checkbutton(
+                frame, text="Dry run (preview only)", variable=self.results_dry
+            ).grid(row=r, column=1, sticky="w")
             r += 1
 
             # ═══ ACTION ═══
-            ttk.Button(frame, text="Apply Remediation Results", command=self._do_results, width=30).grid(row=r, column=1, pady=15)
+            ttk.Button(
+                frame,
+                text="Apply Remediation Results",
+                command=self._do_results,
+                width=30,
+            ).grid(row=r, column=1, pady=15)
             r += 1
 
             # ═══ STATUS ═══
             self.results_status = tk.StringVar()
-            ttk.Label(frame, textvariable=self.results_status, wraplength=900, foreground="blue").grid(
-                row=r, column=0, columnspan=3, pady=5
-            )
-
+            ttk.Label(
+                frame,
+                textvariable=self.results_status,
+                wraplength=900,
+                foreground="blue",
+            ).grid(row=r, column=0, columnspan=3, pady=5)
 
         # Add helper methods for batch file management:
 
@@ -5786,7 +6260,7 @@ if Deps.HAS_TKINTER:
             """Add multiple result files to batch queue."""
             paths = filedialog.askopenfilenames(
                 title="Select Remediation Results (Ctrl+Click for multiple)",
-                filetypes=[("JSON Files", "*.json"), ("All Files", "*.*")]
+                filetypes=[("JSON Files", "*.json"), ("All Files", "*.*")],
             )
             added = 0
             for path in paths:
@@ -5796,7 +6270,9 @@ if Deps.HAS_TKINTER:
                     added += 1
 
             if added:
-                self.results_status.set(f"{ICON_SUCCESS} Added {added} file(s) - Total: {len(self.results_files)} queued")
+                self.results_status.set(
+                    f"{ICON_SUCCESS} Added {added} file(s) - Total: {len(self.results_files)} queued"
+                )
 
         def _remove_results_file(self):
             """Remove selected files from batch queue."""
@@ -5819,7 +6295,10 @@ if Deps.HAS_TKINTER:
         def _do_results(self):
             """Apply remediation results with batch import support."""
             if not self.results_ckl.get() or not self.results_out.get():
-                messagebox.showerror("Missing input", "Please provide checklist and output path.")
+                messagebox.showerror(
+                    "Missing input",
+                    "Please provide checklist and output path.",
+                )
                 return
 
             # Collect files: batch list takes priority over single field
@@ -5829,7 +6308,10 @@ if Deps.HAS_TKINTER:
             elif self.results_json.get():
                 files_to_process = [self.results_json.get()]
             else:
-                messagebox.showerror("Missing input", "Please add result files or specify single JSON file.")
+                messagebox.showerror(
+                    "Missing input",
+                    "Please add result files or specify single JSON file.",
+                )
                 return
 
             dry = self.results_dry.get()
@@ -5844,7 +6326,9 @@ if Deps.HAS_TKINTER:
 
                 for idx, result_file in enumerate(files_to_process, 1):
                     try:
-                        LOG.i(f"Loading {idx}/{len(files_to_process)}: {Path(result_file).name}")
+                        LOG.i(
+                            f"Loading {idx}/{len(files_to_process)}: {Path(result_file).name}"
+                        )
                         imported, skipped = combined_processor.load(result_file)
                         total_loaded += imported
                         total_skipped += skipped
@@ -5862,10 +6346,10 @@ if Deps.HAS_TKINTER:
                     auto_status=auto,
                     dry=dry,
                 )
-                result['total_loaded'] = total_loaded
-                result['total_skipped'] = total_skipped
-                result['files_processed'] = len(files_to_process)
-                result['failed_files'] = failed_files
+                result["total_loaded"] = total_loaded
+                result["total_skipped"] = total_skipped
+                result["files_processed"] = len(files_to_process)
+                result["failed_files"] = failed_files
                 return result
 
             def done(result):
@@ -5895,42 +6379,64 @@ if Deps.HAS_TKINTER:
 
         def _tab_evidence(self, frame):
             """Build the Evidence tab for managing vulnerability evidence files."""
-            ttk.Label(frame, text="Evidence Manager", font=GUI_FONT_HEADING).pack(anchor="w")
+            ttk.Label(frame, text="Evidence Manager", font=GUI_FONT_HEADING).pack(
+                anchor="w"
+            )
 
-            import_frame = ttk.LabelFrame(frame, text="Import Evidence", padding=GUI_PADDING_LARGE)
+            import_frame = ttk.LabelFrame(
+                frame, text="Import Evidence", padding=GUI_PADDING_LARGE
+            )
             import_frame.pack(fill="x", pady=GUI_PADDING_LARGE)
             ttk.Label(import_frame, text="Vuln ID:").grid(row=0, column=0, sticky="w")
             self.evid_vid = tk.StringVar()
-            ttk.Entry(import_frame, textvariable=self.evid_vid, width=GUI_ENTRY_WIDTH_SMALL).grid(
-                row=0, column=1, padx=GUI_PADDING
+            ttk.Entry(
+                import_frame,
+                textvariable=self.evid_vid,
+                width=GUI_ENTRY_WIDTH_SMALL,
+            ).grid(row=0, column=1, padx=GUI_PADDING)
+            ttk.Label(import_frame, text="Description:").grid(
+                row=0, column=2, sticky="w"
             )
-            ttk.Label(import_frame, text="Description:").grid(row=0, column=2, sticky="w")
             self.evid_desc = tk.StringVar()
             ttk.Entry(import_frame, textvariable=self.evid_desc, width=30).grid(
                 row=0, column=3, padx=GUI_PADDING
             )
             ttk.Label(import_frame, text="Category:").grid(row=0, column=4, sticky="w")
             self.evid_cat = tk.StringVar(value="general")
-            ttk.Entry(import_frame, textvariable=self.evid_cat, width=GUI_BUTTON_WIDTH).grid(
-                row=0, column=5, padx=GUI_PADDING
-            )
-            ttk.Button(import_frame, text="Select & Import...", command=self._import_evidence).grid(
-                row=0, column=6, padx=GUI_PADDING
-            )
+            ttk.Entry(
+                import_frame,
+                textvariable=self.evid_cat,
+                width=GUI_BUTTON_WIDTH,
+            ).grid(row=0, column=5, padx=GUI_PADDING)
+            ttk.Button(
+                import_frame,
+                text="Select & Import...",
+                command=self._import_evidence,
+            ).grid(row=0, column=6, padx=GUI_PADDING)
 
-            action_frame = ttk.LabelFrame(frame, text="Export / Package", padding=GUI_PADDING_LARGE)
+            action_frame = ttk.LabelFrame(
+                frame, text="Export / Package", padding=GUI_PADDING_LARGE
+            )
             action_frame.pack(fill="x", pady=GUI_PADDING_LARGE)
-            ttk.Button(action_frame, text="Export All...", command=self._export_evidence).grid(
-                row=0, column=0, padx=GUI_PADDING, pady=GUI_PADDING
-            )
-            ttk.Button(action_frame, text="Create Package...", command=self._package_evidence).grid(
-                row=0, column=1, padx=GUI_PADDING, pady=GUI_PADDING
-            )
-            ttk.Button(action_frame, text="Import Package...", command=self._import_evidence_package).grid(
-                row=0, column=2, padx=GUI_PADDING, pady=GUI_PADDING
-            )
+            ttk.Button(
+                action_frame,
+                text="Export All...",
+                command=self._export_evidence,
+            ).grid(row=0, column=0, padx=GUI_PADDING, pady=GUI_PADDING)
+            ttk.Button(
+                action_frame,
+                text="Create Package...",
+                command=self._package_evidence,
+            ).grid(row=0, column=1, padx=GUI_PADDING, pady=GUI_PADDING)
+            ttk.Button(
+                action_frame,
+                text="Import Package...",
+                command=self._import_evidence_package,
+            ).grid(row=0, column=2, padx=GUI_PADDING, pady=GUI_PADDING)
 
-            summary_frame = ttk.LabelFrame(frame, text="Summary", padding=GUI_PADDING_LARGE)
+            summary_frame = ttk.LabelFrame(
+                frame, text="Summary", padding=GUI_PADDING_LARGE
+            )
             summary_frame.pack(fill="both", expand=True, pady=GUI_PADDING_LARGE)
             self.evid_summary = tk.StringVar()
             ttk.Label(
@@ -5943,19 +6449,27 @@ if Deps.HAS_TKINTER:
 
         def _tab_validate(self, frame):
             """Build the Validate tab for checking CKL compatibility."""
-            ttk.Label(frame, text="Validate Checklist", font=GUI_FONT_HEADING).pack(anchor="w")
+            ttk.Label(frame, text="Validate Checklist", font=GUI_FONT_HEADING).pack(
+                anchor="w"
+            )
 
             input_frame = ttk.Frame(frame)
             input_frame.pack(fill="x", pady=GUI_PADDING_LARGE)
             ttk.Label(input_frame, text="Checklist (CKL):").pack(side="left")
             self.validate_ckl = tk.StringVar()
-            ttk.Entry(input_frame, textvariable=self.validate_ckl, width=GUI_LISTBOX_WIDTH).pack(
-                side="left", padx=GUI_PADDING
+            ttk.Entry(
+                input_frame,
+                textvariable=self.validate_ckl,
+                width=GUI_LISTBOX_WIDTH,
+            ).pack(side="left", padx=GUI_PADDING)
+            ttk.Button(
+                input_frame,
+                text="Browse...",
+                command=self._browse_validate_ckl,
+            ).pack(side="left", padx=GUI_PADDING)
+            ttk.Button(input_frame, text="Validate", command=self._do_validate).pack(
+                side="left"
             )
-            ttk.Button(input_frame, text="Browse...", command=self._browse_validate_ckl).pack(
-                side="left", padx=GUI_PADDING
-            )
-            ttk.Button(input_frame, text="Validate", command=self._do_validate).pack(side="left")
 
             self.validate_text = ScrolledText(
                 frame,
@@ -5978,6 +6492,7 @@ if Deps.HAS_TKINTER:
                 work_func: Function to execute in background (no arguments)
                 callback: Function to call with result (or exception if error)
             """
+
             def worker():
                 try:
                     result = work_func()
@@ -6082,7 +6597,9 @@ if Deps.HAS_TKINTER:
                 target_var.set(path)
             return path
 
-        def _browse_directory(self, target_var: tk.StringVar, title: str) -> Optional[str]:
+        def _browse_directory(
+            self, target_var: tk.StringVar, title: str
+        ) -> Optional[str]:
             """
             Open a directory selection dialog and set the result to a StringVar.
 
@@ -6100,7 +6617,10 @@ if Deps.HAS_TKINTER:
 
         # -------------------------------------------------------------- browse
         def _browse_create_xccdf(self):
-            path = filedialog.askopenfilename(title="Select XCCDF", filetypes=[("XML Files", "*.xml"), ("All Files", "*.*")])
+            path = filedialog.askopenfilename(
+                title="Select XCCDF",
+                filetypes=[("XML Files", "*.xml"), ("All Files", "*.*")],
+            )
             if path:
                 self.create_xccdf.set(path)
                 if not self.create_out.get():
@@ -6116,7 +6636,9 @@ if Deps.HAS_TKINTER:
                 self.create_out.set(path)
 
         def _browse_merge_base(self):
-            path = filedialog.askopenfilename(title="Select base CKL", filetypes=[("CKL Files", "*.ckl")])
+            path = filedialog.askopenfilename(
+                title="Select base CKL", filetypes=[("CKL Files", "*.ckl")]
+            )
             if path:
                 self.merge_base.set(path)
 
@@ -6130,7 +6652,10 @@ if Deps.HAS_TKINTER:
                 self.merge_out.set(path)
 
         def _browse_extract_xccdf(self):
-            path = filedialog.askopenfilename(title="Select XCCDF", filetypes=[("XML Files", "*.xml"), ("All Files", "*.*")])
+            path = filedialog.askopenfilename(
+                title="Select XCCDF",
+                filetypes=[("XML Files", "*.xml"), ("All Files", "*.*")],
+            )
             if path:
                 self.extract_xccdf.set(path)
 
@@ -6140,12 +6665,17 @@ if Deps.HAS_TKINTER:
                 self.extract_outdir.set(path)
 
         def _browse_results_json(self):
-            path = filedialog.askopenfilename(title="Select results JSON", filetypes=[("JSON Files", "*.json"), ("All Files", "*.*")])
+            path = filedialog.askopenfilename(
+                title="Select results JSON",
+                filetypes=[("JSON Files", "*.json"), ("All Files", "*.*")],
+            )
             if path:
                 self.results_json.set(path)
 
         def _browse_results_ckl(self):
-            path = filedialog.askopenfilename(title="Select checklist", filetypes=[("CKL Files", "*.ckl")])
+            path = filedialog.askopenfilename(
+                title="Select checklist", filetypes=[("CKL Files", "*.ckl")]
+            )
             if path:
                 self.results_ckl.set(path)
                 if not self.results_out.get():
@@ -6162,14 +6692,23 @@ if Deps.HAS_TKINTER:
                 self.results_out.set(path)
 
         def _browse_validate_ckl(self):
-            path = filedialog.askopenfilename(title="Select CKL", filetypes=[("CKL Files", "*.ckl")])
+            path = filedialog.askopenfilename(
+                title="Select CKL", filetypes=[("CKL Files", "*.ckl")]
+            )
             if path:
                 self.validate_ckl.set(path)
 
         # ------------------------------------------------------------ actions
         def _do_create(self):
-            if not self.create_xccdf.get() or not self.create_asset.get() or not self.create_out.get():
-                messagebox.showerror("Missing input", "Please provide XCCDF, asset name, and output path.")
+            if (
+                not self.create_xccdf.get()
+                or not self.create_asset.get()
+                or not self.create_out.get()
+            ):
+                messagebox.showerror(
+                    "Missing input",
+                    "Please provide XCCDF, asset name, and output path.",
+                )
                 return
 
             def work():
@@ -6196,7 +6735,10 @@ if Deps.HAS_TKINTER:
             self._async(work, done)
 
         def _add_merge_hist(self):
-            paths = filedialog.askopenfilenames(title="Select historical CKL", filetypes=[("CKL Files", "*.ckl")])
+            paths = filedialog.askopenfilenames(
+                title="Select historical CKL",
+                filetypes=[("CKL Files", "*.ckl")],
+            )
             for path in paths:
                 if path not in self.merge_histories:
                     self.merge_histories.append(path)
@@ -6217,7 +6759,10 @@ if Deps.HAS_TKINTER:
 
         def _do_merge(self):
             if not self.merge_base.get() or not self.merge_out.get():
-                messagebox.showerror("Missing input", "Please provide base checklist and output path.")
+                messagebox.showerror(
+                    "Missing input",
+                    "Please provide base checklist and output path.",
+                )
                 return
 
             histories = list(self.merge_histories)
@@ -6245,7 +6790,10 @@ if Deps.HAS_TKINTER:
 
         def _do_extract(self):
             if not self.extract_xccdf.get() or not self.extract_outdir.get():
-                messagebox.showerror("Missing input", "Please provide XCCDF file and output directory.")
+                messagebox.showerror(
+                    "Missing input",
+                    "Please provide XCCDF file and output directory.",
+                )
                 return
 
             outdir = Path(self.extract_outdir.get())
@@ -6253,7 +6801,7 @@ if Deps.HAS_TKINTER:
 
             def work():
                 extractor = FixExt(self.extract_xccdf.get())
-                fixes = extractor.extract()
+                extractor.extract()
                 outpaths = []
                 if self.extract_json.get():
                     extractor.to_json(outdir / "fixes.json")
@@ -6262,10 +6810,15 @@ if Deps.HAS_TKINTER:
                     extractor.to_csv(outdir / "fixes.csv")
                     outpaths.append("CSV")
                 if self.extract_bash.get():
-                    extractor.to_bash(outdir / "remediate.sh", dry_run=self.extract_dry.get())
+                    extractor.to_bash(
+                        outdir / "remediate.sh", dry_run=self.extract_dry.get()
+                    )
                     outpaths.append("Bash")
                 if self.extract_ps.get():
-                    extractor.to_powershell(outdir / "Remediate.ps1", dry_run=self.extract_dry.get())
+                    extractor.to_powershell(
+                        outdir / "Remediate.ps1",
+                        dry_run=self.extract_dry.get(),
+                    )
                     outpaths.append("PowerShell")
                 return extractor.stats_summary(), outpaths
 
@@ -6287,12 +6840,17 @@ if Deps.HAS_TKINTER:
         def _import_evidence(self):
             vid = self.evid_vid.get()
             if not vid:
-                messagebox.showerror("Missing input", "Please enter a vulnerability ID.")
+                messagebox.showerror(
+                    "Missing input", "Please enter a vulnerability ID."
+                )
                 return
             try:
                 San.vuln(vid)
             except Exception as _val_err:
-                messagebox.showerror("Invalid Vuln ID", f"Please enter a valid Vuln ID (e.g. V-12345). ({_val_err})")
+                messagebox.showerror(
+                    "Invalid Vuln ID",
+                    f"Please enter a valid Vuln ID (e.g. V-12345). ({_val_err})",
+                )
                 return
             path = filedialog.askopenfilename(title="Select evidence file")
             if not path:
@@ -6310,7 +6868,9 @@ if Deps.HAS_TKINTER:
                 if isinstance(result, Exception):
                     messagebox.showerror("Error importing evidence", str(result))
                 else:
-                    messagebox.showinfo("Evidence Imported", f"Evidence stored at:\n{result}")
+                    messagebox.showinfo(
+                        "Evidence Imported", f"Evidence stored at:\n{result}"
+                    )
                     self._refresh_evidence_summary()
                     self.evid_vid.set("")
                     self.evid_desc.set("")
@@ -6330,7 +6890,10 @@ if Deps.HAS_TKINTER:
                 if isinstance(result, Exception):
                     messagebox.showerror("Export error", str(result))
                 else:
-                    messagebox.showinfo("Evidence Export", f"Exported {result} file(s) to {path}")
+                    messagebox.showinfo(
+                        "Evidence Export",
+                        f"Exported {result} file(s) to {path}",
+                    )
 
             self._async(work, done)
 
@@ -6350,12 +6913,17 @@ if Deps.HAS_TKINTER:
                 if isinstance(result, Exception):
                     messagebox.showerror("Package error", str(result))
                 else:
-                    messagebox.showinfo("Evidence Package", f"Package created:\n{result}")
+                    messagebox.showinfo(
+                        "Evidence Package", f"Package created:\n{result}"
+                    )
 
             self._async(work, done)
 
         def _import_evidence_package(self):
-            path = filedialog.askopenfilename(title="Select evidence package", filetypes=[("ZIP Files", "*.zip")])
+            path = filedialog.askopenfilename(
+                title="Select evidence package",
+                filetypes=[("ZIP Files", "*.zip")],
+            )
             if not path:
                 return
 
@@ -6381,12 +6949,16 @@ if Deps.HAS_TKINTER:
 
             def done(result):
                 if isinstance(result, Exception):
-                    self.validate_text.insert("end", f"{ICON_FAILURE} Error: {result}\n")
+                    self.validate_text.insert(
+                        "end", f"{ICON_FAILURE} Error: {result}\n"
+                    )
                     return
                 ok, errors, warnings_, info = result
                 self.validate_text.delete("1.0", "end")
                 self.validate_text.insert("end", "=" * 80 + "\n")
-                self.validate_text.insert("end", f"Validation Report - {datetime.now()}\n")
+                self.validate_text.insert(
+                    "end", f"Validation Report - {datetime.now()}\n"
+                )
                 self.validate_text.insert("end", "=" * 80 + "\n\n")
                 if errors:
                     self.validate_text.insert("end", "Errors:\n", "error")
@@ -6404,9 +6976,17 @@ if Deps.HAS_TKINTER:
                         self.validate_text.insert("end", f"  - {msg}\n")
                     self.validate_text.insert("end", "\n")
                 if ok:
-                    self.validate_text.insert("end", f"{ICON_SUCCESS} Checklist is STIG Viewer compatible.\n", "ok")
+                    self.validate_text.insert(
+                        "end",
+                        f"{ICON_SUCCESS} Checklist is STIG Viewer compatible.\n",
+                        "ok",
+                    )
                 else:
-                    self.validate_text.insert("end", f"{ICON_FAILURE} Checklist has errors that must be resolved.\n", "error")
+                    self.validate_text.insert(
+                        "end",
+                        f"{ICON_FAILURE} Checklist has errors that must be resolved.\n",
+                        "error",
+                    )
 
             self.validate_text.delete("1.0", "end")
             self.validate_text.insert("end", "Validating...\n")
@@ -6436,7 +7016,10 @@ if Deps.HAS_TKINTER:
             if not names:
                 messagebox.showinfo("No presets", "No presets available.")
                 return
-            name = simpledialog.askstring("Load Preset", f"Available presets:\n{', '.join(names)}\n\nEnter name:")
+            name = simpledialog.askstring(
+                "Load Preset",
+                f"Available presets:\n{', '.join(names)}\n\nEnter name:",
+            )
             if not name:
                 return
             preset = self.presets.load(name)
@@ -6468,12 +7051,16 @@ if Deps.HAS_TKINTER:
                 if isinstance(result, Exception):
                     messagebox.showerror("Export error", str(result))
                 else:
-                    messagebox.showinfo("History export", f"History exported to {result}")
+                    messagebox.showinfo(
+                        "History export", f"History exported to {result}"
+                    )
 
             self._async(work, done)
 
         def _import_history(self):
-            path = filedialog.askopenfilename(title="Import history", filetypes=[("JSON Files", "*.json")])
+            path = filedialog.askopenfilename(
+                title="Import history", filetypes=[("JSON Files", "*.json")]
+            )
             if not path:
                 return
 
@@ -6484,7 +7071,9 @@ if Deps.HAS_TKINTER:
                 if isinstance(result, Exception):
                     messagebox.showerror("Import error", str(result))
                 else:
-                    messagebox.showinfo("History import", f"Imported {result} history entries.")
+                    messagebox.showinfo(
+                        "History import", f"Imported {result} history entries."
+                    )
 
             self._async(work, done)
 
@@ -6503,7 +7092,10 @@ if Deps.HAS_TKINTER:
                 messagebox.showerror("Boilerplate error", str(exc))
 
         def _import_boiler(self):
-            path = filedialog.askopenfilename(title="Import boilerplates", filetypes=[("JSON Files", "*.json")])
+            path = filedialog.askopenfilename(
+                title="Import boilerplates",
+                filetypes=[("JSON Files", "*.json")],
+            )
             if not path:
                 return
             try:
@@ -6515,7 +7107,10 @@ if Deps.HAS_TKINTER:
         def _cleanup_old(self):
             try:
                 backups, logs = Cfg.cleanup_old()
-                messagebox.showinfo("Cleanup", f"Removed {backups} backup(s) and {logs} log(s).")
+                messagebox.showinfo(
+                    "Cleanup",
+                    f"Removed {backups} backup(s) and {logs} log(s).",
+                )
             except Exception as exc:
                 messagebox.showerror("Cleanup error", str(exc))
 
@@ -6588,11 +7183,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument("--version", action="version", version=VERSION)
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose logging"
+    )
     parser.add_argument("--gui", action="store_true", help="Launch graphical interface")
 
     create_group = parser.add_argument_group("Create CKL from XCCDF")
-    create_group.add_argument("--create", action="store_true", help="Create CKL from XCCDF")
+    create_group.add_argument(
+        "--create", action="store_true", help="Create CKL from XCCDF"
+    )
     create_group.add_argument("--xccdf", help="XCCDF XML file")
     create_group.add_argument("--asset", help="Asset name")
     create_group.add_argument("--out", help="Output CKL path")
@@ -6600,46 +7199,117 @@ def main(argv: Optional[List[str]] = None) -> int:
     create_group.add_argument("--mac", help="Asset MAC")
     create_group.add_argument("--role", default="None", help="Asset role")
     create_group.add_argument("--marking", default="CUI", help="Asset marking")
-    create_group.add_argument("--apply-boilerplate", action="store_true", help="Apply boilerplate templates")
-    create_group.add_argument("--dry-run", action="store_true", help="Dry run (no output written)")
+    create_group.add_argument(
+        "--apply-boilerplate",
+        action="store_true",
+        help="Apply boilerplate templates",
+    )
+    create_group.add_argument(
+        "--dry-run", action="store_true", help="Dry run (no output written)"
+    )
 
     merge_group = parser.add_argument_group("Merge Checklists")
-    merge_group.add_argument("--merge", action="store_true", help="Merge checklists preserving history")
+    merge_group.add_argument(
+        "--merge",
+        action="store_true",
+        help="Merge checklists preserving history",
+    )
     merge_group.add_argument("--base", help="Base checklist")
-    merge_group.add_argument("--histories", nargs="+", help="Historical checklists to merge")
+    merge_group.add_argument(
+        "--histories", nargs="+", help="Historical checklists to merge"
+    )
     merge_group.add_argument("--merge-out", help="Merged output CKL")
-    merge_group.add_argument("--no-preserve-history", action="store_true", help="Disable history preservation")
-    merge_group.add_argument("--no-boilerplate", action="store_true", help="Disable boilerplate application")
-    merge_group.add_argument("--merge-dry-run", action="store_true", help="Dry run (no output written)")
+    merge_group.add_argument(
+        "--no-preserve-history",
+        action="store_true",
+        help="Disable history preservation",
+    )
+    merge_group.add_argument(
+        "--no-boilerplate",
+        action="store_true",
+        help="Disable boilerplate application",
+    )
+    merge_group.add_argument(
+        "--merge-dry-run",
+        action="store_true",
+        help="Dry run (no output written)",
+    )
 
     diff_group = parser.add_argument_group("Compare Checklists")
-    diff_group.add_argument("--diff", nargs=2, metavar=("CKL1", "CKL2"), help="Compare two checklists")
-    diff_group.add_argument("--diff-format", choices=["summary", "detailed", "json"], default="summary",
-                           help="Diff output format (default: summary)")
+    diff_group.add_argument(
+        "--diff",
+        nargs=2,
+        metavar=("CKL1", "CKL2"),
+        help="Compare two checklists",
+    )
+    diff_group.add_argument(
+        "--diff-format",
+        choices=["summary", "detailed", "json"],
+        default="summary",
+        help="Diff output format (default: summary)",
+    )
 
     extract_group = parser.add_argument_group("Extract Fixes")
     extract_group.add_argument("--extract", help="XCCDF file to extract fixes from")
     extract_group.add_argument("--outdir", help="Output directory for fixes")
-    extract_group.add_argument("--no-json", action="store_true", help="Do not export JSON")
-    extract_group.add_argument("--no-csv", action="store_true", help="Do not export CSV")
-    extract_group.add_argument("--no-bash", action="store_true", help="Do not export Bash script")
-    extract_group.add_argument("--no-ps", action="store_true", help="Do not export PowerShell script")
-    extract_group.add_argument("--script-dry-run", action="store_true", help="Generate scripts in dry-run mode")
+    extract_group.add_argument(
+        "--no-json", action="store_true", help="Do not export JSON"
+    )
+    extract_group.add_argument(
+        "--no-csv", action="store_true", help="Do not export CSV"
+    )
+    extract_group.add_argument(
+        "--no-bash", action="store_true", help="Do not export Bash script"
+    )
+    extract_group.add_argument(
+        "--no-ps", action="store_true", help="Do not export PowerShell script"
+    )
+    extract_group.add_argument(
+        "--script-dry-run",
+        action="store_true",
+        help="Generate scripts in dry-run mode",
+    )
 
     result_group = parser.add_argument_group("Apply Remediation Results")
-    result_group.add_argument("--apply-results", nargs="+", metavar="JSON", help="Results JSON file(s) to import (supports multiple files)")
+    result_group.add_argument(
+        "--apply-results",
+        nargs="+",
+        metavar="JSON",
+        help="Results JSON file(s) to import (supports multiple files)",
+    )
     result_group.add_argument("--checklist", help="Checklist to update")
     result_group.add_argument("--results-out", help="Updated checklist output path")
-    result_group.add_argument("--no-auto-status", action="store_true", help="Do not auto-mark successes as NotAFinding")
-    result_group.add_argument("--results-dry-run", action="store_true", help="Dry run (no output written)")
+    result_group.add_argument(
+        "--no-auto-status",
+        action="store_true",
+        help="Do not auto-mark successes as NotAFinding",
+    )
+    result_group.add_argument(
+        "--results-dry-run",
+        action="store_true",
+        help="Dry run (no output written)",
+    )
 
     evidence_group = parser.add_argument_group("Evidence Management")
-    evidence_group.add_argument("--import-evidence", nargs=2, metavar=("VID", "FILE"), help="Import evidence file")
+    evidence_group.add_argument(
+        "--import-evidence",
+        nargs=2,
+        metavar=("VID", "FILE"),
+        help="Import evidence file",
+    )
     evidence_group.add_argument("--evidence-desc", help="Evidence description")
-    evidence_group.add_argument("--evidence-cat", default="general", help="Evidence category")
-    evidence_group.add_argument("--export-evidence", help="Export all evidence to directory")
-    evidence_group.add_argument("--package-evidence", help="Create evidence ZIP package")
-    evidence_group.add_argument("--import-evidence-package", help="Import evidence from package")
+    evidence_group.add_argument(
+        "--evidence-cat", default="general", help="Evidence category"
+    )
+    evidence_group.add_argument(
+        "--export-evidence", help="Export all evidence to directory"
+    )
+    evidence_group.add_argument(
+        "--package-evidence", help="Create evidence ZIP package"
+    )
+    evidence_group.add_argument(
+        "--import-evidence-package", help="Import evidence from package"
+    )
 
     history_group = parser.add_argument_group("History Management")
     history_group.add_argument("--export-history", help="Export history JSON")
@@ -6653,19 +7323,39 @@ def main(argv: Optional[List[str]] = None) -> int:
     repair_group.add_argument("--repair-out", help="Repaired checklist output path")
 
     batch_group = parser.add_argument_group("Batch Processing")
-    batch_group.add_argument("--batch-convert", help="Directory containing XCCDF files to convert")
-    batch_group.add_argument("--batch-out", help="Output directory for batch conversion")
-    batch_group.add_argument("--batch-asset-prefix", default="ASSET", help="Asset name prefix for batch conversion")
+    batch_group.add_argument(
+        "--batch-convert", help="Directory containing XCCDF files to convert"
+    )
+    batch_group.add_argument(
+        "--batch-out", help="Output directory for batch conversion"
+    )
+    batch_group.add_argument(
+        "--batch-asset-prefix",
+        default="ASSET",
+        help="Asset name prefix for batch conversion",
+    )
 
     integrity_group = parser.add_argument_group("Integrity Verification")
-    integrity_group.add_argument("--verify-integrity", help="Verify checklist integrity with checksums")
-    integrity_group.add_argument("--compute-checksum", help="Compute and display checksum for a file")
+    integrity_group.add_argument(
+        "--verify-integrity", help="Verify checklist integrity with checksums"
+    )
+    integrity_group.add_argument(
+        "--compute-checksum", help="Compute and display checksum for a file"
+    )
 
     stats_group = parser.add_argument_group("Compliance Statistics")
-    stats_group.add_argument("--stats", help="Generate compliance statistics for checklist")
-    stats_group.add_argument("--stats-format", choices=["text", "json", "csv"], default="text",
-                            help="Statistics output format (default: text)")
-    stats_group.add_argument("--stats-out", help="Output file for statistics (default: stdout)")
+    stats_group.add_argument(
+        "--stats", help="Generate compliance statistics for checklist"
+    )
+    stats_group.add_argument(
+        "--stats-format",
+        choices=["text", "json", "csv"],
+        default="text",
+        help="Statistics output format (default: text)",
+    )
+    stats_group.add_argument(
+        "--stats-out", help="Output file for statistics (default: stdout)"
+    )
 
     args = parser.parse_args(argv)
 
@@ -6675,7 +7365,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         if args.gui:
             if not Deps.HAS_TKINTER:
-                print("ERROR: tkinter not available. Install python3-tk.", file=sys.stderr)
+                print(
+                    "ERROR: tkinter not available. Install python3-tk.",
+                    file=sys.stderr,
+                )
                 return 1
             gui = GUI()
             gui.run()
@@ -6737,11 +7430,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             if not args.no_bash:
                 extractor.to_bash(outdir / "remediate.sh", dry_run=args.script_dry_run)
             if not args.no_ps:
-                extractor.to_powershell(outdir / "Remediate.ps1", dry_run=args.script_dry_run)
+                extractor.to_powershell(
+                    outdir / "Remediate.ps1", dry_run=args.script_dry_run
+                )
 
             print(json.dumps(extractor.stats_summary(), indent=2, ensure_ascii=False))
             return 0
-
 
         if args.apply_results:
             if not (args.checklist and args.results_out):
@@ -6755,25 +7449,40 @@ def main(argv: Optional[List[str]] = None) -> int:
             total_skipped = 0
             failed_files = []
 
-            print(f"[INFO] Processing {len(result_files)} result file(s)...", file=sys.stderr)
+            print(
+                f"[INFO] Processing {len(result_files)} result file(s)...",
+                file=sys.stderr,
+            )
 
             for idx, result_file in enumerate(result_files, 1):
                 try:
-                    print(f"[{idx}/{len(result_files)}] Loading {Path(result_file).name}...", file=sys.stderr)
+                    print(
+                        f"[{idx}/{len(result_files)}] Loading {Path(result_file).name}...",
+                        file=sys.stderr,
+                    )
                     imported, skipped = processor.load(result_file)
                     total_loaded += imported
                     total_skipped += skipped
-                    print(f"  ✓ Loaded {imported} results (skipped {skipped})", file=sys.stderr)
+                    print(
+                        f"  ✓ Loaded {imported} results (skipped {skipped})",
+                        file=sys.stderr,
+                    )
                 except Exception as exc:
                     print(f"  ✘ Failed: {exc}", file=sys.stderr)
                     failed_files.append({"file": str(result_file), "error": str(exc)})
                     continue
 
             if not processor.results:
-                print(f"[ERROR] No valid results loaded from any file", file=sys.stderr)
+                print(
+                    "[ERROR] No valid results loaded from any file",
+                    file=sys.stderr,
+                )
                 return 1
 
-            print(f"\n[INFO] Applying {len(processor.results)} unique results to checklist...", file=sys.stderr)
+            print(
+                f"\n[INFO] Applying {len(processor.results)} unique results to checklist...",
+                file=sys.stderr,
+            )
 
             # Apply to checklist
             result = processor.update_ckl(
@@ -6784,20 +7493,21 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
 
             # Add batch statistics
-            result['batch_stats'] = {
-                'files_total': len(result_files),
-                'files_failed': len(failed_files),
-                'results_loaded': total_loaded,
-                'results_skipped': total_skipped,
-                'unique_vulns': len(processor.results),
+            result["batch_stats"] = {
+                "files_total": len(result_files),
+                "files_failed": len(failed_files),
+                "results_loaded": total_loaded,
+                "results_skipped": total_skipped,
+                "unique_vulns": len(processor.results),
             }
 
             if failed_files:
-                result['failed_files'] = failed_files
+                result["failed_files"] = failed_files
 
             print(json.dumps(result, indent=2, ensure_ascii=False))
-            return 0 if len(failed_files) == 0 else 2  # Exit code 2 if some files failed
-
+            return (
+                0 if len(failed_files) == 0 else 2
+            )  # Exit code 2 if some files failed
 
         evidence_mgr = EvidenceMgr()
 
@@ -6839,7 +7549,18 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         if args.validate:
             ok, errors, warnings_, info = proc.validator.validate(args.validate)
-            print(json.dumps({"ok": ok, "errors": errors, "warnings": warnings_, "info": info}, indent=2, ensure_ascii=False))
+            print(
+                json.dumps(
+                    {
+                        "ok": ok,
+                        "errors": errors,
+                        "warnings": warnings_,
+                        "info": info,
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            )
             return 0 if ok else 1
 
         # New features for v7.2.0
@@ -6860,12 +7581,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                 apply_boilerplate=args.apply_boilerplate,
             )
             print(json.dumps(result, indent=2, ensure_ascii=False))
-            return 0 if result.get('failures', 0) == 0 else 2
+            return 0 if result.get("failures", 0) == 0 else 2
 
         if args.verify_integrity:
             result = proc.verify_integrity(args.verify_integrity)
             print(json.dumps(result, indent=2, ensure_ascii=False))
-            return 0 if result['valid'] else 1
+            return 0 if result["valid"] else 1
 
         if args.compute_checksum:
             checksum = proc.compute_checksum(args.compute_checksum)
@@ -6877,14 +7598,18 @@ def main(argv: Optional[List[str]] = None) -> int:
             if args.stats_out:
                 output_path = Path(args.stats_out)
                 output_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    if args.stats_format == 'json':
+                with open(output_path, "w", encoding="utf-8") as f:
+                    if args.stats_format == "json":
                         json.dump(result, f, indent=2, ensure_ascii=False)
                     else:
-                        f.write(result if isinstance(result, str) else json.dumps(result, indent=2))
+                        f.write(
+                            result
+                            if isinstance(result, str)
+                            else json.dumps(result, indent=2)
+                        )
                 print(f"Statistics written to {output_path}")
             else:
-                if args.stats_format == 'json':
+                if args.stats_format == "json":
                     print(json.dumps(result, indent=2, ensure_ascii=False))
                 else:
                     print(result)

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .models import Hist
 from .manager import HistMgr
+from .models import Hist
 from .sqlite_store import SQLiteStore
 
 __all__ = [

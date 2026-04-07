@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Union
-from contextlib import suppress
 
 
 @dataclass
@@ -117,8 +117,8 @@ class FixResult:
         Create FixResult from dictionary.
         """
         # Local imports to avoid circular dependencies
-        from stig_assessor.xml.sanitizer import San
         from stig_assessor.exceptions import ValidationError
+        from stig_assessor.xml.sanitizer import San
 
         if not isinstance(data, dict):
             raise ValidationError("Result entry must be an object")

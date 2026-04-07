@@ -10,6 +10,7 @@ Tests the XmlUtils class including:
 
 import unittest
 import xml.etree.ElementTree as ET
+
 from stig_assessor.xml.utils import XmlUtils
 
 
@@ -39,7 +40,7 @@ class TestXmlUtils(unittest.TestCase):
         XmlUtils.indent_xml(root)
 
         # Verify structure is indented
-        xml_str = ET.tostring(root, encoding='unicode')
+        xml_str = ET.tostring(root, encoding="unicode")
         self.assertIn("\t", xml_str)
         self.assertIn("\n", xml_str)
 

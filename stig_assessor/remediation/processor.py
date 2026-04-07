@@ -5,21 +5,22 @@ to CKL (checklist) files.
 """
 
 from __future__ import annotations
-from pathlib import Path
-from typing import Dict, Any, List, Union, Tuple
+
 import json
 import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, Union
 
+from stig_assessor.core.config import Cfg
+from stig_assessor.core.constants import Status
+from stig_assessor.core.logging import LOG
+from stig_assessor.exceptions import ParseError
+from stig_assessor.io.file_ops import FO
+from stig_assessor.remediation.models import FixResult
 # Import from modular package
 from stig_assessor.xml.sanitizer import San
 from stig_assessor.xml.schema import Sch
 from stig_assessor.xml.utils import XmlUtils
-from stig_assessor.core.config import Cfg
-from stig_assessor.core.logging import LOG
-from stig_assessor.core.constants import Status
-from stig_assessor.io.file_ops import FO
-from stig_assessor.exceptions import ParseError
-from stig_assessor.remediation.models import FixResult
 
 
 class FixResPro:
@@ -82,7 +83,8 @@ class FixResPro:
                     # Map CSV columns to expected JSON-like dict schema
                     entry = {
                         "vid": row.get("vid") or row.get("Vuln_ID", ""),
-                        "ok": row.get("ok", "false").lower() in ("true", "1", "yes", "success"),
+                        "ok": row.get("ok", "false").lower()
+                        in ("true", "1", "yes", "success"),
                         "msg": row.get("msg", ""),
                         "output": row.get("out", ""),
                         "error": row.get("err", ""),
@@ -131,7 +133,9 @@ class FixResPro:
                                 if isinstance(entry, dict):
                                     entry["_source_system"] = system_name
                             entries.extend(system_results)
-                            LOG.d(f"  Loaded {len(system_results)} from system '{system_name}'")
+                            LOG.d(
+                                f"  Loaded {len(system_results)} from system '{system_name}'"
+                            )
 
             # Format 4: Alternative keys
             elif "vulnerabilities" in payload:
@@ -157,7 +161,9 @@ class FixResPro:
                         f"'vulnerabilities', 'entries', or direct array. Found: {list(payload.keys())}"
                     )
         else:
-            raise ParseError(f"JSON must be object or array, got {type(payload).__name__}")
+            raise ParseError(
+                f"JSON must be object or array, got {type(payload).__name__}"
+            )
 
         if not isinstance(entries, list):
             raise ParseError(f"Results must be array, got {type(entries).__name__}")
@@ -348,9 +354,11 @@ class FixResPro:
                     combined_comments = entry + "\n" + comments
             else:
                 combined_comments = entry
-                
+
             if len(combined_comments) > Cfg.MAX_COMM:
-                combined_comments = combined_comments[: Cfg.MAX_COMM - 15] + "\n[TRUNCATED]"
+                combined_comments = (
+                    combined_comments[: Cfg.MAX_COMM - 15] + "\n[TRUNCATED]"
+                )
             comment_node.text = combined_comments
 
             if auto_status and result.ok:
@@ -358,6 +366,17 @@ class FixResPro:
                 if status_node is None:
                     status_node = ET.SubElement(vuln, "STATUS")
                 status_node.text = San.status(Status.NOT_A_FINDING.value)
+
+        # Hook: Plugins can intercept and manipulate the ElementTree before save
+        from stig_assessor.core.plugins import PluginManager
+
+        plugins = PluginManager()
+        root = plugins.run_hooks(
+            "pre_apply_results",
+            payload=root,
+            results=self.results,
+            checklist_path=checklist,
+        )
 
         XmlUtils.indent_xml(root)
 
@@ -399,7 +418,9 @@ class FixResPro:
             import io
 
             output = io.StringIO()
-            writer = csv.DictWriter(output, fieldnames=["vid", "timestamp", "success", "message"])
+            writer = csv.DictWriter(
+                output, fieldnames=["vid", "timestamp", "success", "message"]
+            )
             writer.writeheader()
             for r in self.results.values():
                 writer.writerow(
@@ -415,7 +436,9 @@ class FixResPro:
         else:  # text
             lines = ["Remediation Results Report", "=" * 50, ""]
             for r in self.results.values():
-                lines.append(f"{r.vid}: {'✓ SUCCESS' if r.ok else '✗ FAILED'} - {r.message}")
+                lines.append(
+                    f"{r.vid}: {'✓ SUCCESS' if r.ok else '✗ FAILED'} - {r.message}"
+                )
             return "\n".join(lines)
 
     def _write_ckl(self, root, out: Path) -> None:

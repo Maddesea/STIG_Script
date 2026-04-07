@@ -1,7 +1,8 @@
 """Tests for constants module."""
 
 import unittest
-from stig_assessor.core.constants import VERSION, Status, Severity
+
+from stig_assessor.core.constants import VERSION, Severity, Status
 
 
 class TestConstants(unittest.TestCase):

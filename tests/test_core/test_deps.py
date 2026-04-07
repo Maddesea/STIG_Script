@@ -1,6 +1,7 @@
 """Tests for dependency detection."""
 
 import unittest
+
 from stig_assessor.core.deps import Deps
 
 

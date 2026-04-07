@@ -1,16 +1,31 @@
 """Command-line interface and main entry point."""
 
 from __future__ import annotations
-from typing import List, Optional
-from pathlib import Path
+
 import argparse
-import sys
-import logging
-import json
 import gc
+import json
+import logging
+import re
+import shutil
+import sys
 import threading
 import time
-import re
+import zipfile
+from pathlib import Path
+from typing import List, Optional
+
+from stig_assessor.core.config import Cfg
+from stig_assessor.core.constants import APP_NAME, VERSION
+from stig_assessor.core.deps import Deps
+from stig_assessor.core.logging import LOG
+from stig_assessor.core.state import GlobalState
+from stig_assessor.evidence.manager import EvidenceMgr
+from stig_assessor.io.file_ops import FO
+from stig_assessor.processor.processor import Proc
+from stig_assessor.remediation.extractor import FixExt
+from stig_assessor.remediation.processor import FixResPro
+from stig_assessor.templates.boilerplate import BP
 
 
 class Spinner:
@@ -62,24 +77,10 @@ def prompt_missing(prompt_text: str) -> str:
     return ""
 
 
-
-
-
 def format_color(text: str, color: str) -> str:
     """Format text (ANSI removed per zero-dependency TTY guidelines)."""
     return text
 
-
-from stig_assessor.core.config import Cfg
-from stig_assessor.core.constants import APP_NAME, VERSION
-from stig_assessor.core.logging import LOG
-from stig_assessor.core.deps import Deps
-from stig_assessor.core.state import GlobalState
-from stig_assessor.templates.boilerplate import BP
-from stig_assessor.processor.processor import Proc
-from stig_assessor.remediation.extractor import FixExt
-from stig_assessor.remediation.processor import FixResPro
-from stig_assessor.evidence.manager import EvidenceMgr
 
 # Import GUI conditionally
 if Deps.HAS_TKINTER:
@@ -100,7 +101,9 @@ class STIGHelpFormatter(argparse.RawTextHelpFormatter):
         help_text = super().format_help()
         if sys.stdout.isatty():
             help_text = help_text.replace("usage:", format_color("USAGE:", "yellow"))
-            help_text = help_text.replace("options:", format_color("OPTIONS:", "yellow"))
+            help_text = help_text.replace(
+                "options:", format_color("OPTIONS:", "yellow")
+            )
 
             # Colorize all argument groups
             groups = [
@@ -126,9 +129,13 @@ class STIGHelpFormatter(argparse.RawTextHelpFormatter):
                 format_color("COMMON USE-CASES (Windows Operations):", "yellow"),
             )
             help_text = re.sub(
-                r"(\d+\.\s+[^:]+:)", lambda m: format_color(m.group(1), "blue"), help_text
+                r"(\d+\.\s+[^:]+:)",
+                lambda m: format_color(m.group(1), "blue"),
+                help_text,
             )
-            help_text = help_text.replace("stig-assessor", format_color("stig-assessor", "green"))
+            help_text = help_text.replace(
+                "stig-assessor", format_color("stig-assessor", "green")
+            )
         return help_text
 
 
@@ -174,12 +181,23 @@ COMMON USE-CASES (Windows Operations):
         epilog=epilog_text,
     )
     parser.add_argument("--version", action="version", version=VERSION)
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose logging"
+    )
     parser.add_argument("--gui", action="store_true", help="Launch graphical interface")
-    parser.add_argument("--web", action="store_true", help="Launch native web interface")
+    parser.add_argument(
+        "--web", action="store_true", help="Launch native web interface"
+    )
 
     create_group = parser.add_argument_group("Create CKL from XCCDF")
-    create_group.add_argument("--create", action="store_true", help="Create CKL from XCCDF")
+    create_group.add_argument(
+        "--create", action="store_true", help="Create CKL from XCCDF"
+    )
+    create_group.add_argument(
+        "--create-cklb",
+        action="store_true",
+        help="Create CKLB (JSON) from XCCDF",
+    )
     create_group.add_argument("--xccdf", help="XCCDF XML file")
     create_group.add_argument("--asset", help="Asset name")
     create_group.add_argument("--out", help="Output CKL path")
@@ -188,30 +206,81 @@ COMMON USE-CASES (Windows Operations):
     create_group.add_argument("--role", default="None", help="Asset role")
     create_group.add_argument("--marking", default="CUI", help="Asset marking")
     create_group.add_argument(
-        "--apply-boilerplate", action="store_true", help="Apply boilerplate templates"
+        "--apply-boilerplate",
+        action="store_true",
+        help="Apply boilerplate templates",
     )
-    create_group.add_argument("--dry-run", action="store_true", help="Dry run (no output written)")
+    create_group.add_argument(
+        "--dry-run", action="store_true", help="Dry run (no output written)"
+    )
+
+    convert_group = parser.add_argument_group("Format Conversion")
+    convert_group.add_argument(
+        "--convert-to-cklb", help="Convert an existing .ckl to .cklb"
+    )
+    convert_group.add_argument(
+        "--convert-to-ckl", help="Convert an existing .cklb to .ckl"
+    )
+
+    batch_group = parser.add_argument_group("Batch Operations")
+    batch_group.add_argument(
+        "--batch-convert",
+        metavar="DIR",
+        help="Convert directory of XCCDFs to CKLs",
+    )
+    batch_group.add_argument(
+        "--batch-out", help="Output directory for batch conversion"
+    )
+    batch_group.add_argument(
+        "--batch-asset-prefix",
+        default="ASSET",
+        help="Asset name prefix for batch conversion",
+    )
+    batch_group.add_argument(
+        "--batch-out-ext",
+        choices=[".ckl", ".cklb"],
+        default=".ckl",
+        help="Output format for batch conversion (default: .ckl)",
+    )
+    batch_group.add_argument(
+        "--fleet-stats",
+        metavar="DIR_OR_ZIP",
+        help="Calculate fleet statistics from a folder or ZIP of CKLs",
+    )
 
     merge_group = parser.add_argument_group("Merge Checklists")
     merge_group.add_argument(
-        "--merge", action="store_true", help="Merge checklists preserving history"
+        "--merge",
+        action="store_true",
+        help="Merge checklists preserving history",
     )
     merge_group.add_argument("--base", help="Base checklist")
-    merge_group.add_argument("--histories", nargs="+", help="Historical checklists to merge")
+    merge_group.add_argument(
+        "--histories", nargs="+", help="Historical checklists to merge"
+    )
     merge_group.add_argument("--merge-out", help="Merged output CKL")
     merge_group.add_argument(
-        "--no-preserve-history", action="store_true", help="Disable history preservation"
+        "--no-preserve-history",
+        action="store_true",
+        help="Disable history preservation",
     )
     merge_group.add_argument(
-        "--no-boilerplate", action="store_true", help="Disable boilerplate application"
+        "--no-boilerplate",
+        action="store_true",
+        help="Disable boilerplate application",
     )
     merge_group.add_argument(
-        "--merge-dry-run", action="store_true", help="Dry run (no output written)"
+        "--merge-dry-run",
+        action="store_true",
+        help="Dry run (no output written)",
     )
 
     diff_group = parser.add_argument_group("Compare Checklists")
     diff_group.add_argument(
-        "--diff", nargs=2, metavar=("CKL1", "CKL2"), help="Compare two checklists"
+        "--diff",
+        nargs=2,
+        metavar=("CKL1", "CKL2"),
+        help="Compare two checklists",
     )
     diff_group.add_argument(
         "--diff-format",
@@ -223,20 +292,32 @@ COMMON USE-CASES (Windows Operations):
     extract_group = parser.add_argument_group("Extract Fixes")
     extract_group.add_argument("--extract", help="XCCDF file to extract fixes from")
     extract_group.add_argument("--outdir", help="Output directory for fixes")
-    extract_group.add_argument("--no-json", action="store_true", help="Do not export JSON")
-    extract_group.add_argument("--no-csv", action="store_true", help="Do not export CSV")
-    extract_group.add_argument("--no-bash", action="store_true", help="Do not export Bash script")
+    extract_group.add_argument(
+        "--no-json", action="store_true", help="Do not export JSON"
+    )
+    extract_group.add_argument(
+        "--no-csv", action="store_true", help="Do not export CSV"
+    )
+    extract_group.add_argument(
+        "--no-bash", action="store_true", help="Do not export Bash script"
+    )
     extract_group.add_argument(
         "--no-ps", action="store_true", help="Do not export PowerShell script"
     )
     extract_group.add_argument(
-        "--no-ansible", action="store_true", help="Do not export Ansible playbook"
+        "--no-ansible",
+        action="store_true",
+        help="Do not export Ansible playbook",
     )
     extract_group.add_argument(
-        "--script-dry-run", action="store_true", help="Generate scripts in dry-run mode"
+        "--script-dry-run",
+        action="store_true",
+        help="Generate scripts in dry-run mode",
     )
     extract_group.add_argument(
-        "--enable-rollbacks", action="store_true", help="Generate pre-flight registry backups"
+        "--enable-rollbacks",
+        action="store_true",
+        help="Generate pre-flight registry backups",
     )
 
     result_group = parser.add_argument_group("Apply Remediation Results")
@@ -249,10 +330,14 @@ COMMON USE-CASES (Windows Operations):
     result_group.add_argument("--checklist", help="Checklist to update")
     result_group.add_argument("--results-out", help="Updated checklist output path")
     result_group.add_argument(
-        "--no-auto-status", action="store_true", help="Do not auto-mark successes as NotAFinding"
+        "--no-auto-status",
+        action="store_true",
+        help="Do not auto-mark successes as NotAFinding",
     )
     result_group.add_argument(
-        "--results-dry-run", action="store_true", help="Dry run (no output written)"
+        "--results-dry-run",
+        action="store_true",
+        help="Dry run (no output written)",
     )
     result_group.add_argument(
         "--details-mode",
@@ -269,29 +354,72 @@ COMMON USE-CASES (Windows Operations):
 
     evidence_group = parser.add_argument_group("Evidence Management")
     evidence_group.add_argument(
-        "--import-evidence", nargs=2, metavar=("VID", "FILE"), help="Import evidence file"
+        "--import-evidence",
+        nargs=2,
+        metavar=("VID", "FILE"),
+        help="Import evidence file",
     )
     evidence_group.add_argument("--evidence-desc", help="Evidence description")
-    evidence_group.add_argument("--evidence-cat", default="general", help="Evidence category")
-    evidence_group.add_argument("--export-evidence", help="Export all evidence to directory")
-    evidence_group.add_argument("--package-evidence", help="Create evidence ZIP package")
-    evidence_group.add_argument("--import-evidence-package", help="Import evidence from package")
+    evidence_group.add_argument(
+        "--evidence-cat", default="general", help="Evidence category"
+    )
+    evidence_group.add_argument(
+        "--export-evidence", help="Export all evidence to directory"
+    )
+    evidence_group.add_argument(
+        "--package-evidence", help="Create evidence ZIP package"
+    )
+    evidence_group.add_argument(
+        "--import-evidence-package", help="Import evidence from package"
+    )
 
     history_group = parser.add_argument_group("History Management")
     history_group.add_argument("--export-history", help="Export history JSON")
     history_group.add_argument("--import-history", help="Import history JSON")
-    history_group.add_argument("--track-ckl", help="Ingest a completed checklist into the SQLite DB")
-    history_group.add_argument("--show-drift", help="Asset name to show compliance drift for")
+    history_group.add_argument(
+        "--track-ckl", help="Ingest a completed checklist into the SQLite DB"
+    )
+    history_group.add_argument(
+        "--show-drift", help="Asset name to show compliance drift for"
+    )
 
     bp_group = parser.add_argument_group("Boilerplate Management")
-    bp_group.add_argument("--bp-list", action="store_true", help="List all boilerplates")
+    bp_group.add_argument(
+        "--bp-list", action="store_true", help="List all boilerplates"
+    )
     bp_group.add_argument("--bp-list-vid", help="List boilerplates for a specific VID")
-    bp_group.add_argument("--bp-set", action="store_true", help="Set a boilerplate comment")
-    bp_group.add_argument("--bp-delete", action="store_true", help="Delete a boilerplate comment")
+    bp_group.add_argument(
+        "--bp-set", action="store_true", help="Set a boilerplate comment"
+    )
+    bp_group.add_argument(
+        "--bp-delete", action="store_true", help="Delete a boilerplate comment"
+    )
     bp_group.add_argument("--vid", help="Vulnerability ID (e.g. V-12345)")
     bp_group.add_argument("--status", help="Finding Status (e.g. NotAFinding, Open)")
     bp_group.add_argument("--finding", help="Finding Details text for boilerplate")
     bp_group.add_argument("--comment", help="Comments text for boilerplate")
+
+    profile_group = parser.add_argument_group("Profile Management")
+    profile_group.add_argument(
+        "--save-profile",
+        metavar="NAME",
+        help="Save current arguments as a named profile",
+    )
+    profile_group.add_argument(
+        "--use-profile",
+        metavar="NAME",
+        help="Load arguments from a named profile",
+    )
+    profile_group.add_argument(
+        "--export-configs",
+        metavar="ZIP",
+        help="Export all boilerplates, profiles, and plugins to a ZIP",
+    )
+    profile_group.add_argument(
+        "--import-configs",
+        metavar="ZIP",
+        help="Import configs from a ZIP bundle",
+    )
 
     parser.add_argument("--validate", help="Validate checklist compatibility")
 
@@ -299,13 +427,6 @@ COMMON USE-CASES (Windows Operations):
     repair_group = parser.add_argument_group("Repair Checklist")
     repair_group.add_argument("--repair", help="Repair corrupted checklist")
     repair_group.add_argument("--repair-out", help="Repaired checklist output path")
-
-    batch_group = parser.add_argument_group("Batch Processing")
-    batch_group.add_argument("--batch-convert", help="Directory containing XCCDF files to convert")
-    batch_group.add_argument("--batch-out", help="Output directory for batch conversion")
-    batch_group.add_argument(
-        "--batch-asset-prefix", default="ASSET", help="Asset name prefix for batch conversion"
-    )
 
     integrity_group = parser.add_argument_group("Integrity Verification")
     integrity_group.add_argument(
@@ -316,16 +437,99 @@ COMMON USE-CASES (Windows Operations):
     )
 
     stats_group = parser.add_argument_group("Compliance Statistics")
-    stats_group.add_argument("--stats", help="Generate compliance statistics for checklist")
+    stats_group.add_argument(
+        "--stats", help="Generate compliance statistics for checklist"
+    )
     stats_group.add_argument(
         "--stats-format",
-        choices=["text", "json", "csv"],
+        choices=["text", "json", "csv", "html"],
         default="text",
         help="Statistics output format (default: text)",
     )
-    stats_group.add_argument("--stats-out", help="Output file for statistics (default: stdout)")
+    stats_group.add_argument(
+        "--stats-out", help="Output file for statistics (default: stdout)"
+    )
+
+    # Productivity Enhancements
+    prod_group = parser.add_argument_group("Productivity Enhancements")
+    prod_group.add_argument("--bulk-edit", help="Bulk edit vulnerabilities in checklist")
+    prod_group.add_argument("--bulk-out", help="Output path for bulk edited checklist")
+    prod_group.add_argument("--filter-severity", choices=["high", "medium", "low"], help="Filter bulk operations by severity")
+    prod_group.add_argument("--filter-vid", help="Filter bulk operations by VID Regex")
+    prod_group.add_argument("--apply-status", help="Status to apply to matching items")
+    prod_group.add_argument("--apply-comment", help="Comment to apply to matching items")
+    prod_group.add_argument("--append-comment", action="store_true", help="Append comment instead of overwrite")
+    prod_group.add_argument("--export-poam", help="Export Open/Not Reviewed findings to an eMASS POAM (CSV)")
 
     args = parser.parse_args(argv)
+
+    # ------------------------------------------------------------- Profile Management
+    if getattr(args, "use_profile", None):
+        profile_path = Cfg.APP_DIR / "presets" / f"{args.use_profile}.json"
+        if profile_path.exists():
+            with open(profile_path, "r") as f:
+                saved_args = json.load(f)
+            # Inject saved arguments if current arguments aren't explicitly provided
+            for k, v in saved_args.items():
+                if getattr(args, k, None) in (None, False, "") and v:
+                    setattr(args, k, v)
+            LOG.i(f"Loaded assessment profile: {args.use_profile}")
+        else:
+            LOG.w(f"Profile '{args.use_profile}' not found in presets.")
+
+    if getattr(args, "save_profile", None):
+        profile_path = Cfg.APP_DIR / "presets" / f"{args.save_profile}.json"
+        profile_path.parent.mkdir(parents=True, exist_ok=True)
+        # Exclude internal state args
+        save_dict = {
+            k: v
+            for k, v in vars(args).items()
+            if v and k not in ("save_profile", "use_profile", "gui", "web", "verbose")
+        }
+        with open(profile_path, "w") as f:
+            json.dump(save_dict, f, indent=2)
+        LOG.i(f"Profile '{args.save_profile}' saved to {profile_path}")
+        print(
+            f"Profile '{args.save_profile}' saved. Use --use-profile '{args.save_profile}' to apply it later."
+        )
+        if len(sys.argv) <= 3:
+            return (
+                0  # Exit if they only invoked save-profile without other main actions
+            )
+
+    if getattr(args, "export_configs", None):
+
+        out_zip = Path(args.export_configs)
+        LOG.i(f"Exporting configurations to {out_zip}...")
+        with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+            for subdir in ["presets", "boilerplates", "plugins"]:
+                d = Cfg.APP_DIR / subdir
+                if d.exists():
+                    for f in d.rglob("*"):
+                        if f.is_file():
+                            zf.write(f, arcname=f"{subdir}/{f.name}")
+        LOG.i("Export complete.")
+        return 0
+
+    if getattr(args, "import_configs", None):
+
+        in_zip = Path(args.import_configs)
+        if not in_zip.exists():
+            parser.error(f"Bundle file not found: {in_zip}")
+        LOG.i(f"Importing configurations from {in_zip}...")
+        with zipfile.ZipFile(in_zip, "r") as zf:
+            # Prevent arbitrary extraction
+            for member in zf.namelist():
+                if (
+                    member.startswith(("presets/", "boilerplates/", "plugins/"))
+                    and ".." not in member
+                ):
+                    dest = Cfg.APP_DIR / member
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(member) as src, open(dest, "wb") as dst:
+                        shutil.copyfileobj(src, dst)
+        LOG.i("Import complete.")
+        return 0
 
     if args.verbose:
         LOG.log.setLevel(logging.DEBUG)
@@ -333,7 +537,10 @@ COMMON USE-CASES (Windows Operations):
     try:
         if args.gui:
             if not Deps.HAS_TKINTER:
-                print("ERROR: tkinter not available. Install python3-tk.", file=sys.stderr)
+                print(
+                    "ERROR: tkinter not available. Install python3-tk.",
+                    file=sys.stderr,
+                )
                 return 1
             gui = GUI()
             gui.run()
@@ -341,22 +548,110 @@ COMMON USE-CASES (Windows Operations):
 
         if args.web:
             import webbrowser
+
             from stig_assessor.ui.web import start_server
-            
+
             # Open browser slightly after server starts
             def open_browser():
                 import builtins
+
                 time.sleep(1.0)
                 port = getattr(builtins, "_stig_web_port", 8080)
                 webbrowser.open(f"http://127.0.0.1:{port}/")
-                
+
             threading.Thread(target=open_browser, daemon=True).start()
             start_server(port=8080)
             return 0
 
         proc = Proc()
 
-        if args.create:
+        if args.convert_to_cklb:
+            ckl_path = Path(args.convert_to_cklb)
+            cklb_out = ckl_path.with_suffix(".cklb")
+            print(f"Converting {ckl_path.name} to {cklb_out.name}...")
+            # Load as json dict, which validates and parses it
+            # wait, proc._json_to_checklist works the other way.
+            # I can just load the XML, and convert to JSON and write.
+            # The most straightforward way is using FO methods.
+            tree = FO.parse_xml(ckl_path)
+            cklb_data = proc._checklist_to_json(tree.getroot())
+            FO.write_cklb(cklb_data, cklb_out)
+            print("Done.")
+            return 0
+
+        if args.convert_to_ckl:
+            cklb_path = Path(args.convert_to_ckl)
+            ckl_out = cklb_path.with_suffix(".ckl")
+            print(f"Converting {cklb_path.name} to {ckl_out.name}...")
+            cklb_data = FO.parse_cklb(cklb_path)
+            tree = proc._json_to_checklist(cklb_data)
+            from stig_assessor.xml.utils import XmlUtils
+
+            XmlUtils.indent_xml(tree.getroot())
+            tree.write(ckl_out, encoding="utf-8", xml_declaration=True)
+            print("Done.")
+            return 0
+
+        if args.fleet_stats:
+            from stig_assessor.processor.fleet_stats import FleetStats
+
+            fs = FleetStats()
+            fs_path = Path(args.fleet_stats)
+            if fs_path.is_dir():
+                result = fs.process_directory(fs_path)
+            elif zipfile.is_zipfile(fs_path):
+                result = fs.process_zip(fs_path)
+            else:
+                parser.error("Fleet stats requires a directory or a valid ZIP file.")
+            print(
+                format_color(json.dumps(result, indent=2, ensure_ascii=False), "green")
+            )
+            return 0
+
+        if args.batch_convert:
+            batch_dir = Path(args.batch_convert)
+            if not batch_dir.is_dir():
+                parser.error(
+                    f"--batch-convert requires a valid directory, got: {batch_dir}"
+                )
+            xccdfs = list(batch_dir.glob("*.xml"))
+            if not xccdfs:
+                LOG.w(f"No XML files found in {batch_dir}")
+                return 0
+
+            from concurrent.futures import ThreadPoolExecutor
+
+            def process_xccdf(xccdf_path):
+                out_path = xccdf_path.with_suffix(args.batch_out_ext)
+                try:
+                    proc.xccdf_to_ckl(
+                        xccdf=str(xccdf_path),
+                        out=str(out_path),
+                        asset=xccdf_path.stem.split("-")[0][
+                            :15
+                        ],  # Default naive asset name
+                        apply_boilerplate=args.apply_boilerplate,
+                    )
+                    return True, xccdf_path.name
+                except Exception as e:
+                    return False, f"{xccdf_path.name}: {e}"
+
+            print(f"Batch converting {len(xccdfs)} XCCDFs to {args.batch_out_ext}...")
+            success, errors = 0, []
+            with ThreadPoolExecutor() as exe:
+                for ok, msg in exe.map(process_xccdf, xccdfs):
+                    if ok:
+                        success += 1
+                    else:
+                        errors.append(msg)
+            print(f"Batch complete. {success}/{len(xccdfs)} converted.")
+            if errors:
+                print("Errors:")
+                for e in errors:
+                    print(f" - {e}")
+            return 0
+
+        if args.create or args.create_cklb:
             if not args.xccdf:
                 args.xccdf = prompt_missing("Please enter the path to the XCCDF file")
             if not args.asset:
@@ -366,10 +661,15 @@ COMMON USE-CASES (Windows Operations):
                 parser.error("--create requires at least --xccdf and --asset")
 
             out_path = args.out
+            ext = ".cklb" if args.create_cklb else ".ckl"
             if not out_path:
                 xccdf_path = Path(args.xccdf)
-                out_path = str(xccdf_path.with_name(f"{args.asset}_{xccdf_path.stem}.ckl"))
+                out_path = str(
+                    xccdf_path.with_name(f"{args.asset}_{xccdf_path.stem}{ext}")
+                )
                 LOG.i(f"Auto-resolved output path: {out_path}")
+            else:
+                out_path = str(Path(out_path).with_suffix(ext))
 
             with Spinner("Converting XCCDF to CKL..."):
                 result = proc.xccdf_to_ckl(
@@ -383,14 +683,20 @@ COMMON USE-CASES (Windows Operations):
                     dry=args.dry_run,
                     apply_boilerplate=args.apply_boilerplate,
                 )
-            print(format_color(json.dumps(result, indent=2, ensure_ascii=False), "green"))
+            print(
+                format_color(json.dumps(result, indent=2, ensure_ascii=False), "green")
+            )
             return 0
 
-        if getattr(args, 'merge', False):
-            if not getattr(args, 'base', None):
-                args.base = prompt_missing("Please enter the path to the base checklist")
+        if getattr(args, "merge", False):
+            if not getattr(args, "base", None):
+                args.base = prompt_missing(
+                    "Please enter the path to the base checklist"
+                )
             if not args.histories:
-                hist = prompt_missing("Please enter historical checklists (space-separated)")
+                hist = prompt_missing(
+                    "Please enter historical checklists (space-separated)"
+                )
                 args.histories = [h for h in hist.split()] if hist else None
 
             if not (args.base and args.histories):
@@ -411,10 +717,12 @@ COMMON USE-CASES (Windows Operations):
                     apply_boilerplate=not args.no_boilerplate,
                     dry=args.merge_dry_run,
                 )
-            print(format_color(json.dumps(result, indent=2, ensure_ascii=False), "green"))
+            print(
+                format_color(json.dumps(result, indent=2, ensure_ascii=False), "green")
+            )
             return 0
 
-        if getattr(args, 'diff', None):
+        if getattr(args, "diff", None):
             ckl1, ckl2 = args.diff
             result = proc.diff(ckl1, ckl2, output_format=args.diff_format)
             if args.diff_format == "json":
@@ -423,11 +731,13 @@ COMMON USE-CASES (Windows Operations):
                 print(result.get("formatted_text", ""))
             return 0
 
-        if getattr(args, 'extract', None):
+        if getattr(args, "extract", None):
             extract_outdir = args.outdir
             if not extract_outdir:
                 extract_path = Path(args.extract)
-                extract_outdir = str(extract_path.with_name(f"{extract_path.stem}_fixes"))
+                extract_outdir = str(
+                    extract_path.with_name(f"{extract_path.stem}_fixes")
+                )
                 LOG.i(f"Auto-resolved output directory: {extract_outdir}")
 
             with Spinner("Extracting fixes..."):
@@ -441,26 +751,33 @@ COMMON USE-CASES (Windows Operations):
                 if not args.no_csv:
                     extractor.to_csv(outdir / "fixes.csv")
                 if not args.no_bash:
-                    extractor.to_bash(outdir / "remediate.sh", dry_run=args.script_dry_run)
+                    extractor.to_bash(
+                        outdir / "remediate.sh", dry_run=args.script_dry_run
+                    )
                 if not args.no_ps:
                     extractor.to_powershell(
                         outdir / "Remediate.ps1",
                         dry_run=args.script_dry_run,
-                        enable_rollbacks=args.enable_rollbacks
+                        enable_rollbacks=args.enable_rollbacks,
                     )
                 if not args.no_ansible:
-                    extractor.to_ansible(outdir / "remediate.yml", dry_run=args.script_dry_run)
+                    extractor.to_ansible(
+                        outdir / "remediate.yml", dry_run=args.script_dry_run
+                    )
 
             print(
                 format_color(
-                    json.dumps(extractor.stats_summary(), indent=2, ensure_ascii=False), "green"
+                    json.dumps(extractor.stats_summary(), indent=2, ensure_ascii=False),
+                    "green",
                 )
             )
             return 0
 
         if args.apply_results:
             if not args.checklist:
-                args.checklist = prompt_missing("Please enter the path to the target checklist")
+                args.checklist = prompt_missing(
+                    "Please enter the path to the target checklist"
+                )
 
             if not args.checklist:
                 parser.error("--apply-results requires --checklist")
@@ -468,12 +785,16 @@ COMMON USE-CASES (Windows Operations):
             results_out = args.results_out
             if not results_out:
                 checklist_path = Path(args.checklist)
-                results_out = str(checklist_path.with_name(f"{checklist_path.stem}_updated.ckl"))
+                results_out = str(
+                    checklist_path.with_name(f"{checklist_path.stem}_updated.ckl")
+                )
                 LOG.i(f"Auto-resolved results output path: {results_out}")
 
             # ═══ ENHANCED: Support multiple result files ═══
             result_files = (
-                args.apply_results if isinstance(args.apply_results, list) else [args.apply_results]
+                args.apply_results
+                if isinstance(args.apply_results, list)
+                else [args.apply_results]
             )
 
             processor = FixResPro()
@@ -482,7 +803,10 @@ COMMON USE-CASES (Windows Operations):
             failed_files = []
 
             print(
-                format_color(f"[INFO] Processing {len(result_files)} result file(s)...", "blue"),
+                format_color(
+                    f"[INFO] Processing {len(result_files)} result file(s)...",
+                    "blue",
+                ),
                 file=sys.stderr,
             )
 
@@ -499,17 +823,30 @@ COMMON USE-CASES (Windows Operations):
                     total_loaded += imported
                     total_skipped += skipped
                     print(
-                        format_color(f"  ✓ Loaded {imported} results (skipped {skipped})", "green"),
+                        format_color(
+                            f"  ✓ Loaded {imported} results (skipped {skipped})",
+                            "green",
+                        ),
                         file=sys.stderr,
                     )
-                except (OSError, ValueError, json.JSONDecodeError, KeyError) as exc:
-                    print(format_color(f"  ✘ Failed: {exc}", "red"), file=sys.stderr)
+                except (
+                    OSError,
+                    ValueError,
+                    json.JSONDecodeError,
+                    KeyError,
+                ) as exc:
+                    print(
+                        format_color(f"  ✘ Failed: {exc}", "red"),
+                        file=sys.stderr,
+                    )
                     failed_files.append({"file": str(result_file), "error": str(exc)})
                     continue
 
             if not processor.results:
                 print(
-                    format_color("[ERROR] No valid results loaded from any file", "red"),
+                    format_color(
+                        "[ERROR] No valid results loaded from any file", "red"
+                    ),
                     file=sys.stderr,
                 )
                 return 1
@@ -546,10 +883,22 @@ COMMON USE-CASES (Windows Operations):
                 result["failed_files"] = failed_files
 
             if len(failed_files) == 0:
-                print(format_color(json.dumps(result, indent=2, ensure_ascii=False), "green"))
+                print(
+                    format_color(
+                        json.dumps(result, indent=2, ensure_ascii=False),
+                        "green",
+                    )
+                )
             else:
-                print(format_color(json.dumps(result, indent=2, ensure_ascii=False), "yellow"))
-            return 0 if len(failed_files) == 0 else 2  # Exit code 2 if some files failed
+                print(
+                    format_color(
+                        json.dumps(result, indent=2, ensure_ascii=False),
+                        "yellow",
+                    )
+                )
+            return (
+                0 if len(failed_files) == 0 else 2
+            )  # Exit code 2 if some files failed
 
         evidence_mgr = EvidenceMgr()
 
@@ -591,7 +940,10 @@ COMMON USE-CASES (Windows Operations):
 
         if args.track_ckl:
             if not proc.history.db:
-                print(format_color("ERROR: SQLite History DB is not initialized.", "red"), file=sys.stderr)
+                print(
+                    format_color("ERROR: SQLite History DB is not initialized.", "red"),
+                    file=sys.stderr,
+                )
                 return 1
             # Simple ingest by extracting vulns
             try:
@@ -600,46 +952,73 @@ COMMON USE-CASES (Windows Operations):
                 vulns = proc._extract_vuln_data(root)
                 asset_elem = root.find(".//HOST_NAME")
                 asset_name = asset_elem.text if asset_elem is not None else "Unknown"
-                
+
                 results = []
                 for vid, vdata in vulns.items():
-                    results.append({
-                        "vid": vid,
-                        "status": vdata.get("status", "Not_Reviewed"),
-                        "severity": vdata.get("severity", "medium"),
-                        "find": vdata.get("finding_details", ""),
-                        "comm": vdata.get("comments", "")
-                    })
-                
-                db_id = proc.history.db.save_assessment(asset_name, args.track_ckl, "STIG", results)
-                print(format_color(f"Successfully ingested {len(results)} findings into database (Assessment ID: {db_id})", "green"))
+                    results.append(
+                        {
+                            "vid": vid,
+                            "status": vdata.get("status", "Not_Reviewed"),
+                            "severity": vdata.get("severity", "medium"),
+                            "find": vdata.get("finding_details", ""),
+                            "comm": vdata.get("comments", ""),
+                        }
+                    )
+
+                db_id = proc.history.db.save_assessment(
+                    asset_name, args.track_ckl, "STIG", results
+                )
+                print(
+                    format_color(
+                        f"Successfully ingested {len(results)} findings into database (Assessment ID: {db_id})",
+                        "green",
+                    )
+                )
             except Exception as e:
-                print(format_color(f"Failed to ingest CKL: {e}", "red"), file=sys.stderr)
+                print(
+                    format_color(f"Failed to ingest CKL: {e}", "red"),
+                    file=sys.stderr,
+                )
                 return 1
             return 0
 
         if args.show_drift:
             if not proc.history.db:
-                print(format_color("ERROR: SQLite History DB is not initialized.", "red"), file=sys.stderr)
+                print(
+                    format_color("ERROR: SQLite History DB is not initialized.", "red"),
+                    file=sys.stderr,
+                )
                 return 1
             asset_name = args.show_drift
             # We need the current assessment id, let's just get the latest one
             with proc.history.db._get_conn() as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT id FROM assessments WHERE asset_name = ? ORDER BY timestamp DESC LIMIT 1', (asset_name,))
+                cursor.execute(
+                    "SELECT id FROM assessments WHERE asset_name = ? ORDER BY timestamp DESC LIMIT 1",
+                    (asset_name,),
+                )
                 row = cursor.fetchone()
                 if not row:
-                    print(format_color(f"No assessments found for asset '{asset_name}'", "yellow"))
+                    print(
+                        format_color(
+                            f"No assessments found for asset '{asset_name}'",
+                            "yellow",
+                        )
+                    )
                     return 1
                 latest_id = row[0]
-                
+
             drift = proc.history.db.get_drift(asset_name, latest_id)
             if "error" in drift:
                 print(format_color(drift["error"], "yellow"))
             else:
-                print(format_color(f"=== Compliance Drift for {asset_name} ===", "blue"))
+                print(
+                    format_color(f"=== Compliance Drift for {asset_name} ===", "blue")
+                )
                 print(f"Fixed (Open -> NotAFinding): {len(drift['fixed'])}")
-                print(f"Regressed (NotAFinding -> Open): {format_color(str(len(drift['regressed'])), 'red')}")
+                print(
+                    f"Regressed (NotAFinding -> Open): {format_color(str(len(drift['regressed'])), 'red')}"
+                )
                 print(f"Changed: {len(drift['changed'])}")
                 print(f"New Rules: {len(drift['new'])}")
                 print(f"Removed Rules: {len(drift['removed'])}")
@@ -650,26 +1029,35 @@ COMMON USE-CASES (Windows Operations):
             bp_all = proc.boiler.list_all()
             print(json.dumps(bp_all, indent=2, ensure_ascii=False))
             return 0
-            
+
         if args.bp_list_vid:
             bp_all = proc.boiler.list_all()
             res = bp_all.get(args.bp_list_vid, {})
             print(json.dumps({args.bp_list_vid: res}, indent=2, ensure_ascii=False))
             return 0
-            
+
         if args.bp_set:
             if not args.vid or not args.status:
                 parser.error("--bp-set requires --vid and --status")
-            proc.boiler.set(args.vid, args.status, args.finding or "", args.comment or "")
-            print(format_color(f"Boilerplate set for {args.vid} / {args.status}", "green"))
+            proc.boiler.set(
+                args.vid, args.status, args.finding or "", args.comment or ""
+            )
+            print(
+                format_color(f"Boilerplate set for {args.vid} / {args.status}", "green")
+            )
             return 0
-            
+
         if args.bp_delete:
             if not args.vid:
                 parser.error("--bp-delete requires at least --vid")
             deleted = proc.boiler.delete(args.vid, args.status)
             if deleted:
-                print(format_color(f"Deleted boilerplate {'for ' + args.status if args.status else 'all statuses'} on {args.vid}", "green"))
+                print(
+                    format_color(
+                        f"Deleted boilerplate {'for ' + args.status if args.status else 'all statuses'} on {args.vid}",
+                        "green",
+                    )
+                )
             else:
                 print(format_color("Boilerplate not found", "yellow"))
             return 0
@@ -678,7 +1066,13 @@ COMMON USE-CASES (Windows Operations):
             ok, errors, warnings_, info = proc.validator.validate(args.validate)
             print(
                 json.dumps(
-                    {"ok": ok, "errors": errors, "warnings": warnings_, "info": info}, indent=2
+                    {
+                        "ok": ok,
+                        "errors": errors,
+                        "warnings": warnings_,
+                        "info": info,
+                    },
+                    indent=2,
                 )
             )
             return 0 if ok else 1
@@ -688,13 +1082,17 @@ COMMON USE-CASES (Windows Operations):
             repair_out = args.repair_out
             if not repair_out:
                 repair_path = Path(args.repair)
-                repair_out = str(repair_path.with_name(f"{repair_path.stem}_repaired.ckl"))
+                repair_out = str(
+                    repair_path.with_name(f"{repair_path.stem}_repaired.ckl")
+                )
                 LOG.i(f"Auto-resolved repair output path: {repair_out}")
 
             with Spinner("Repairing checklist..."):
                 result = proc.repair(args.repair, repair_out)
 
-            print(format_color(json.dumps(result, indent=2, ensure_ascii=False), "green"))
+            print(
+                format_color(json.dumps(result, indent=2, ensure_ascii=False), "green")
+            )
             return 0
 
         if args.batch_convert:
@@ -710,7 +1108,9 @@ COMMON USE-CASES (Windows Operations):
                     batch_out,
                     asset_prefix=args.batch_asset_prefix,
                     apply_boilerplate=(
-                        args.apply_boilerplate if hasattr(args, "apply_boilerplate") else False
+                        args.apply_boilerplate
+                        if hasattr(args, "apply_boilerplate")
+                        else False
                     ),
                 )
             print(
@@ -740,7 +1140,11 @@ COMMON USE-CASES (Windows Operations):
                     if args.stats_format == "json":
                         json.dump(result, f, indent=2, ensure_ascii=False)
                     else:
-                        f.write(result if isinstance(result, str) else json.dumps(result, indent=2))
+                        f.write(
+                            result
+                            if isinstance(result, str)
+                            else json.dumps(result, indent=2)
+                        )
                 print(f"Statistics written to {output_path}")
             else:
                 if args.stats_format == "json":
@@ -749,11 +1153,39 @@ COMMON USE-CASES (Windows Operations):
                     print(result)
             return 0
 
+        # Productivity Features
+        if args.bulk_edit:
+            if not args.apply_status or not args.apply_comment:
+                parser.error("--bulk-edit requires --apply-status and --apply-comment")
+            out = args.bulk_out or str(Path(args.bulk_edit).with_name(f"{Path(args.bulk_edit).stem}_updated.ckl"))
+            result = proc.bulk_edit(
+                args.bulk_edit, 
+                out, 
+                severity=args.filter_severity,
+                regex_vid=args.filter_vid,
+                new_status=args.apply_status,
+                new_comment=args.apply_comment,
+                append_comment=args.append_comment
+            )
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            return 0
+            
+        if args.export_poam:
+            poam_str = proc.export_poam(args.export_poam)
+            poam_out = Path(args.export_poam).with_name(f"{Path(args.export_poam).stem}_poam.csv")
+            with open(poam_out, "w", encoding="utf-8") as f:
+                f.write(poam_str)
+            print(f"eMASS POAM exported successfully to {poam_out}")
+            return 0
+
         parser.print_help()
         return 0
 
     except KeyboardInterrupt:
-        print(format_color("\nOperation cancelled by user", "yellow"), file=sys.stderr)
+        print(
+            format_color("\nOperation cancelled by user", "yellow"),
+            file=sys.stderr,
+        )
         return 130
     except OSError as exc:
         LOG.e(f"Fatal error (OS/IO): {exc}", exc=True)

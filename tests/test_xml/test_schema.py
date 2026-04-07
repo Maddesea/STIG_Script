@@ -7,6 +7,7 @@ Tests cover:
 """
 
 import unittest
+
 from stig_assessor.xml.schema import Sch
 
 
@@ -63,12 +64,7 @@ class TestValidValues(unittest.TestCase):
 
     def test_status_values(self):
         """Verify all valid status values are present."""
-        expected_statuses = {
-            "NotAFinding",
-            "Open",
-            "Not_Reviewed",
-            "Not_Applicable"
-        }
+        expected_statuses = {"NotAFinding", "Open", "Not_Reviewed", "Not_Applicable"}
         self.assertEqual(Sch.STAT_VALS, expected_statuses)
         self.assertIsInstance(Sch.STAT_VALS, frozenset)
 

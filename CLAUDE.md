@@ -4,8 +4,8 @@
 
 **STIG Assessor Complete** is a production-ready, zero-dependency, air-gap certified security compliance tool for Department of Defense (DoD) Security Technical Implementation Guide (STIG) assessments.
 
-- **Version:** 7.4.3
-- **Build Date:** 2026-01-02
+- **Version:** 8.0.0
+- **Build Date:** 2026-04-07
 - **STIG Viewer Compatibility:** 2.18
 - **Language:** Python 3.9+
 - **Lines of Code:** ~6,776 (monolith) + ~6,600 (modular package)
@@ -625,7 +625,7 @@ Based on repository history:
 | Evidence | `~/.stig_assessor/evidence/` |
 | Templates | `~/.stig_assessor/templates/boilerplate.json` |
 
-### Key Line Numbers (STIG_Script.py v7.4.3)
+### Key Line Numbers (STIG_Script.py v8.0.0)
 | Component | Line Range |
 |-----------|------------|
 | Constants | 127-195 |

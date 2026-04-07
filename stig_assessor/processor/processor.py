@@ -1,12 +1,13 @@
 """Core processor module for XCCDF to CKL conversion and merging."""
 
 from __future__ import annotations
+
 import hashlib
 import uuid
 from collections import OrderedDict, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Union
 
 if TYPE_CHECKING:
     import xml.etree.ElementTree as ET
@@ -14,22 +15,22 @@ if TYPE_CHECKING:
 else:
     # Import required modules
     from stig_assessor.core.deps import Deps
+
     # Get specific XML parsers (defusedxml if available) for runtime
     ET, XMLParseError = Deps.get_xml()
 
-from stig_assessor.core.constants import Status, CHUNK_SIZE, TITLE_MAX_LONG
-from stig_assessor.core.deps import Deps
-
-from stig_assessor.core.logging import Log
 from stig_assessor.core.config import CFG as Cfg
-from stig_assessor.xml.schema import Sch
-from stig_assessor.xml.utils import XmlUtils
-from stig_assessor.xml.sanitizer import San
-from stig_assessor.io.file_ops import FO
+from stig_assessor.core.constants import CHUNK_SIZE, TITLE_MAX_LONG, Status
+from stig_assessor.core.deps import Deps
+from stig_assessor.core.logging import Log
 from stig_assessor.exceptions import FileError, ParseError, ValidationError
 from stig_assessor.history.manager import HistMgr
-from stig_assessor.validation.validator import Val
+from stig_assessor.io.file_ops import FO
 from stig_assessor.templates.boilerplate import BP
+from stig_assessor.validation.validator import Val
+from stig_assessor.xml.sanitizer import San
+from stig_assessor.xml.schema import Sch
+from stig_assessor.xml.utils import XmlUtils
 
 LOG = Log("Processor")
 
@@ -59,6 +60,11 @@ class Proc:
         self.history = history or HistMgr()
         self.boiler = boiler or BP()
         self.validator = Val()
+
+        from stig_assessor.core.plugins import PluginManager
+
+        self.plugins = PluginManager()
+        self.plugins.load_plugins()
 
     # ---------------------------------------------------------------- xccdf->ckl
     def xccdf_to_ckl(
@@ -165,7 +171,9 @@ class Proc:
         total = processed + skipped
         error_rate = (skipped / total) * 100 if total > 0 else 0
         if error_rate > Cfg.ERROR_RATE_WARN_THRESHOLD:
-            LOG.w(f"High error rate: {error_rate:.1f}% of vulnerabilities failed to process")
+            LOG.w(
+                f"High error rate: {error_rate:.1f}% of vulnerabilities failed to process"
+            )
             LOG.w(f"First 5 errors: {errors[:5]}")
             if error_rate > Cfg.ERROR_RATE_FAIL_THRESHOLD:
                 raise ParseError(
@@ -175,16 +183,35 @@ class Proc:
                     f"Sample errors: {'; '.join(errors[:3])}"
                 )
 
-        LOG.i(f"Processed: {processed} | Skipped: {skipped} | Error rate: {error_rate:.1f}%")
+        LOG.i(
+            f"Processed: {processed} | Skipped: {skipped} | Error rate: {error_rate:.1f}%"
+        )
 
         XmlUtils.indent_xml(checklist)
+
+        # Hook: Plugins can modify the final xml ElementTree of the checklist
+        checklist = self.plugins.run_hooks(
+            "post_ckl_create",
+            payload=checklist,
+            xccdf_path=xccdf,
+            out_path=out,
+        )
 
         if dry:
             LOG.i("Dry-run requested, checklist not written")
             LOG.clear()
-            return {"ok": True, "processed": processed, "skipped": skipped, "errors": errors}
+            return {
+                "ok": True,
+                "processed": processed,
+                "skipped": skipped,
+                "errors": errors,
+            }
 
-        self._export_xml_to_file(checklist, out)
+        if out.suffix.lower() == ".cklb":
+            cklb_data = self._checklist_to_json(checklist)
+            FO.write_cklb(cklb_data, out, backup=False)
+        else:
+            self._export_xml_to_file(checklist, out)
 
         try:
             ok, errs, _, _ = self.validator.validate(out)
@@ -297,11 +324,13 @@ class Proc:
             "WEB_DB_SITE": "",
             "WEB_DB_INSTANCE": "",
         }
-        for field in Sch.ASSET:
-            node = ET.SubElement(asset_node, field)
-            node.text = str(values.get(field) or "")
+        for fld in Sch.ASSET:
+            node = ET.SubElement(asset_node, fld)
+            node.text = str(values.get(fld) or "")
 
-    def _build_stig_info(self, parent: ET.Element, xccdf: Path, meta: Dict[str, str]) -> None:
+    def _build_stig_info(
+        self, parent: ET.Element, xccdf: Path, meta: Dict[str, str]
+    ) -> None:
         """
         Build and append the STIG_INFO configuration node for the target CKL.
 
@@ -325,12 +354,12 @@ class Proc:
             "source": str(meta.get("source") or "STIG.DOD.MIL"),
         }
 
-        for field in Sch.STIG:
+        for fld in Sch.STIG:
             si_data = ET.SubElement(stig_info, "SI_DATA")
             name = ET.SubElement(si_data, "SID_NAME")
-            name.text = field
+            name.text = fld
             data = ET.SubElement(si_data, "SID_DATA")
-            value = str(values.get(field) or "")
+            value = str(values.get(fld) or "")
             if value:
                 data.text = value
 
@@ -375,7 +404,7 @@ class Proc:
 
         Returns:
             Fully populated VULN ElementTree element.
-            
+
         Raises:
             ParseError: If critical parsing fails.
         """
@@ -427,9 +456,15 @@ class Proc:
         check_ref = "M"
         if check_elem is not None:
             check_content = (
-                check_elem.find("ns:check-content", ns) if ns else check_elem.find("check-content")
+                check_elem.find("ns:check-content", ns)
+                if ns
+                else check_elem.find("check-content")
             )
-            check_text = self._collect_fix_text(check_content) if check_content is not None else ""
+            check_text = (
+                self._collect_fix_text(check_content)
+                if check_content is not None
+                else ""
+            )
             check_content_ref = (
                 check_elem.find("ns:check-content-ref", ns)
                 if ns
@@ -519,8 +554,12 @@ class Proc:
         comment = ""
 
         if apply_boilerplate:
-            finding = self.boiler.get_finding(vid, status, asset=asset, severity=severity)
-            comment = self.boiler.get_comment(vid, status, asset=asset, severity=severity)
+            finding = self.boiler.get_finding(
+                vid, status, asset=asset, severity=severity
+            )
+            comment = self.boiler.get_comment(
+                vid, status, asset=asset, severity=severity
+            )
 
         status_node = ET.SubElement(vuln_node, "STATUS")
         status_node.text = status
@@ -622,7 +661,9 @@ class Proc:
         reviews = cklb.get("reviews", [])
         for review in reviews:
             vuln = ET.SubElement(istig, "VULN")
-            ET.SubElement(vuln, "STATUS").text = str(review.get("status", Status.NOT_REVIEWED))
+            ET.SubElement(vuln, "STATUS").text = str(
+                review.get("status", Status.NOT_REVIEWED)
+            )
             ET.SubElement(vuln, "FINDING_DETAILS").text = str(review.get("detail", ""))
             ET.SubElement(vuln, "COMMENTS").text = str(review.get("comment", ""))
 
@@ -711,7 +752,9 @@ class Proc:
         if stigs is None:
             raise ParseError("Base checklist missing STIGS")
 
-        total_vulns = sum(len(istig.findall("VULN")) for istig in stigs.findall("iSTIG"))
+        total_vulns = sum(
+            len(istig.findall("VULN")) for istig in stigs.findall("iSTIG")
+        )
         if total_vulns == 0:
             raise ParseError("Base checklist contains no vulnerabilities")
 
@@ -738,7 +781,12 @@ class Proc:
         self._export_xml_to_file(root, out)
         LOG.i(f"Merged checklist saved to {out}")
         LOG.clear()
-        return {"updated": updated, "skipped": skipped, "dry_run": False, "output": str(out)}
+        return {
+            "updated": updated,
+            "skipped": skipped,
+            "dry_run": False,
+            "output": str(out),
+        }
 
     # ------------------------------------------------------------------ diff
     def diff(
@@ -859,9 +907,13 @@ class Proc:
 
         # Format output based on requested format
         if output_format == "summary":
-            results["formatted_text"] = self._format_diff_summary(results, ckl1.name, ckl2.name)
+            results["formatted_text"] = self._format_diff_summary(
+                results, ckl1.name, ckl2.name
+            )
         elif output_format == "detailed":
-            results["formatted_text"] = self._format_diff_detailed(results, ckl1.name, ckl2.name)
+            results["formatted_text"] = self._format_diff_detailed(
+                results, ckl1.name, ckl2.name
+            )
 
         LOG.clear()
         return results
@@ -908,7 +960,10 @@ class Proc:
         return vulns
 
     def _format_diff_summary(
-        self, results: Dict[str, Union[str, int, List[str]]], name1: str, name2: str
+        self,
+        results: Dict[str, Union[str, int, List[str]]],
+        name1: str,
+        name2: str,
     ) -> str:
         """Format a summary of the diff results into a string."""
         s = results["summary"]
@@ -917,7 +972,9 @@ class Proc:
         lines.append(f"Checklist Comparison: {name1} vs {name2}")
         lines.append(f"{'='*80}")
         lines.append(f"\nBaseline ({name1}): {s['total_in_baseline']} vulnerabilities")
-        lines.append(f"Comparison ({name2}): {s['total_in_comparison']} vulnerabilities")
+        lines.append(
+            f"Comparison ({name2}): {s['total_in_comparison']} vulnerabilities"
+        )
         lines.append(f"\nCommon vulnerabilities: {s['common']}")
         lines.append(f"  - Changed: {s['changed']}")
         lines.append(f"  - Unchanged: {s['unchanged']}")
@@ -946,7 +1003,10 @@ class Proc:
         return "\n".join(lines)
 
     def _format_diff_detailed(
-        self, results: Dict[str, Union[str, int, List[str]]], name1: str, name2: str
+        self,
+        results: Dict[str, Union[str, int, List[str]]],
+        name1: str,
+        name2: str,
     ) -> str:
         """Format detailed diff results into a string."""
         lines = [self._format_diff_summary(results, name1, name2)]
@@ -967,7 +1027,9 @@ class Proc:
             for vid in results["only_in_comparison"][:20]:
                 lines.append(f"  {vid}")
             if len(results["only_in_comparison"]) > 20:
-                lines.append(f"  ... and {len(results['only_in_comparison']) - 20} more")
+                lines.append(
+                    f"  ... and {len(results['only_in_comparison']) - 20} more"
+                )
         return "\n".join(lines)
 
     # ----------------------------------------------------------------- helpers
@@ -1001,7 +1063,9 @@ class Proc:
                 for sd in vuln.findall("STIG_DATA"):
                     attr = sd.findtext("VULN_ATTRIBUTE")
                     if attr == "Severity":
-                        severity = San.sev(sd.findtext("ATTRIBUTE_DATA", default="medium"))
+                        severity = San.sev(
+                            sd.findtext("ATTRIBUTE_DATA", default="medium")
+                        )
 
                 if finding.strip() or comment.strip():
                     self.history.add(
@@ -1125,11 +1189,18 @@ class Proc:
                             # Try to fix common typos
                             if status_val.lower().replace(" ", "_") == "not_a_finding":
                                 status_node.text = Status.NOT_A_FINDING
-                                repairs.append(f"Fixed status typo: '{status_val}' → '{Status.NOT_A_FINDING}'")
+                                repairs.append(
+                                    f"Fixed status typo: '{status_val}' → '{Status.NOT_A_FINDING}'"
+                                )
                             elif status_val.lower() == "open":
                                 status_node.text = Status.OPEN
-                                repairs.append(f"Fixed status case: '{status_val}' → '{Status.OPEN}'")
-                            elif "not" in status_val.lower() and "applicable" in status_val.lower():
+                                repairs.append(
+                                    f"Fixed status case: '{status_val}' → '{Status.OPEN}'"
+                                )
+                            elif (
+                                "not" in status_val.lower()
+                                and "applicable" in status_val.lower()
+                            ):
                                 status_node.text = Status.NOT_APPLICABLE
                                 repairs.append(
                                     f"Fixed status typo: '{status_val}' → '{Status.NOT_APPLICABLE}'"
@@ -1176,7 +1247,9 @@ class Proc:
                             finding_node.text = (
                                 finding_node.text[: Cfg.MAX_FIND - 15] + "\n[TRUNCATED]"
                             )
-                            repairs.append(f"Truncated oversized FINDING_DETAILS for {vid}")
+                            repairs.append(
+                                f"Truncated oversized FINDING_DETAILS for {vid}"
+                            )
 
                     comment_node = vuln.find("COMMENTS")
                     if comment_node is not None and comment_node.text:
@@ -1247,7 +1320,9 @@ class Proc:
                 asset_name = f"{asset_prefix}_{xccdf_file.stem.replace(' ', '_').replace('-', '_')}"
                 out_file = out_dir / f"{xccdf_file.stem}.ckl"
 
-                LOG.i(f"[{idx}/{len(xccdf_files)}] Converting {xccdf_file.name} → {out_file.name}")
+                LOG.i(
+                    f"[{idx}/{len(xccdf_files)}] Converting {xccdf_file.name} → {out_file.name}"
+                )
 
                 result = self.xccdf_to_ckl(
                     xccdf_file,
@@ -1264,7 +1339,13 @@ class Proc:
                     }
                 )
 
-            except (ParseError, ValidationError, FileError, OSError, ValueError) as exc:
+            except (
+                ParseError,
+                ValidationError,
+                FileError,
+                OSError,
+                ValueError,
+            ) as exc:
                 LOG.e(f"Failed to convert {xccdf_file.name}: {exc}")
                 failures.append(
                     {
@@ -1273,7 +1354,9 @@ class Proc:
                     }
                 )
 
-        LOG.i(f"Batch conversion complete: {len(successes)} successes, {len(failures)} failures")
+        LOG.i(
+            f"Batch conversion complete: {len(successes)} successes, {len(failures)} failures"
+        )
         LOG.clear()
 
         return {
@@ -1419,7 +1502,11 @@ class Proc:
                     stats["by_status_and_severity"][severity][status] += 1
 
         # Calculate completion percentage
-        reviewed = sum(stats["by_status"][s] for s in stats["by_status"] if s != Status.NOT_REVIEWED)
+        reviewed = sum(
+            stats["by_status"][s]
+            for s in stats["by_status"]
+            if s != Status.NOT_REVIEWED
+        )
         stats["reviewed"] = reviewed
         stats["completion_pct"] = (
             (reviewed / stats["total_vulns"] * 100) if stats["total_vulns"] > 0 else 0
@@ -1428,9 +1515,16 @@ class Proc:
         # Calculate compliance percentage (NotAFinding / total reviewed)
         not_a_finding = stats["by_status"].get(Status.NOT_A_FINDING, 0)
         stats["compliant"] = not_a_finding
-        stats["compliance_pct"] = (not_a_finding / reviewed * 100) if reviewed > 0 else 0
+        stats["compliance_pct"] = (
+            (not_a_finding / reviewed * 100) if reviewed > 0 else 0
+        )
 
         LOG.clear()
+
+        # Hook: Plugins can modify or inject custom computed stats metrics
+        stats = self.plugins.run_hooks(
+            "post_stats_generate", payload=stats, ckl_path=ckl_path
+        )
 
         # Format output
         if output_format == "json":
@@ -1439,21 +1533,25 @@ class Proc:
             result["by_status"] = dict(stats["by_status"])
             result["by_severity"] = dict(stats["by_severity"])
             result["by_status_and_severity"] = {
-                sev: dict(statuses) for sev, statuses in stats["by_status_and_severity"].items()
+                sev: dict(statuses)
+                for sev, statuses in stats["by_status_and_severity"].items()
             }
             return result
         elif output_format == "csv":
             return self._format_stats_csv(stats)
+        elif output_format == "html":
+            return self._format_stats_html(stats)
         else:  # text
             return self._format_stats_text(stats)
 
     def _format_stats_text(
-        self, stats: Dict[str, Union[str, int, float, Dict[str, int], List[str]]]
+        self,
+        stats: Dict[str, Union[str, int, float, Dict[str, int], List[str]]],
     ) -> str:
         """Format statistics as human-readable text."""
         lines = []
         lines.append("=" * 80)
-        lines.append(f"STIG Compliance Statistics")
+        lines.append("STIG Compliance Statistics")
         lines.append("=" * 80)
         lines.append(f"File: {stats['file']}")
         lines.append(f"Generated: {stats['generated']}")
@@ -1468,7 +1566,9 @@ class Proc:
         lines.append("-" * 40)
         for status in sorted(stats["by_status"].keys()):
             count = stats["by_status"][status]
-            pct = (count / stats["total_vulns"] * 100) if stats["total_vulns"] > 0 else 0
+            pct = (
+                (count / stats["total_vulns"] * 100) if stats["total_vulns"] > 0 else 0
+            )
             lines.append(f"  {status:20} {count:6} ({pct:5.1f}%)")
         lines.append("")
         lines.append("Severity Breakdown:")
@@ -1476,15 +1576,208 @@ class Proc:
         for severity in ["high", "medium", "low"]:
             if severity in stats["by_severity"]:
                 count = stats["by_severity"][severity]
-                pct = (count / stats["total_vulns"] * 100) if stats["total_vulns"] > 0 else 0
+                pct = (
+                    (count / stats["total_vulns"] * 100)
+                    if stats["total_vulns"] > 0
+                    else 0
+                )
                 lines.append(
                     f"  CAT {['I', 'II', 'III'][['high', 'medium', 'low'].index(severity)]:3} ({severity:6}) {count:6} ({pct:5.1f}%)"
                 )
         lines.append("=" * 80)
         return "\n".join(lines)
 
+    def _format_stats_html(
+        self,
+        stats: Dict[str, Union[str, int, float, Dict[str, int], List[str]]],
+    ) -> str:
+        """Format statistics as a self-contained HTML report (printable to PDF)."""
+        import string
+
+        # Calculate percentages for donut
+        total = stats["total_vulns"]
+        not_a_finding = stats["by_status"].get(Status.NOT_A_FINDING, 0)
+        open_count = stats["by_status"].get(Status.OPEN, 0)
+        not_reviewed = stats["by_status"].get(Status.NOT_REVIEWED, 0)
+        not_applicable = stats["by_status"].get(Status.NOT_APPLICABLE, 0)
+
+        # Basic donut math (radius 15.915 = circ 100)
+        p_naf = (not_a_finding / total * 100) if total else 0
+        p_open = (open_count / total * 100) if total else 0
+        p_na = (not_applicable / total * 100) if total else 0
+        p_nr = (not_reviewed / total * 100) if total else 0
+
+        o_naf = 0
+        o_open = o_naf + p_naf
+        o_na = o_open + p_open
+        o_nr = o_na + p_na
+
+        html_template = string.Template("""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>STIG Compliance Report - $file</title>
+    <style>
+        :root {
+            --bg: #ffffff; --tx: #1e293b; --tx-dim: #64748b;
+            --pass: #10b981; --fail: #ef4444; --na: #94a3b8; --nr: #f59e0b;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--tx); line-height: 1.5; padding: 40px; max-width: 1000px; margin: 0 auto; }
+        .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; }
+        .header h1 { margin: 0 0 10px 0; color: #0f172a; }
+        .meta { color: var(--tx-dim); font-size: 0.9em; display: flex; gap: 20px; }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
+        .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .card h2 { margin-top: 0; font-size: 1.1em; color: #334155; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 20px; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        .stat-box { background: #f8fafc; padding: 15px; border-radius: 6px; text-align: center; }
+        .stat-val { font-size: 2em; font-weight: bold; line-height: 1; }
+        .stat-lbl { font-size: 0.75em; text-transform: uppercase; color: var(--tx-dim); font-weight: 600; margin-top: 5px; }
+        
+        .donut-container { display: flex; align-items: center; justify-content: center; position: relative; width: 220px; height: 220px; margin: 0 auto; }
+        .donut-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .donut-segment { fill: transparent; stroke-width: 4; }
+        .center-label { position: absolute; text-align: center; }
+        .center-lbl-val { font-size: 2.2em; font-weight: bold; line-height: 1; color: var(--pass); }
+        .center-lbl-txt { font-size: 0.8em; color: var(--tx-dim); }
+        
+        .legend { margin-top: 20px; display: flex; justify-content: space-between; font-size: 0.85em; }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        
+        .table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9em; }
+        .table th, .table td { text-align: left; padding: 12px; border-bottom: 1px solid #e2e8f0; }
+        .table th { background: #f8fafc; color: #475569; font-weight: 600; text-transform: uppercase; font-size: 0.8em; }
+        
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 0.75em; font-weight: 600; }
+        .bg-pass { background: rgba(16, 185, 129, 0.1); color: #059669; }
+        .bg-fail { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+        .bg-na { background: rgba(148, 163, 184, 0.1); color: #475569; }
+        .bg-nr { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+        
+        .c-pass { color: var(--pass); } .c-fail { color: var(--fail); } .c-na { color: var(--na); } .c-nr { color: var(--nr); }
+        .stroke-pass { stroke: var(--pass); } .stroke-fail { stroke: var(--fail); } .stroke-na { stroke: var(--na); } .stroke-nr { stroke: var(--nr); }
+        
+        @media print { body { padding: 0; } .card { box-shadow: none; break-inside: avoid; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>STIG Compliance Report</h1>
+        <div class="meta">
+            <div><strong>File:</strong> $file</div>
+            <div><strong>Generated:</strong> $date</div>
+        </div>
+    </div>
+    
+    <div class="grid">
+        <div class="card">
+            <h2>Compliance Overview</h2>
+            <div class="donut-container">
+                <svg class="donut-svg" viewBox="0 0 42 42">
+                    <!-- Background ring -->
+                    <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#f1f5f9" stroke-width="4"></circle>
+                    <!-- Segments (Dasharray: length, 100-length | Dashoffset: -start) -->
+                    <circle class="donut-segment stroke-pass" cx="21" cy="21" r="15.915" stroke-dasharray="$p_naf ${rem_naf}" stroke-dashoffset="-$o_naf"></circle>
+                    <circle class="donut-segment stroke-fail" cx="21" cy="21" r="15.915" stroke-dasharray="$p_open ${rem_open}" stroke-dashoffset="-$o_open"></circle>
+                    <circle class="donut-segment stroke-na" cx="21" cy="21" r="15.915" stroke-dasharray="$p_na ${rem_na}" stroke-dashoffset="-$o_na"></circle>
+                    <circle class="donut-segment stroke-nr" cx="21" cy="21" r="15.915" stroke-dasharray="$p_nr ${rem_nr}" stroke-dashoffset="-$o_nr"></circle>
+                </svg>
+                <div class="center-label">
+                    <div class="center-lbl-val">$compliance_pct%</div>
+                    <div class="center-lbl-txt">Compliant</div>
+                </div>
+            </div>
+            <div class="legend">
+                <div class="legend-item"><div class="dot" style="background:var(--pass)"></div> Not a Finding ($naf)</div>
+                <div class="legend-item"><div class="dot" style="background:var(--fail)"></div> Open ($open)</div>
+                <div class="legend-item"><div class="dot" style="background:var(--na)"></div> N/A ($na)</div>
+                <div class="legend-item"><div class="dot" style="background:var(--nr)"></div> Not Reviewed ($nr)</div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Key Metrics</h2>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-val">$total</div>
+                    <div class="stat-lbl">Total Checks</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val c-pass">$naf</div>
+                    <div class="stat-lbl">Compliant</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val">$reviewed</div>
+                    <div class="stat-lbl">Reviewed ($completion_pct%)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-val c-fail">$open</div>
+                    <div class="stat-lbl">Open Finds</div>
+                </div>
+            </div>
+            
+            <h2 style="margin-top:25px;">Severity Breakdown</h2>
+            <table class="table" style="margin-top:0;">
+                <thead><tr><th>Severity</th><th>Count</th><th>%</th></tr></thead>
+                <tbody>
+                    $sev_rows
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div style="text-align:center;color:var(--tx-dim);font-size:0.8em;margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;">
+        Generated by STIG Assessor v$version &middot; Zero-Dependency Offline Reporter
+    </div>
+</body>
+</html>""")
+
+        # Build severity rows
+        sev_rows = ""
+        for sev in ["high", "medium", "low"]:
+            if sev in stats["by_severity"]:
+                count = stats["by_severity"][sev]
+                pct = (count / total * 100) if total else 0
+                bg_class = (
+                    "bg-fail"
+                    if sev == "high"
+                    else "bg-nr" if sev == "medium" else "bg-pass"
+                )
+                sev_rows += f"<tr><td><span class='badge {bg_class}'>{sev.upper()}</span></td><td>{count}</td><td>{pct:.1f}%</td></tr>"
+
+        return html_template.substitute(
+            file=stats["file"],
+            date=stats["generated"],
+            version="8.0.0",
+            total=total,
+            reviewed=stats["reviewed"],
+            completion_pct=f"{stats['completion_pct']:.1f}",
+            compliance_pct=f"{stats['compliance_pct']:.1f}",
+            naf=not_a_finding,
+            open=open_count,
+            na=not_applicable,
+            nr=not_reviewed,
+            p_naf=p_naf,
+            rem_naf=100 - p_naf,
+            o_naf=o_naf,
+            p_open=p_open,
+            rem_open=100 - p_open,
+            o_open=o_open,
+            p_na=p_na,
+            rem_na=100 - p_na,
+            o_na=o_na,
+            p_nr=p_nr,
+            rem_nr=100 - p_nr,
+            o_nr=o_nr,
+            sev_rows=sev_rows,
+        )
+
     def _format_stats_csv(
-        self, stats: Dict[str, Union[str, int, float, Dict[str, int], List[str]]]
+        self,
+        stats: Dict[str, Union[str, int, float, Dict[str, int], List[str]]],
     ) -> str:
         """Format statistics as CSV."""
         lines = []
@@ -1506,3 +1799,154 @@ class Proc:
             if severity in stats["by_severity"]:
                 lines.append(f"{severity},{stats['by_severity'][severity]}")
         return "\n".join(lines)
+
+    # ------------------------------------------------------------ POAM & Bulk Operations
+    def export_poam(self, ckl_path: Union[str, Path]) -> str:
+        """
+        Generate an eMASS-compatible POAM export (CSV).
+        Only exports Open and Not_Reviewed vulnerabilities.
+
+        Args:
+            ckl_path: Path to checklist.
+
+        Returns:
+            CSV formatted string with POAM data.
+        """
+        try:
+            ckl_path = San.path(ckl_path, exist=True, file=True)
+            tree = self._load_file_as_xml(ckl_path)
+            root = tree.getroot()
+        except Exception as exc:
+            raise ParseError(f"Failed to parse checklist: {exc}")
+
+        import csv
+        import io
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # eMASS POAM Header
+        writer.writerow([
+            "Control Number", "Vulnerability Description", "Severity",
+            "Status", "Comments", "Checklist Name"
+        ])
+
+        stigs = root.find("STIGS")
+        if stigs is not None:
+            for istig in stigs.findall("iSTIG"):
+                for vuln in istig.findall("VULN"):
+                    status_node = vuln.find("STATUS")
+                    status = status_node.text.strip(
+                    ) if status_node is not None and status_node.text else Status.NOT_REVIEWED
+
+                    if status not in [Status.OPEN, Status.NOT_REVIEWED]:
+                        continue
+
+                    vid = XmlUtils.get_vid(vuln) or "Unknown_VID"
+                    title = ""
+                    severity = "medium"
+
+                    for sd in vuln.findall("STIG_DATA"):
+                        attr = sd.findtext("VULN_ATTRIBUTE")
+                        if attr == "Rule_Title":
+                            title = sd.findtext("ATTRIBUTE_DATA", default="")
+                        elif attr == "Severity":
+                            severity = sd.findtext("ATTRIBUTE_DATA", default="medium")
+
+                    comment_node = vuln.find("COMMENTS")
+                    comment = comment_node.text.strip() if comment_node is not None and comment_node.text else ""
+
+                    writer.writerow([
+                        vid, title, severity.upper(), status, comment, ckl_path.name
+                    ])
+
+        return output.getvalue()
+
+    def bulk_edit(
+        self,
+        ckl_path: Union[str, Path],
+        out_path: Union[str, Path],
+        *,
+        severity: Optional[str] = None,
+        regex_vid: Optional[str] = None,
+        new_status: str,
+        new_comment: str,
+        append_comment: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Bulk update vulnerabilities matching specific selectors.
+
+        Args:
+            ckl_path: Path to checklist.
+            out_path: Where to save the updated checklist.
+            severity: Filter string (high/medium/low).
+            regex_vid: Regex pattern to match VIDs.
+            new_status: The status to enforce (e.g. 'Not_Applicable').
+            new_comment: The comment to apply.
+            append_comment: If True, appends to existing comments instead of replacing.
+
+        Returns:
+            Dictionary with batch update result statistics.
+        """
+        try:
+            ckl_path = San.path(ckl_path, exist=True, file=True)
+            out_path = San.path(out_path, mkpar=True)
+            tree = self._load_file_as_xml(ckl_path)
+            root = tree.getroot()
+        except Exception as exc:
+            raise ParseError(f"Failed to load checklist: {exc}")
+
+        if not Status.is_valid(new_status):
+            raise ValidationError(f"Invalid status value: {new_status}")
+
+        import re
+        vid_pattern = re.compile(regex_vid) if regex_vid else None
+
+        count = 0
+        stigs = root.find("STIGS")
+        if stigs is not None:
+            for istig in stigs.findall("iSTIG"):
+                for vuln in istig.findall("VULN"):
+                    vid = XmlUtils.get_vid(vuln) or ""
+
+                    # Evaluate Selectors
+                    match = True
+                    if vid_pattern and not vid_pattern.search(vid):
+                        match = False
+
+                    if severity:
+                        sev_val = "medium"
+                        for sd in vuln.findall("STIG_DATA"):
+                            if sd.findtext("VULN_ATTRIBUTE") == "Severity":
+                                sev_val = sd.findtext(
+                                    "ATTRIBUTE_DATA", default="medium")
+                        if sev_val.lower() != severity.lower():
+                            match = False
+
+                    # Apply if passed selectors
+                    if match:
+                        status_node = vuln.find("STATUS")
+                        if status_node is None:
+                            status_node = ET.SubElement(vuln, "STATUS")
+                        status_node.text = new_status
+
+                        comment_node = vuln.find("COMMENTS")
+                        if comment_node is None:
+                            comment_node = ET.SubElement(vuln, "COMMENTS")
+
+                        if append_comment and comment_node.text and comment_node.text.strip():
+                            comment_node.text = f"{comment_node.text.strip()}\n{new_comment}"
+                        else:
+                            comment_node.text = new_comment
+
+                        count += 1
+
+        XmlUtils.indent_xml(root)
+        self._export_xml_to_file(root, out_path)
+
+        LOG.i(f"Bulk edited {count} vulnerabilities")
+        return {
+            "ok": True,
+            "updates": count,
+            "output": str(out_path)
+        }

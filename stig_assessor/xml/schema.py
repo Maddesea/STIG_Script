@@ -13,9 +13,10 @@ This module provides:
 """
 
 from __future__ import annotations
+
 from typing import Dict, FrozenSet, Tuple
 
-from stig_assessor.core.constants import STIG_VIEWER_VERSION, Status, Severity
+from stig_assessor.core.constants import STIG_VIEWER_VERSION, Severity, Status
 
 
 class Sch:

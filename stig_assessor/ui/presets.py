@@ -1,18 +1,18 @@
 """Preset management for CLI/GUI configurations."""
 
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
-from datetime import datetime, timezone
-from contextlib import suppress
+
 import json
 import re
+from contextlib import suppress
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 from stig_assessor.core.config import Cfg
-from stig_assessor.io.file_ops import FO
-from stig_assessor.core.logging import LOG
 from stig_assessor.core.constants import VERSION
+from stig_assessor.core.logging import LOG
 from stig_assessor.exceptions import ValidationError
-
+from stig_assessor.io.file_ops import FO
 
 SAFE_PRESET_NAME_RE = re.compile(r"[^a-zA-Z0-9_-]")
 

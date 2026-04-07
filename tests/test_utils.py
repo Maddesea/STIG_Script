@@ -9,16 +9,16 @@ This module provides:
 - Shared test utilities
 """
 
-import tempfile
 import shutil
+import tempfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Generator
-import xml.etree.ElementTree as ET
-
 
 # ============================================================================
 # Test Data Fixtures
 # ============================================================================
+
 
 def sample_xccdf_content() -> str:
     """Generate sample XCCDF benchmark content for testing.
@@ -145,7 +145,7 @@ def sample_xccdf_file(temp_dir: Path, sample_xccdf_content: str) -> Path:
         Path to created XCCDF file
     """
     xccdf_file = temp_dir / "test_benchmark.xml"
-    xccdf_file.write_text(sample_xccdf_content, encoding='utf-8')
+    xccdf_file.write_text(sample_xccdf_content, encoding="utf-8")
     return xccdf_file
 
 
@@ -160,7 +160,7 @@ def sample_ckl_file(temp_dir: Path, sample_ckl_content: str) -> Path:
         Path to created CKL file
     """
     ckl_file = temp_dir / "test_checklist.ckl"
-    ckl_file.write_text(sample_ckl_content, encoding='utf-8')
+    ckl_file.write_text(sample_ckl_content, encoding="utf-8")
     return ckl_file
 
 
@@ -195,6 +195,7 @@ def sample_remediation_json() -> str:
 # ============================================================================
 # Test Utilities
 # ============================================================================
+
 
 def create_test_ckl(temp_dir: Path, num_vulns: int = 100) -> Path:
     """Create a test CKL file with specified number of vulnerabilities.
@@ -256,7 +257,7 @@ def create_test_ckl(temp_dir: Path, num_vulns: int = 100) -> Path:
     # Write file
     tree = ET.ElementTree(root)
     output_path = temp_dir / f"test_{num_vulns}_vulns.ckl"
-    tree.write(output_path, encoding='utf-8', xml_declaration=True)
+    tree.write(output_path, encoding="utf-8", xml_declaration=True)
 
     return output_path
 

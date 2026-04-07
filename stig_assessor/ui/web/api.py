@@ -1,16 +1,16 @@
 """Web API interface for STIG Assessor."""
 
 import base64
+import shutil
 import tempfile
 from pathlib import Path
 from typing import List
 
 from stig_assessor.core.state import GLOBAL_STATE
+from stig_assessor.evidence.manager import EVIDENCE
 from stig_assessor.processor.processor import Proc
 from stig_assessor.remediation.extractor import FixExt
 from stig_assessor.remediation.processor import FixResPro
-from stig_assessor.evidence.manager import EVIDENCE
-import shutil
 
 
 def _decode_to_temp(b64_str: str, suffix: str) -> Path:
@@ -20,7 +20,7 @@ def _decode_to_temp(b64_str: str, suffix: str) -> Path:
         content_bytes = base64.b64decode(b64_str)
     except Exception as e:
         raise ValueError(f"Malformed base64 encoding: {e}")
-    
+
     tf = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
     path = Path(tf.name)
     tf.write(content_bytes)
@@ -55,8 +55,13 @@ def handle_ping(payload: dict) -> dict:
 
 def handle_xccdf_to_ckl(payload: dict) -> dict:
     """Handle conversion from XCCDF to CKL."""
-    content_b64 = payload.get("content_b64", "")
+    content_b64 = payload.get("xccdf_b64", "") or payload.get("content_b64", "")
+    out_ext = payload.get("out_ext", ".ckl")
     filename = payload.get("filename", "upload.ckl")
+
+    # Force extension replacement if it ends in .xml or something else
+    filename = str(Path(filename).with_suffix(out_ext))
+
     asset = payload.get("asset", "ASSET")
     ip = payload.get("ip", "")
     mac = payload.get("mac", "")
@@ -67,7 +72,7 @@ def handle_xccdf_to_ckl(payload: dict) -> dict:
 
     try:
         xccdf_path = _decode_to_temp(content_b64, ".xml")
-        with tempfile.NamedTemporaryFile(suffix=".ckl", delete=False) as tf_ckl:
+        with tempfile.NamedTemporaryFile(suffix=out_ext, delete=False) as tf_ckl:
             ckl_path = Path(tf_ckl.name)
         GLOBAL_STATE.add_temp(ckl_path)
 
@@ -89,7 +94,7 @@ def handle_xccdf_to_ckl(payload: dict) -> dict:
             "message": f"Processed {result.get('processed', 0)} VULNs.",
             "data": {
                 "ckl_b64": out_b64,
-                "filename": filename.replace(".xml", ".ckl"),
+                "filename": filename,
                 "processed": result.get("processed", 0),
                 "skipped": result.get("skipped", 0),
                 "errors": result.get("errors", []),
@@ -101,38 +106,42 @@ def handle_xccdf_to_ckl(payload: dict) -> dict:
 
 def handle_apply_results(payload: dict) -> dict:
     ckl_b64 = payload.get("ckl_b64", "")
-    json_b64 = payload.get("json_b64", "")
+    json_b64 = payload.get("results_b64", "") or payload.get("json_b64", "")
     filename = payload.get("filename", "updated.ckl")
+    results_filename = payload.get("results_filename", "results.json")
     details_mode = payload.get("details_mode", "prepend")
     comment_mode = payload.get("comment_mode", "prepend")
 
     ckl_path = None
     json_path = None
     out_path = None
-    
+
+    # Use the actual file extension so CSV results are handled correctly
+    results_ext = Path(results_filename).suffix or ".json"
+
     try:
         ckl_path = _decode_to_temp(ckl_b64, ".ckl")
-        json_path = _decode_to_temp(json_b64, ".json")
-        
+        json_path = _decode_to_temp(json_b64, results_ext)
+
         with tempfile.NamedTemporaryFile(suffix=".ckl", delete=False) as tf:
             out_path = Path(tf.name)
         GLOBAL_STATE.add_temp(out_path)
-            
+
         proc = FixResPro()
         imported, skipped = proc.load(json_path)
-        
+
         if imported == 0 and not skipped:
             raise ValueError("No valid results loaded from JSON")
-            
+
         result = proc.update_ckl(
             ckl_path,
             out_path,
             details_mode=details_mode,
             comment_mode=comment_mode,
         )
-        
+
         out_b64 = _encode_from_temp(out_path)
-        
+
         return {
             "status": "success",
             "message": f"Applied {imported} results.",
@@ -142,8 +151,8 @@ def handle_apply_results(payload: dict) -> dict:
                 "imported": imported,
                 "skipped": skipped,
                 "updated": result.get("updated", 0),
-                "not_found": result.get("not_found", 0)
-            }
+                "not_found": result.get("not_found", 0),
+            },
         }
     finally:
         _cleanup_paths([ckl_path, json_path, out_path])
@@ -158,29 +167,29 @@ def handle_merge_ckls(payload: dict) -> dict:
     base_path = None
     hist_paths = []
     out_path = None
-    
+
     try:
         base_path = _decode_to_temp(base_b64, ".ckl")
         for hist_b64 in histories_b64:
             hist_paths.append(_decode_to_temp(hist_b64, ".ckl"))
-            
+
         with tempfile.NamedTemporaryFile(suffix=".ckl", delete=False) as tf:
             out_path = Path(tf.name)
         GLOBAL_STATE.add_temp(out_path)
-            
+
         proc = Proc()
         result = proc.merge(
             base=base_path,
             histories=hist_paths,
             out=out_path,
-            preserve_history=preserve_history
+            preserve_history=preserve_history,
         )
-        
+
         out_b64 = _encode_from_temp(out_path)
-        
+
         # Processor returns 'updated' — frontend reads 'processed'
         processed = result.get("updated", 0) + result.get("skipped", 0)
-        
+
         return {
             "status": "success",
             "message": f"Merge complete. {result.get('updated', 0)} vulnerabilities updated.",
@@ -190,7 +199,7 @@ def handle_merge_ckls(payload: dict) -> dict:
                 "processed": processed,
                 "updated": result.get("updated", 0),
                 "skipped": result.get("skipped", 0),
-            }
+            },
         }
     finally:
         _cleanup_paths([base_path, out_path] + hist_paths)
@@ -199,48 +208,46 @@ def handle_merge_ckls(payload: dict) -> dict:
 def handle_bp_list(payload: dict) -> dict:
     proc = Proc()
     bp_data = proc.boiler.list_all()
-    return {
-        "status": "success",
-        "data": {
-            "boilerplates": bp_data
-        }
-    }
+    return {"status": "success", "data": bp_data}
+
 
 def handle_bp_set(payload: dict) -> dict:
     vid = payload.get("vid", "").strip()
     status = payload.get("status", "").strip()
     finding = payload.get("finding", "").strip()
     comment = payload.get("comment", "").strip()
-    
+
     if not vid or not status:
         return {"status": "error", "message": "vid and status are required"}
-        
+
     proc = Proc()
     proc.boiler.set(vid, status, finding, comment)
     return {
         "status": "success",
-        "message": f"Updated boilerplate for {vid} / {status}"
+        "message": f"Updated boilerplate for {vid} / {status}",
     }
+
 
 def handle_bp_delete(payload: dict) -> dict:
     vid = payload.get("vid", "").strip()
     status = payload.get("status")
-    
+
     if not vid:
         return {"status": "error", "message": "vid is required"}
-        
+
     proc = Proc()
     deleted = proc.boiler.delete(vid, status)
     return {
         "status": "success" if deleted else "error",
-        "message": f"Deleted boilerplate for {vid}" if deleted else "Boilerplate not found"
+        "message": (
+            f"Deleted boilerplate for {vid}" if deleted else "Boilerplate not found"
+        ),
     }
 
+
 def handle_evidence_summary(payload: dict) -> dict:
-    return {
-        "status": "success",
-        "summary": EVIDENCE.summary()
-    }
+    return {"status": "success", "summary": EVIDENCE.summary()}
+
 
 def handle_evidence_import(payload: dict) -> dict:
     vid = payload.get("vid", "").strip()
@@ -248,10 +255,10 @@ def handle_evidence_import(payload: dict) -> dict:
     cat = payload.get("category", "general").strip()
     filename = payload.get("filename", "upload.bin").strip()
     b64_content = payload.get("content_b64", "")
-    
+
     if not vid:
         return {"status": "error", "message": "vid required"}
-    
+
     try:
         ext = Path(filename).suffix or ".bin"
         temp_path = _decode_to_temp(b64_content, ext)
@@ -260,17 +267,20 @@ def handle_evidence_import(payload: dict) -> dict:
             orig_name_path.unlink()
         temp_path.rename(orig_name_path)
         GLOBAL_STATE.add_temp(orig_name_path)
-        
-        saved_path = EVIDENCE.import_file(vid, orig_name_path, description=desc, category=cat)
-        
+
+        saved_path = EVIDENCE.import_file(
+            vid, orig_name_path, description=desc, category=cat
+        )
+
         _cleanup_paths([orig_name_path, temp_path])
         return {
             "status": "success",
             "message": f"Evidence imported successfully for {vid}",
-            "path": str(saved_path.name)
+            "path": str(saved_path.name),
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
 
 def handle_evidence_package(payload: dict) -> dict:
     try:
@@ -278,57 +288,61 @@ def handle_evidence_package(payload: dict) -> dict:
         tf.close()
         zip_path = Path(tf.name)
         GLOBAL_STATE.add_temp(zip_path)
-        
+
         EVIDENCE.package(zip_path)
-        
+
         b64_out = _encode_from_temp(zip_path)
         _cleanup_paths([zip_path])
         return {
             "status": "success",
             "package_b64": b64_out,
-            "filename": "evidence_package.zip"
+            "filename": "evidence_package.zip",
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+
 def handle_extract_fixes(payload: dict) -> dict:
-    b64_content = payload.get("content_b64", "")
+    b64_content = payload.get("b64_content", "") or payload.get("content_b64", "")
     filename = payload.get("filename", "upload.xml")
-    
+
     in_path = None
     zip_path = None
     dir_path = Path(tempfile.mkdtemp())
     GLOBAL_STATE.add_temp(dir_path)
-    
+
     enable_rollbacks = payload.get("enable_rollbacks", False)
-    
+
     try:
         ext = Path(filename).suffix
         in_path = _decode_to_temp(b64_content, ext)
-        
+
         extractor = FixExt(str(in_path))
         extractor.extract()
-        
+
         extractor.to_json(dir_path / "fixes.json")
         extractor.to_csv(dir_path / "fixes.csv")
         extractor.to_bash(dir_path / "remediate.sh")
-        extractor.to_powershell(dir_path / "remediate.ps1", enable_rollbacks=enable_rollbacks)
-        
+        extractor.to_powershell(
+            dir_path / "remediate.ps1", enable_rollbacks=enable_rollbacks
+        )
+
         if payload.get("do_ansible", True):
             extractor.to_ansible(dir_path / "remediate.yml")
 
-        
-        zip_path_str = shutil.make_archive(str(dir_path) + "_archive", 'zip', str(dir_path))
+        zip_path_str = shutil.make_archive(
+            str(dir_path) + "_archive", "zip", str(dir_path)
+        )
         zip_path = Path(zip_path_str)
         GLOBAL_STATE.add_temp(zip_path)
-        
+
         b64_out = _encode_from_temp(zip_path)
-        
+
         return {
             "status": "success",
             "package_b64": b64_out,
             "filename": filename.replace(ext, "_fixes.zip"),
-            "stats": extractor.stats_summary()
+            "stats": extractor.stats_summary(),
         }
     finally:
         _cleanup_paths([in_path, zip_path])
@@ -337,24 +351,25 @@ def handle_extract_fixes(payload: dict) -> dict:
         except Exception:
             pass
 
+
 def handle_diff(payload: dict) -> dict:
     ckl1_b64 = payload.get("ckl1_b64", "")
     ckl2_b64 = payload.get("ckl2_b64", "")
     ckl1_path = None
     ckl2_path = None
-    
+
     try:
         ckl1_path = _decode_to_temp(ckl1_b64, ".ckl")
         ckl2_path = _decode_to_temp(ckl2_b64, ".ckl")
-        
+
         proc = Proc()
         raw = proc.diff(str(ckl1_path), str(ckl2_path), output_format="json")
-        
+
         # Also get a text-formatted summary for display
         text_result = proc.diff(str(ckl1_path), str(ckl2_path), output_format="summary")
-        
+
         summary = raw.get("summary", {})
-        
+
         # Normalise keys the frontend expects
         diff_data = dict(raw)
         diff_data["total_vulnerabilities"] = summary.get("total_in_baseline", 0)
@@ -363,11 +378,8 @@ def handle_diff(payload: dict) -> dict:
         diff_data["only_in_baseline_count"] = summary.get("only_in_baseline", 0)
         diff_data["only_in_comparison_count"] = summary.get("only_in_comparison", 0)
         diff_data["unchanged_count"] = summary.get("unchanged", 0)
-        
-        return {
-            "status": "success",
-            "diff_data": diff_data
-        }
+
+        return {"status": "success", "diff_data": diff_data}
     finally:
         _cleanup_paths([ckl1_path, ckl2_path])
 
@@ -390,6 +402,7 @@ def handle_stats(payload: dict) -> dict:
 
         # Get the raw JSON stats from the processor
         raw = proc.generate_stats(str(ckl_path), output_format="json")
+        html_report = proc.generate_stats(str(ckl_path), output_format="html")
 
         # Build the status_counts dict the frontend expects
         by_status = raw.get("by_status", {})
@@ -407,13 +420,15 @@ def handle_stats(payload: dict) -> dict:
             root = tree.getroot()
             vulns = proc._extract_vuln_data(root)
             for vid, vdata in vulns.items():
-                findings_details.append({
-                    "vid": vid,
-                    "status": vdata.get("status", "Not_Reviewed"),
-                    "severity": vdata.get("severity", "medium"),
-                    "details": (vdata.get("finding_details", "") or "")[:300],
-                    "rule_title": vdata.get("rule_title", ""),
-                })
+                findings_details.append(
+                    {
+                        "vid": vid,
+                        "status": vdata.get("status", "Not_Reviewed"),
+                        "severity": vdata.get("severity", "medium"),
+                        "details": (vdata.get("finding_details", "") or "")[:300],
+                        "rule_title": vdata.get("rule_title", ""),
+                    }
+                )
         except Exception:
             # If per-finding extraction fails, return empty list
             pass
@@ -432,43 +447,72 @@ def handle_stats(payload: dict) -> dict:
                 "compliant": raw.get("compliant", 0),
                 "file": raw.get("file", ""),
                 "generated": raw.get("generated", ""),
-            }
+                "html_report": html_report,
+            },
         }
     finally:
         _cleanup_paths([ckl_path])
 
 
+def handle_fleet_stats(payload: dict) -> dict:
+    """Generate fleet statistics from a ZIP file containing multiple checklists."""
+    zip_b64 = payload.get("zip_b64", "")
+    zip_path = None
+
+    try:
+        if not zip_b64:
+            raise ValueError("No ZIP payload provided.")
+
+        zip_path = _decode_to_temp(zip_b64, ".zip")
+
+        from stig_assessor.processor.fleet_stats import FleetStats
+
+        fs = FleetStats()
+        fleet_data = fs.process_zip(zip_path)
+
+        return {"status": "success", "fleet_data": fleet_data}
+    finally:
+        _cleanup_paths([zip_path])
+
+
 def handle_track_ckl(payload: dict) -> dict:
     ckl_b64 = payload.get("ckl_b64", "")
     ckl_path = None
-    
+
     try:
         ckl_path = _decode_to_temp(ckl_b64, ".ckl")
         proc = Proc()
         if not proc.history.db:
-            return {"status": "error", "message": "SQLite History DB is not initialized."}
-            
+            return {
+                "status": "error",
+                "message": "SQLite History DB is not initialized.",
+            }
+
         tree = proc._load_file_as_xml(ckl_path)
         root = tree.getroot()
         vulns = proc._extract_vuln_data(root)
         asset_elem = root.find(".//HOST_NAME")
         asset_name = asset_elem.text if asset_elem is not None else "Unknown"
-        
+
         results = []
         for vid, vdata in vulns.items():
-            results.append({
-                "vid": vid,
-                "status": vdata.get("status", "Not_Reviewed"),
-                "severity": vdata.get("severity", "medium"),
-                "find": vdata.get("finding_details", ""),
-                "comm": vdata.get("comments", "")
-            })
-        
-        db_id = proc.history.db.save_assessment(asset_name, "web_import.ckl", "STIG", results)
+            results.append(
+                {
+                    "vid": vid,
+                    "status": vdata.get("status", "Not_Reviewed"),
+                    "severity": vdata.get("severity", "medium"),
+                    "find": vdata.get("finding_details", ""),
+                    "comm": vdata.get("comments", ""),
+                }
+            )
+
+        db_id = proc.history.db.save_assessment(
+            asset_name, "web_import.ckl", "STIG", results
+        )
         return {
             "status": "success",
             "message": f"Successfully ingested {len(results)} findings into database.",
-            "data": {"assessment_id": db_id, "asset_name": asset_name}
+            "data": {"assessment_id": db_id, "asset_name": asset_name},
         }
     finally:
         _cleanup_paths([ckl_path])
@@ -478,46 +522,52 @@ def handle_show_drift(payload: dict) -> dict:
     asset_name = payload.get("asset_name", "").strip()
     if not asset_name:
         return {"status": "error", "message": "Asset name is required"}
-        
+
     proc = Proc()
     if not proc.history.db:
-        return {"status": "error", "message": "SQLite History DB is not initialized."}
-        
+        return {
+            "status": "error",
+            "message": "SQLite History DB is not initialized.",
+        }
+
     with proc.history.db._get_conn() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT id FROM assessments WHERE asset_name = ? ORDER BY timestamp DESC LIMIT 1', (asset_name,))
+        cursor.execute(
+            "SELECT id FROM assessments WHERE asset_name = ? ORDER BY timestamp DESC LIMIT 1",
+            (asset_name,),
+        )
         row = cursor.fetchone()
         if not row:
-            return {"status": "error", "message": f"No assessments found for asset '{asset_name}'"}
+            return {
+                "status": "error",
+                "message": f"No assessments found for asset '{asset_name}'",
+            }
         latest_id = row[0]
-        
+
     drift = proc.history.db.get_drift(asset_name, latest_id)
     if "error" in drift:
         return {"status": "error", "message": drift["error"]}
-        
-    return {
-        "status": "success",
-        "data": drift
-    }
+
+    return {"status": "success", "data": drift}
 
 
 def handle_list_assets(payload: dict) -> dict:
     """List all tracked asset names from the SQLite history DB."""
     proc = Proc()
     if not proc.history.db:
-        return {"status": "error", "message": "SQLite History DB is not initialized."}
-    
+        return {
+            "status": "error",
+            "message": "SQLite History DB is not initialized.",
+        }
+
     try:
         with proc.history.db._get_conn() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                'SELECT DISTINCT asset_name FROM assessments ORDER BY asset_name'
+                "SELECT DISTINCT asset_name FROM assessments ORDER BY asset_name"
             )
             assets = [row[0] for row in cursor.fetchall()]
-        return {
-            "status": "success",
-            "data": {"assets": assets}
-        }
+        return {"status": "success", "data": {"assets": assets}}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
@@ -541,7 +591,7 @@ def handle_validate(payload: dict) -> dict:
                 "info": info,
                 "error_count": len(errors),
                 "warning_count": len(warnings),
-            }
+            },
         }
     finally:
         _cleanup_paths([ckl_path])
@@ -570,10 +620,14 @@ def handle_repair(payload: dict) -> dict:
             "message": f"Applied {result.get('repairs', 0)} repairs.",
             "data": {
                 "ckl_b64": out_b64,
-                "filename": filename.replace(".ckl", "_repaired.ckl") if ".ckl" in filename else filename + "_repaired.ckl",
+                "filename": (
+                    filename.replace(".ckl", "_repaired.ckl")
+                    if ".ckl" in filename
+                    else filename + "_repaired.ckl"
+                ),
                 "repairs": result.get("repairs", 0),
                 "details": result.get("details", []),
-            }
+            },
         }
     finally:
         _cleanup_paths([ckl_path, out_path])
@@ -589,12 +643,90 @@ def handle_verify_integrity(payload: dict) -> dict:
         proc = Proc()
         result = proc.verify_integrity(ckl_path)
 
+        return {"status": "success", "data": result}
+    finally:
+        _cleanup_paths([ckl_path])
+
+
+def handle_export_poam(payload: dict) -> dict:
+    ckl_b64 = payload.get("ckl_b64", "")
+    filename = payload.get("filename", "upload.ckl")
+    
+    ckl_path = None
+    try:
+        ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+        proc = Proc()
+        csv_str = proc.export_poam(ckl_path)
+        
+        # Convert CSV string to base64 so it downloads nicely
+        import base64
+        csv_b64 = base64.b64encode(csv_str.encode("utf-8")).decode("utf-8")
+        
         return {
             "status": "success",
-            "data": result
+            "message": "POAM generated successfully",
+            "data": {
+                "poam_b64": csv_b64,
+                "filename": filename.replace(".ckl", "_poam.csv") if ".ckl" in filename else f"{filename}_poam.csv"
+            }
         }
     finally:
         _cleanup_paths([ckl_path])
+
+
+def handle_bulk_edit(payload: dict) -> dict:
+    ckl_b64 = payload.get("ckl_b64", "")
+    filename = payload.get("filename", "upload.ckl")
+    
+    severity = payload.get("severity")
+    # Make severity None if empty string to match backend signature
+    if severity == "":
+        severity = None
+        
+    regex_vid = payload.get("regex_vid")
+    if regex_vid == "":
+        regex_vid = None
+        
+    new_status = payload.get("new_status")
+    new_comment = payload.get("new_comment", "")
+    append_comment = payload.get("append_comment", False)
+    
+    if not new_status:
+        return {"status": "error", "message": "new_status is required"}
+        
+    ckl_path = None
+    out_path = None
+    
+    try:
+        ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+        with tempfile.NamedTemporaryFile(suffix=".ckl", delete=False) as tf:
+            out_path = Path(tf.name)
+        GLOBAL_STATE.add_temp(out_path)
+        
+        proc = Proc()
+        result = proc.bulk_edit(
+            ckl_path,
+            out_path,
+            severity=severity,
+            regex_vid=regex_vid,
+            new_status=new_status,
+            new_comment=new_comment,
+            append_comment=append_comment
+        )
+        
+        out_b64 = _encode_from_temp(out_path)
+        
+        return {
+            "status": "success",
+            "message": f"Successfully updated {result.get('updates', 0)} vulnerabilities.",
+            "data": {
+                "ckl_b64": out_b64,
+                "filename": filename.replace(".ckl", "_bulk_updated.ckl") if ".ckl" in filename else f"{filename}_updated.ckl",
+                "updates": result.get("updates", 0)
+            }
+        }
+    finally:
+        _cleanup_paths([ckl_path, out_path])
 
 
 def route_request(path: str, payload: dict) -> dict:
@@ -611,6 +743,7 @@ def route_request(path: str, payload: dict) -> dict:
         "/api/v1/evidence/import": handle_evidence_import,
         "/api/v1/evidence/package": handle_evidence_package,
         "/api/v1/extract": handle_extract_fixes,
+        "/api/v1/fleet_stats": handle_fleet_stats,
         "/api/v1/diff": handle_diff,
         "/api/v1/stats": handle_stats,
         "/api/v1/track_ckl": handle_track_ckl,
@@ -619,6 +752,8 @@ def route_request(path: str, payload: dict) -> dict:
         "/api/v1/validate": handle_validate,
         "/api/v1/repair": handle_repair,
         "/api/v1/verify_integrity": handle_verify_integrity,
+        "/api/v1/export_poam": handle_export_poam,
+        "/api/v1/bulk_edit": handle_bulk_edit,
     }
 
     if path not in handlers:
@@ -630,4 +765,8 @@ def route_request(path: str, payload: dict) -> dict:
         return {"status": "error", "message": f"Validation Error: {str(ve)}"}
     except Exception as e:
         import traceback
-        return {"status": "error", "message": f"Internal Error: {str(e)}", "details": traceback.format_exc()}
+
+        from stig_assessor.core.logging import LOG
+
+        LOG.e(f"API handler error for {path}: {traceback.format_exc()}")
+        return {"status": "error", "message": f"Internal Error: {str(e)}"}

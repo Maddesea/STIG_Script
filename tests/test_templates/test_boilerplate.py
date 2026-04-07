@@ -12,18 +12,18 @@ Tests cover:
 Team 7: Boilerplate Templates
 """
 
-import unittest
 import json
+import sys
 import tempfile
+import unittest
 from pathlib import Path
 from xml.etree.ElementTree import Element
-import sys
+
+from stig_assessor.exceptions import FileError
+from stig_assessor.templates.boilerplate import BOILERPLATE, BP
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from stig_assessor.templates.boilerplate import BP, BOILERPLATE
-from stig_assessor.exceptions import FileError
 
 
 class TestBPSingleton(unittest.TestCase):
@@ -137,10 +137,7 @@ class TestBPLoadSave(unittest.TestCase):
     def test_save_and_load(self):
         """Test save/load cycle."""
         self.bp.templates = {
-            "V-12345": {
-                "NotAFinding": "NAF template",
-                "Open": "Open template"
-            }
+            "V-12345": {"NotAFinding": "NAF template", "Open": "Open template"}
         }
         self.bp.save()
         self.assertTrue(self.temp_file.exists())
@@ -158,7 +155,7 @@ class TestBPLoadSave(unittest.TestCase):
         self.bp.templates = {"V-12345": {"NotAFinding": "Test"}}
         self.bp.save()
 
-        with open(self.temp_file, 'r') as f:
+        with open(self.temp_file, "r") as f:
             data = json.load(f)
         self.assertEqual(data, self.bp.templates)
 

@@ -15,16 +15,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from .models import Fix
-
-from stig_assessor.core.logging import LOG
 from stig_assessor.core.config import Cfg
 from stig_assessor.core.constants import VERSION
-from stig_assessor.xml.sanitizer import San
-from stig_assessor.io.file_ops import FO
-from stig_assessor.xml.utils import XmlUtils
+from stig_assessor.core.logging import LOG
 from stig_assessor.exceptions import ParseError
+from stig_assessor.io.file_ops import FO
+from stig_assessor.xml.sanitizer import San
+from stig_assessor.xml.utils import XmlUtils
 
+from .models import Fix
 
 EXCESSIVE_NEWLINE_RE = re.compile(r"\n\s*\n\s*\n+")
 WHITESPACE_RE = re.compile(r"\s+")
@@ -351,7 +350,9 @@ class FixExt:
         title = text(find("title"))
         rule_version = text(find("version"))
 
-        group_title_elem = group.find("ns:title", self.ns) if self.ns else group.find("title")
+        group_title_elem = (
+            group.find("ns:title", self.ns) if self.ns else group.find("title")
+        )
         group_title = text(group_title_elem) if group_title_elem is not None else vid
 
         # Extract fix text
@@ -413,8 +414,9 @@ class FixExt:
             legacy=legacy_refs,
         )
 
-
-    def _extract_markdown_patterns(self, text_block: str, candidates: List[str]) -> None:
+    def _extract_markdown_patterns(
+        self, text_block: str, candidates: List[str]
+    ) -> None:
         """Extract commands derived from markdown blocks and inline code."""
         for pattern in (self.CODE_BLOCK, self.TRIPLE_TICK):
             candidates.extend(pattern.findall(text_block))
@@ -447,7 +449,16 @@ class FixExt:
             block = match.group(1).strip()
             if any(
                 cmd in block
-                for cmd in ["chmod", "chown", "systemctl", "grep", "sed", "echo", "Set-", "Get-"]
+                for cmd in [
+                    "chmod",
+                    "chown",
+                    "systemctl",
+                    "grep",
+                    "sed",
+                    "echo",
+                    "Set-",
+                    "Get-",
+                ]
             ):
                 candidates.append(block)
 
@@ -527,7 +538,14 @@ class FixExt:
         combined = f"{text_block}\n{cmd or ''}".lower()
         if any(
             token in combined
-            for token in ("powershell", "set-mdp", "new-item", "registry", "gpo", "windows")
+            for token in (
+                "powershell",
+                "set-mdp",
+                "new-item",
+                "registry",
+                "gpo",
+                "windows",
+            )
         ):
             return "windows"
         if any(
@@ -620,7 +638,7 @@ class FixExt:
                         "Group_Title": fix.group_title[:80],
                         "Platform": fix.platform,
                         "Has_Fix_Command": "Yes" if fix.fix_command else "No",
-                        "Has_Check_Command": "Yes" if fix.check_command else "No",
+                        "Has_Check_Command": ("Yes" if fix.check_command else "No"),
                         "Fix_Command": (fix.fix_command or "")[:500],
                         "Check_Command": (fix.check_command or "")[:200],
                         "CCI": "; ".join(fix.cci[:5]),
@@ -682,13 +700,14 @@ record_result() {
 
         lines: List[str] = [
             header_tmpl.substitute(
-                dt=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'),
-                mode='DRY RUN' if dry_run else 'LIVE',
-                dry_run='1' if dry_run else '0'
+                dt=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                mode="DRY RUN" if dry_run else "LIVE",
+                dry_run="1" if dry_run else "0",
             )
         ]
 
-        live_fix_tmpl = BashTemplate("""echo "[%{idx}/%{total}] %{vid} - %{title}" | tee -a "$LOG_FILE"
+        live_fix_tmpl = BashTemplate(
+            """echo "[%{idx}/%{total}] %{vid} - %{title}" | tee -a "$LOG_FILE"
 {
 %{cmd}
 } >>"$LOG_FILE" 2>&1
@@ -701,27 +720,42 @@ else
   record_result "%{vid}" false "failed"
   ((FAIL++))
 fi
-""")
+"""
+        )
 
-        dry_fix_tmpl = BashTemplate("""echo "[%{idx}/%{total}] %{vid} - %{title}" | tee -a "$LOG_FILE"
+        dry_fix_tmpl = BashTemplate(
+            """echo "[%{idx}/%{total}] %{vid} - %{title}" | tee -a "$LOG_FILE"
 echo "  [DRY-RUN] Would execute:
 %{cmd}" | tee -a "$LOG_FILE"
 record_result "%{vid}" true "dry_run"
 ((PASS++))
-""")
+"""
+        )
 
         for idx, fix in enumerate(fixes, 1):
             if dry_run:
-                lines.append(dry_fix_tmpl.substitute(
-                    idx=idx, total=len(fixes), vid=fix.vid, title=fix.title[:60],
-                    cmd=fix.fix_command
-                ))
+                lines.append(
+                    dry_fix_tmpl.substitute(
+                        idx=idx,
+                        total=len(fixes),
+                        vid=fix.vid,
+                        title=fix.title[:60],
+                        cmd=fix.fix_command,
+                    )
+                )
             else:
-                indented_cmd = "\n".join(f"  {line}" for line in fix.fix_command.splitlines())
-                lines.append(live_fix_tmpl.substitute(
-                    idx=idx, total=len(fixes), vid=fix.vid, title=fix.title[:60],
-                    cmd=indented_cmd
-                ))
+                indented_cmd = "\n".join(
+                    f"  {line}" for line in fix.fix_command.splitlines()
+                )
+                lines.append(
+                    live_fix_tmpl.substitute(
+                        idx=idx,
+                        total=len(fixes),
+                        vid=fix.vid,
+                        title=fix.title[:60],
+                        cmd=indented_cmd,
+                    )
+                )
 
         lines.extend(
             [
@@ -816,11 +850,11 @@ try {
 
         lines: List[str] = [
             header_tmpl.substitute(
-                dt=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'),
-                mode='DRY RUN' if dry_run else 'LIVE',
-                rollbacks='YES' if enable_rollbacks else 'NO',
+                dt=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                mode="DRY RUN" if dry_run else "LIVE",
+                rollbacks="YES" if enable_rollbacks else "NO",
                 rollback_block=rollback_block,
-                dry_run='$$true' if dry_run else '$$false'
+                dry_run="$$true" if dry_run else "$$false",
             )
         ]
 
@@ -843,16 +877,28 @@ Continue
 
         for idx, fix in enumerate(fixes, 1):
             if dry_run:
-                lines.append(dry_fix_tmpl.substitute(
-                    idx=idx, total=len(fixes), vid=fix.vid, title=fix.title[:60],
-                    cmd=fix.fix_command
-                ))
+                lines.append(
+                    dry_fix_tmpl.substitute(
+                        idx=idx,
+                        total=len(fixes),
+                        vid=fix.vid,
+                        title=fix.title[:60],
+                        cmd=fix.fix_command,
+                    )
+                )
             else:
-                indented_cmd = "\n".join(f"    {line}" for line in fix.fix_command.splitlines())
-                lines.append(live_fix_tmpl.substitute(
-                    idx=idx, total=len(fixes), vid=fix.vid, title=fix.title[:60],
-                    cmd=indented_cmd
-                ))
+                indented_cmd = "\n".join(
+                    f"    {line}" for line in fix.fix_command.splitlines()
+                )
+                lines.append(
+                    live_fix_tmpl.substitute(
+                        idx=idx,
+                        total=len(fixes),
+                        vid=fix.vid,
+                        title=fix.title[:60],
+                        cmd=indented_cmd,
+                    )
+                )
 
         lines.extend(
             [
@@ -917,27 +963,35 @@ Continue
             title_escaped = fix.title[:60].replace('"', '\\"')
             if dry_run:
                 # Just debug print
-                indented_cmd = "\n".join(f"          {line}" for line in fix.fix_command.splitlines())
-                lines.extend([
-                    f"    - name: \"[{idx}/{len(fixes)}] [DRY-RUN] {fix.vid} - {title_escaped}\"",
-                    "      ansible.builtin.debug:",
-                    "        msg: |",
-                    "          Would execute:",
-                    indented_cmd,
-                    ""
-                ])
+                indented_cmd = "\n".join(
+                    f"          {line}" for line in fix.fix_command.splitlines()
+                )
+                lines.extend(
+                    [
+                        f'    - name: "[{idx}/{len(fixes)}] [DRY-RUN] {fix.vid} - {title_escaped}"',
+                        "      ansible.builtin.debug:",
+                        "        msg: |",
+                        "          Would execute:",
+                        indented_cmd,
+                        "",
+                    ]
+                )
             else:
-                indented_cmd = "\n".join(f"        {line}" for line in fix.fix_command.splitlines())
-                lines.extend([
-                    f"    - name: \"[{idx}/{len(fixes)}] {fix.vid} - {title_escaped}\"",
-                    "      ansible.builtin.shell: |",
-                    indented_cmd,
-                    "      register: stig_fix_" + fix.vid.replace("-", "_").lower(),
-                    "      ignore_errors: true",
-                    "      tags:",
-                    f"        - {fix.vid.lower()}",
-                    ""
-                ])
+                indented_cmd = "\n".join(
+                    f"        {line}" for line in fix.fix_command.splitlines()
+                )
+                lines.extend(
+                    [
+                        f'    - name: "[{idx}/{len(fixes)}] {fix.vid} - {title_escaped}"',
+                        "      ansible.builtin.shell: |",
+                        indented_cmd,
+                        "      register: stig_fix_" + fix.vid.replace("-", "_").lower(),
+                        "      ignore_errors: true",
+                        "      tags:",
+                        f"        - {fix.vid.lower()}",
+                        "",
+                    ]
+                )
 
         with FO.atomic(path) as handle:
             handle.write("\n".join(lines) + "\n")

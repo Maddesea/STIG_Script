@@ -14,7 +14,7 @@ Public API:
 from __future__ import annotations
 
 # Import CLI components (always available)
-from stig_assessor.ui.cli import main, ensure_default_boilerplates
+from stig_assessor.ui.cli import ensure_default_boilerplates, main
 from stig_assessor.ui.presets import PresetMgr
 
 __all__ = [

@@ -1,25 +1,28 @@
 """Application configuration and directory management."""
 
 from __future__ import annotations
-from typing import Optional, List, Tuple
-from pathlib import Path
-from contextlib import suppress
-import threading
-import platform
-import tempfile
-import sys
-import os
 
-from stig_assessor.core.constants import (
-    MAX_FILE_SIZE as _MAX_FILE_SIZE,
-    MAX_HISTORY_ENTRIES as _MAX_HISTORY_ENTRIES,
-    MAX_FINDING_LENGTH as _MAX_FINDING_LENGTH,
-    MAX_COMMENT_LENGTH as _MAX_COMMENT_LENGTH,
-    MAX_MERGE_FILES as _MAX_MERGE_FILES,
-    MAX_VULNERABILITIES as _MAX_VULNERABILITIES,
-    KEEP_BACKUPS as _KEEP_BACKUPS,
-    KEEP_LOGS as _KEEP_LOGS,
-)
+import os
+import platform
+import sys
+import tempfile
+import threading
+from contextlib import suppress
+from pathlib import Path
+from typing import List, Optional, Tuple
+
+from stig_assessor.core.constants import KEEP_BACKUPS as _KEEP_BACKUPS
+from stig_assessor.core.constants import KEEP_LOGS as _KEEP_LOGS
+from stig_assessor.core.constants import \
+    MAX_COMMENT_LENGTH as _MAX_COMMENT_LENGTH
+from stig_assessor.core.constants import MAX_FILE_SIZE as _MAX_FILE_SIZE
+from stig_assessor.core.constants import \
+    MAX_FINDING_LENGTH as _MAX_FINDING_LENGTH
+from stig_assessor.core.constants import \
+    MAX_HISTORY_ENTRIES as _MAX_HISTORY_ENTRIES
+from stig_assessor.core.constants import MAX_MERGE_FILES as _MAX_MERGE_FILES
+from stig_assessor.core.constants import \
+    MAX_VULNERABILITIES as _MAX_VULNERABILITIES
 
 
 class Cfg:
@@ -175,7 +178,15 @@ class Cfg:
         if cls.PY_VER < cls.MIN_PY:
             errs.append(f"Python {cls.MIN_PY[0]}.{cls.MIN_PY[1]}+ required")
 
-        for module in ("json", "hashlib", "pathlib", "logging", "zipfile", "csv", "uuid"):
+        for module in (
+            "json",
+            "hashlib",
+            "pathlib",
+            "logging",
+            "zipfile",
+            "csv",
+            "uuid",
+        ):
             try:
                 __import__(module)
             except ImportError as e:

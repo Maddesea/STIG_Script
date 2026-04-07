@@ -1,15 +1,14 @@
 """Native built-in web server for STIG Assessor UI."""
 
 import json
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from socketserver import ThreadingMixIn
-from pathlib import Path
-
 import tempfile
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+from socketserver import ThreadingMixIn
 
-from stig_assessor.core.logging import Log
 from stig_assessor.core.constants import MAX_POST_PAYLOAD
+from stig_assessor.core.logging import Log
 from stig_assessor.core.state import GLOBAL_STATE as GLOBAL
 from stig_assessor.ui.web.api import route_request
 
@@ -36,7 +35,7 @@ class WebUIHandler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Cache-Control", "no-store")
-        
+
         # Strict Air-Gap & XSS Defense Content-Security-Policy
         csp = (
             "default-src 'self'; "
@@ -46,9 +45,10 @@ class WebUIHandler(BaseHTTPRequestHandler):
             "connect-src 'self';"
         )
         self.send_header("Content-Security-Policy", csp)
-        
+
         # CORS restrictions (loopback only — include actual port)
         import builtins
+
         port = getattr(builtins, "_stig_web_port", 8080)
         self.send_header("Access-Control-Allow-Origin", f"http://127.0.0.1:{port}")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -152,16 +152,20 @@ class WebUIHandler(BaseHTTPRequestHandler):
                 return
 
             try:
-                with tempfile.SpooledTemporaryFile(max_size=5*1024*1024, mode="w+b") as sp_file:
+                with tempfile.SpooledTemporaryFile(
+                    max_size=5 * 1024 * 1024, mode="w+b"
+                ) as sp_file:
                     bytes_read = 0
                     chunk_size = 64 * 1024
                     while bytes_read < content_length:
-                        chunk = self.rfile.read(min(chunk_size, content_length - bytes_read))
+                        chunk = self.rfile.read(
+                            min(chunk_size, content_length - bytes_read)
+                        )
                         if not chunk:
                             break
                         sp_file.write(chunk)
                         bytes_read += len(chunk)
-                    
+
                     sp_file.seek(0)
                     payload = json.load(sp_file)
             except Exception:
@@ -193,7 +197,10 @@ class WebUIHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(
                 json.dumps(
-                    {"status": "error", "message": f"Internal server error: {e}"}
+                    {
+                        "status": "error",
+                        "message": f"Internal server error: {e}",
+                    }
                 ).encode("utf-8")
             )
 
@@ -221,6 +228,7 @@ def start_server(port: int = 8080) -> None:
         return
 
     import builtins
+
     builtins._stig_web_port = actual_port
     LOG.info(f"Starting web server on http://localhost:{actual_port}/")
 

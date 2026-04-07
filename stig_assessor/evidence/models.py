@@ -8,10 +8,11 @@ Team: 9 - Evidence Management
 """
 
 from __future__ import annotations
+
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Union
-from contextlib import suppress
 
 
 @dataclass
@@ -69,8 +70,8 @@ class EvidenceMeta:
             ValidationError: If data is invalid
         """
         # Import dependencies here to avoid circular imports
-        from stig_assessor.xml.sanitizer import San
         from stig_assessor.exceptions import ValidationError
+        from stig_assessor.xml.sanitizer import San
 
         if not isinstance(data, dict):
             raise ValidationError("Evidence metadata must be object")

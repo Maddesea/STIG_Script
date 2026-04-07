@@ -1,12 +1,13 @@
 """Thread-safe logging with contextual metadata."""
 
 from __future__ import annotations
-from typing import Any, Dict
-from contextlib import contextmanager, suppress
-import threading
+
 import logging
 import logging.handlers
 import sys
+import threading
+from contextlib import contextmanager, suppress
+from typing import Any, Dict
 
 
 class Log:
@@ -117,9 +118,17 @@ class Log:
         """Internal logging method."""
         try:
             getattr(self.log, level)(self._context_str() + str(message), exc_info=exc)
-        except (TypeError, AttributeError, OSError, ValueError) as fallback_exc:
+        except (
+            TypeError,
+            AttributeError,
+            OSError,
+            ValueError,
+        ) as fallback_exc:
             # Fallback to stderr if logging system fails
-            print(f"[{level.upper()}] {message} (Log Failed: {fallback_exc})", file=sys.stderr)
+            print(
+                f"[{level.upper()}] {message} (Log Failed: {fallback_exc})",
+                file=sys.stderr,
+            )
 
     def d(self, msg: str) -> None:
         """Log debug message."""

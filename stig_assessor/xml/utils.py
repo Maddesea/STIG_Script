@@ -5,14 +5,14 @@ Provides common XML processing utilities for STIG/CKL file operations.
 """
 
 from __future__ import annotations
+
 import re
 import xml.etree.ElementTree as ET
-from typing import Optional, List
+from typing import List, Optional
 
-
-from stig_assessor.xml.sanitizer import San
 from stig_assessor.core.logging import LOG
 from stig_assessor.exceptions import ValidationError
+from stig_assessor.xml.sanitizer import San
 
 EXCESSIVE_NEWLINE_RE = re.compile(r"\n\s*\n\s*\n+")
 
@@ -52,8 +52,10 @@ class XmlUtils:
             for i, child in enumerate(elem):
                 XmlUtils.indent_xml(child, level + 1)
                 if not child.tail or not child.tail.strip():
-                    # Last child gets dedented, others get full indent
-                    child.tail = indent if i == len(elem) - 1 else indent + "\t"
+                    if i == len(elem) - 1:
+                        child.tail = indent
+                    else:
+                        child.tail = indent + "\t"
         else:
             if level and (not elem.tail or not elem.tail.strip()):
                 elem.tail = indent
@@ -86,7 +88,8 @@ class XmlUtils:
             >>> print(vid)
             V-123456
         """
-        vid = vuln.findtext(".//STIG_DATA[VULN_ATTRIBUTE='Vuln_Num']/ATTRIBUTE_DATA")
+        vid_query = ".//STIG_DATA[VULN_ATTRIBUTE='Vuln_Num']/ATTRIBUTE_DATA"
+        vid = vuln.findtext(vid_query)
         if vid:
             try:
                 return San.vuln(vid.strip())
@@ -131,9 +134,10 @@ class XmlUtils:
 
         return index
 
-
     @staticmethod
-    def collect_text(elem: ET.Element, xpath: str, default: str = "", join_with: str = "\n") -> str:
+    def collect_text(
+        elem: ET.Element, xpath: str, default: str = "", join_with: str = "\n"
+    ) -> str:
         """
         Collect and join text content from multiple XML elements.
 
@@ -167,9 +171,9 @@ class XmlUtils:
         """
         Enhanced text extraction with proper mixed content handling.
 
-        This method handles XCCDF elements that contain plain text, nested elements,
-        and preserves command formatting. Uses multiple fallback strategies to handle
-        complex XML structures.
+        This method handles XCCDF elements that contain plain text, nested
+        elements, and preserves command formatting. Uses multiple fallback
+        strategies to handle complex XML structures.
 
         Strategies:
             1. itertext() with newline preservation for mixed content
@@ -183,7 +187,8 @@ class XmlUtils:
             Extracted and normalized text content, or empty string if no content
 
         Example:
-            >>> elem = ET.fromstring("<fix><code>cmd1</code><code>cmd2</code></fix>")
+            >>> x = "<fix><code>cmd1</code><code>cmd2</code></fix>"
+            >>> elem = ET.fromstring(x)
             >>> text = XmlUtils.extract_text_content(elem)
             >>> print(text)
             cmd1
@@ -198,7 +203,8 @@ class XmlUtils:
             # Collect all text including from nested elements
             for text_fragment in elem.itertext():
                 if text_fragment:
-                    # Only strip leading/trailing whitespace, preserve internal structure
+                    # Only strip leading/trailing whitespace
+                    # preserve internal structure
                     cleaned = text_fragment.strip()
                     if cleaned:
                         parts.append(cleaned)

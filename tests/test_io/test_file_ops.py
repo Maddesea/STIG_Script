@@ -17,8 +17,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
 
+from stig_assessor.exceptions import FileError, ParseError, ValidationError
 from stig_assessor.io.file_ops import FO, retry
-from stig_assessor.exceptions import FileError, ValidationError, ParseError
 
 
 class TestRetryDecorator(unittest.TestCase):
@@ -54,6 +54,7 @@ class TestRetryDecorator(unittest.TestCase):
 
     def test_retry_exhausts_attempts(self):
         """Test that retry decorator raises after exhausting attempts."""
+
         @retry(attempts=2, delay=0.01)
         def always_fails():
             raise OSError("Permanent failure")
@@ -250,6 +251,7 @@ class TestFileOperations(unittest.TestCase):
 
         # Verify ZIP contents
         import zipfile
+
         with zipfile.ZipFile(zip_path, "r") as zf:
             namelist = zf.namelist()
             self.assertIn("file1.txt", namelist)
@@ -269,6 +271,7 @@ class TestFileOperations(unittest.TestCase):
 
         # Verify base directory in ZIP
         import zipfile
+
         with zipfile.ZipFile(zip_path, "r") as zf:
             namelist = zf.namelist()
             self.assertIn("mydir/file1.txt", namelist)
@@ -301,6 +304,7 @@ class TestFileOperations(unittest.TestCase):
 
         # Verify only valid file is in ZIP
         import zipfile
+
         with zipfile.ZipFile(zip_path, "r") as zf:
             namelist = zf.namelist()
             self.assertIn("valid.txt", namelist)

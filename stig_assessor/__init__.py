@@ -25,8 +25,10 @@ STIG Viewer Compatibility: 2.18
 
 from __future__ import annotations
 
-from stig_assessor.core.constants import VERSION, BUILD_DATE, APP_NAME, STIG_VIEWER_VERSION
-from stig_assessor.exceptions import STIGError, ValidationError, FileError, ParseError
+from stig_assessor.core.constants import (APP_NAME, BUILD_DATE,
+                                          STIG_VIEWER_VERSION, VERSION)
+from stig_assessor.exceptions import (FileError, ParseError, STIGError,
+                                      ValidationError)
 
 __version__ = VERSION
 __build_date__ = BUILD_DATE

@@ -3,14 +3,15 @@
 Team: 9 - Evidence Management
 """
 
-import unittest
-import tempfile
-import shutil
 import json
+import shutil
+import tempfile
+import unittest
 import zipfile
-from pathlib import Path
-from datetime import datetime, timezone
 from collections import defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
+
 from stig_assessor.evidence.manager import EvidenceMgr
 from stig_assessor.evidence.models import EvidenceMeta
 
@@ -59,10 +60,7 @@ class TestEvidenceMgr(unittest.TestCase):
         mgr = self.create_manager()
 
         result = mgr.import_file(
-            "V-123456",
-            self.test_file1,
-            description="Test evidence",
-            category="config"
+            "V-123456", self.test_file1, description="Test evidence", category="config"
         )
 
         # Check file was copied
@@ -172,7 +170,7 @@ class TestEvidenceMgr(unittest.TestCase):
         self.assertTrue(zipfile.is_zipfile(result))
 
         # Verify ZIP contents
-        with zipfile.ZipFile(result, 'r') as zf:
+        with zipfile.ZipFile(result, "r") as zf:
             names = zf.namelist()
             # Should contain meta.json and evidence files
             self.assertTrue(any("meta.json" in name for name in names))
@@ -207,7 +205,7 @@ class TestEvidenceMgr(unittest.TestCase):
         """Test that absolute paths in ZIP are rejected."""
         # Create malicious ZIP with absolute path
         zip_path = self.test_dir / "malicious.zip"
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             zf.writestr("/etc/passwd", "malicious content")
 
         mgr = self.create_manager()
@@ -220,7 +218,7 @@ class TestEvidenceMgr(unittest.TestCase):
         """Test that path traversal in ZIP is rejected."""
         # Create malicious ZIP with path traversal
         zip_path = self.test_dir / "malicious.zip"
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             zf.writestr("../../etc/passwd", "malicious content")
 
         mgr = self.create_manager()

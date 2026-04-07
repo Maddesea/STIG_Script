@@ -20,6 +20,7 @@ Security Features:
 """
 
 from __future__ import annotations
+
 import os
 import re
 from pathlib import Path
@@ -150,7 +151,9 @@ class San:
                                             base_str = str(base_resolved)
                                             # Add separator to prevent matching "/foo" with "/foobar"
                                             if (
-                                                not target_str.startswith(base_str + os.sep)
+                                                not target_str.startswith(
+                                                    base_str + os.sep
+                                                )
                                                 and target_str != base_str
                                             ):
                                                 raise ValidationError(
@@ -173,7 +176,6 @@ class San:
                     except (OSError, RuntimeError) as sl_eval_err:
                         # Symlink validation warning - logged but not fatal
                         LOG.debug(f"Symlink validation ignored: {sl_eval_err}")
-                        pass
 
             if len(str(path)) > San.MAX_PATH:
                 raise ValidationError(f"Path too long: {len(str(path))}")
@@ -201,7 +203,9 @@ class San:
         except ValidationError:
             raise
         except (OSError, ValueError, TypeError) as exc:
-            raise ValidationError(f"Path validation failed for '{value}': {exc}") from exc
+            raise ValidationError(
+                f"Path validation failed for '{value}': {exc}"
+            ) from exc
 
     @staticmethod
     def asset(value: str) -> str:
@@ -249,7 +253,9 @@ class San:
 
         octets = value.split(".")
         if len(octets) != 4:
-            raise ValidationError(f"IP must have exactly 4 octets, got {len(octets)}: {value}")
+            raise ValidationError(
+                f"IP must have exactly 4 octets, got {len(octets)}: {value}"
+            )
 
         for idx, octet in enumerate(octets):
             # Check for leading zeros (except "0" itself)
@@ -260,7 +266,9 @@ class San:
             except ValueError:
                 raise ValidationError(f"IP octet {idx + 1} is not numeric: {octet}")
             if not (0 <= oct_val <= 255):
-                raise ValidationError(f"IP octet {idx + 1} out of range (0-255): {oct_val}")
+                raise ValidationError(
+                    f"IP octet {idx + 1} out of range (0-255): {oct_val}"
+                )
 
         return value
 
@@ -354,7 +362,8 @@ class San:
         if value not in Sch.SEV_VALS:
             if strict:
                 raise ValidationError(
-                    f"Invalid severity: {value} (must be one of: {', '.join(Sch.SEV_VALS)})"
+                    f"Invalid severity: {value} "
+                    f"(must be one of: {', '.join(Sch.SEV_VALS)})"
                 )
             # In non-strict mode, default to medium
             LOG.warning(f"Invalid severity '{value}', defaulting to 'medium'")
@@ -383,7 +392,7 @@ class San:
             except (ValueError, TypeError) as str_conv_err:
                 # Cannot convert to string, return empty
                 LOG.warning(
-                    f"Failed to convert value to string for XML sanitization: {type(value)} ({str_conv_err})"
+                    f"Failed to convert to string: " f"{type(value)} ({str_conv_err})"
                 )
                 return ""
 

@@ -15,10 +15,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict
 
+from stig_assessor.core.constants import Status
 # Import from modular package
 from stig_assessor.exceptions import ValidationError
 from stig_assessor.xml.sanitizer import San
-from stig_assessor.core.constants import Status
 
 
 @dataclass(order=True)

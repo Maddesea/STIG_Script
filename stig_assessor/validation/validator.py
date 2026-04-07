@@ -8,17 +8,17 @@ Team 5 Deliverable - Complete implementation of the Val class.
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
-import xml.etree.ElementTree as ET
 
+from stig_assessor.core.constants import Severity, Status
 # Import from our package
-from stig_assessor.exceptions import ValidationError, ParseError
-from stig_assessor.core.constants import Status, Severity
-from stig_assessor.xml.schema import Sch
-from stig_assessor.xml.sanitizer import San
+from stig_assessor.exceptions import ParseError, ValidationError
 from stig_assessor.io.file_ops import FO
+from stig_assessor.xml.sanitizer import San
+from stig_assessor.xml.schema import Sch
 
 
 class Val:
@@ -50,7 +50,9 @@ class Val:
         ]
     )
 
-    def validate(self, path: Union[str, Path]) -> Tuple[bool, List[str], List[str], List[str]]:
+    def validate(
+        self, path: Union[str, Path]
+    ) -> Tuple[bool, List[str], List[str], List[str]]:
         """
         Validate a CKL file for STIG Viewer 2.18 compatibility.
 
@@ -115,7 +117,9 @@ class Val:
 
         return len(errors) == 0, errors, warnings_, info
 
-    def _validate_cklb(self, path: Path) -> Tuple[bool, List[str], List[str], List[str]]:
+    def _validate_cklb(
+        self, path: Path
+    ) -> Tuple[bool, List[str], List[str], List[str]]:
         """Validate a CKLB JSON file structure."""
         errors: List[str] = []
         warnings_: List[str] = []
@@ -141,7 +145,9 @@ class Val:
         if not isinstance(reviews, list):
             errors.append("reviews must be a list")
 
-        info.append(f"Total vulnerabilities: {len(reviews) if isinstance(reviews, list) else 0}")
+        info.append(
+            f"Total vulnerabilities: {len(reviews) if isinstance(reviews, list) else 0}"
+        )
 
         if isinstance(reviews, list):
             status_counts: Dict[str, int] = defaultdict(int)
@@ -152,7 +158,9 @@ class Val:
                     errors.append(f"Invalid STATUS value '{status}'")
 
             reviewed = sum(
-                count for stat, count in status_counts.items() if stat not in (Status.NOT_REVIEWED, "")
+                count
+                for stat, count in status_counts.items()
+                if stat not in (Status.NOT_REVIEWED, "")
             )
             if len(reviews) > 0:
                 pct = reviewed * 100 / len(reviews)
@@ -162,7 +170,9 @@ class Val:
 
         return len(errors) == 0, errors, warnings_, info
 
-    def _validate_asset(self, asset: ET.Element, errors: List[str], warnings_: List[str]) -> None:
+    def _validate_asset(
+        self, asset: ET.Element, errors: List[str], warnings_: List[str]
+    ) -> None:
         """
         Validate ASSET element for required fields and valid values.
 
@@ -195,7 +205,12 @@ class Val:
 
         # Validate ROLE if present
         role = values.get("ROLE", "")
-        valid_roles = {"None", "Workstation", "Member Server", "Domain Controller"}
+        valid_roles = {
+            "None",
+            "Workstation",
+            "Member Server",
+            "Domain Controller",
+        }
         if role and role not in valid_roles:
             warnings_.append(f"Non-standard ROLE: {role}")
 
@@ -205,7 +220,9 @@ class Val:
         if asset_type and asset_type not in valid_types:
             warnings_.append(f"Non-standard ASSET_TYPE: {asset_type}")
 
-    def _validate_stigs(self, stigs: ET.Element) -> Tuple[List[str], List[str], List[str]]:
+    def _validate_stigs(
+        self, stigs: ET.Element
+    ) -> Tuple[List[str], List[str], List[str]]:
         """
         Validate STIGS element and all contained vulnerabilities.
 
@@ -241,12 +258,18 @@ class Val:
             total_vulns += len(vulns)
 
             for vuln_idx, vuln in enumerate(vulns, 1):
-                self._validate_vuln(vuln, idx, vuln_idx, errors, warnings_, status_counts)
+                self._validate_vuln(
+                    vuln, idx, vuln_idx, errors, warnings_, status_counts
+                )
 
         # Generate info statistics
         info.append(f"Total vulnerabilities: {total_vulns}")
         if total_vulns:
-            reviewed = sum(status_counts[s] for s in status_counts if s not in (Status.NOT_REVIEWED, ""))
+            reviewed = sum(
+                status_counts[s]
+                for s in status_counts
+                if s not in (Status.NOT_REVIEWED, "")
+            )
             pct = reviewed * 100 / total_vulns
             info.append(f"Reviewed: {reviewed}/{total_vulns} ({pct:.1f}%)")
             for status, count in sorted(status_counts.items()):
@@ -349,7 +372,11 @@ class Val:
         if not is_valid:
             raise ValidationError(
                 f"Validation failed with {len(errors)} error(s): {'; '.join(errors)}",
-                ctx={"path": str(path), "errors": errors, "warnings": warnings_},
+                ctx={
+                    "path": str(path),
+                    "errors": errors,
+                    "warnings": warnings_,
+                },
             )
 
     def validate_xml_structure(self, root: ET.Element) -> Tuple[bool, List[str]]:
