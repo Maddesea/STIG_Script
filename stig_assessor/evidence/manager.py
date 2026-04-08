@@ -67,6 +67,7 @@ class EvidenceMgr:
         self.meta_file = self.base / "meta.json"
         self._meta: Dict[str, List[EvidenceMeta]] = defaultdict(list)
         self._lock = threading.RLock()
+        self._io_lock = threading.Lock()
         self._load()
 
     # ----------------------------------------------------------------------- load
@@ -103,14 +104,17 @@ class EvidenceMgr:
         """Save evidence metadata to disk.
 
         Writes metadata to meta.json using atomic write if available.
+        Performs actual IO outside the metadata lock to prevent thread bottlenecks.
         """
-        payload = {
-            vid: [entry.as_dict() for entry in entries]
-            for vid, entries in self._meta.items()
-        }
+        with self._lock:
+            payload = {
+                vid: [entry.as_dict() for entry in entries]
+                for vid, entries in self._meta.items()
+            }
 
-        with FO.atomic(self.meta_file) as handle:
-            json.dump(payload, handle, indent=2, ensure_ascii=False)
+        with self._io_lock:
+            with FO.atomic(self.meta_file) as handle:
+                json.dump(payload, handle, indent=2, ensure_ascii=False)
 
     # ----------------------------------------------------------------------- import
     def import_file(
@@ -196,7 +200,8 @@ class EvidenceMgr:
             )
             with self._lock:
                 self._meta[vid].append(meta)
-                self._save()
+                
+            self._save()
 
             LOG.i(f"Evidence imported to {dest}")
             return dest

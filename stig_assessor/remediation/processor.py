@@ -266,12 +266,7 @@ class FixResPro:
 
         # Build VID index once for O(1) lookups (performance optimization)
         LOG.d("Building VID index for fast lookups")
-        vid_to_vuln: Dict[str, Any] = {}
-        for istig in stigs.findall("iSTIG"):
-            for vuln in istig.findall("VULN"):
-                vid = XmlUtils.get_vid(vuln)
-                if vid:
-                    vid_to_vuln[vid] = vuln
+        vid_to_vuln = XmlUtils.build_vuln_index(root)
 
         updated = 0
         not_found: List[str] = []

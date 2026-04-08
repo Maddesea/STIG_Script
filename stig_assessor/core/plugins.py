@@ -46,7 +46,7 @@ class PluginManager:
             try:
                 self._load_module(p)
             except Exception as e:
-                LOG.error(f"Failed to load plugin {p.name}: {e}")
+                LOG.e(f"Failed to load plugin {p.name}: {e}")
 
         self._loaded = True
 

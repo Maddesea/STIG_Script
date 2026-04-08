@@ -76,10 +76,77 @@ def prompt_missing(prompt_text: str) -> str:
             return ""
     return ""
 
+# ──────────────────────────────────────────────────────────────────────────────
+# ANSI COLOR SUPPORT
+# ──────────────────────────────────────────────────────────────────────────────
+
+_ANSI_CODES = {
+    "red": "\033[91m",
+    "green": "\033[92m",
+    "yellow": "\033[93m",
+    "blue": "\033[94m",
+    "magenta": "\033[95m",
+    "cyan": "\033[96m",
+    "white": "\033[97m",
+    "bold": "\033[1m",
+    "dim": "\033[2m",
+    "reset": "\033[0m",
+}
+
+
+def _color_supported() -> bool:
+    """Detect whether the current terminal supports ANSI color output.
+
+    Respects the NO_COLOR (https://no-color.org) convention and checks
+    whether stderr (used for spinner output) is a real TTY.
+    """
+    import os
+
+    if os.environ.get("NO_COLOR"):
+        return False
+    # Check stderr since that's where spinner/progress output goes
+    if not (hasattr(sys.stderr, "isatty") and sys.stderr.isatty()):
+        return False
+    # Enable VT100 processing on Windows 10+
+    if Cfg.IS_WIN:
+        try:
+            import ctypes
+
+            kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+            # STD_ERROR_HANDLE = -12, STD_OUTPUT_HANDLE = -11
+            for handle_id in (-11, -12):
+                handle = kernel32.GetStdHandle(handle_id)
+                mode = ctypes.c_ulong()
+                kernel32.GetConsoleMode(handle, ctypes.byref(mode))
+                # ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+                kernel32.SetConsoleMode(handle, mode.value | 0x0004)
+        except (AttributeError, OSError, ValueError):
+            return False
+    return True
+
+
+_USE_COLOR: bool = _color_supported()
+
 
 def format_color(text: str, color: str) -> str:
-    """Format text (ANSI removed per zero-dependency TTY guidelines)."""
-    return text
+    """Format text with ANSI color codes when terminal supports it.
+
+    Automatically disabled when output is piped, redirected, or when
+    the ``NO_COLOR`` environment variable is set.
+
+    Args:
+        text: The string to colorize.
+        color: Color name (red, green, yellow, blue, magenta, cyan, bold, dim).
+
+    Returns:
+        Colorized string if terminal supports it, otherwise the original text.
+    """
+    if not _USE_COLOR:
+        return text
+    code = _ANSI_CODES.get(color, "")
+    if not code:
+        return text
+    return f"{code}{text}{_ANSI_CODES['reset']}"
 
 
 # Import GUI conditionally
@@ -190,6 +257,9 @@ COMMON USE-CASES (Windows Operations):
     )
     parser.add_argument(
         "--tui", action="store_true", help="Launch interactive text user interface (CLI)"
+    )
+    parser.add_argument(
+        "--interactive", "-i", action="store_true", help="Launch the guided interactive CLI wizard"
     )
 
     create_group = parser.add_argument_group("Create CKL from XCCDF")
@@ -302,7 +372,7 @@ COMMON USE-CASES (Windows Operations):
     )
     diff_group.add_argument(
         "--diff-format",
-        choices=["summary", "detailed", "json"],
+        choices=["summary", "detailed", "json", "html"],
         default="summary",
         help="Diff output format (default: summary)",
     )
@@ -326,6 +396,11 @@ COMMON USE-CASES (Windows Operations):
         "--no-ansible",
         action="store_true",
         help="Do not export Ansible playbook",
+    )
+    extract_group.add_argument(
+        "--no-html",
+        action="store_true",
+        help="Do not export HTML playbook",
     )
     extract_group.add_argument(
         "--script-dry-run",
@@ -483,6 +558,12 @@ COMMON USE-CASES (Windows Operations):
     stats_group.add_argument(
         "--stats-out", help="Output file for statistics (default: stdout)"
     )
+    stats_group.add_argument(
+        "--export-html", help="Generate a standalone HTML compliance report from a checklist"
+    )
+    stats_group.add_argument(
+        "--fleet-stats", help="Generate aggregate fleet compliance statistics from a directory or ZIP of checklists"
+    )
 
     # Productivity Enhancements
     prod_group = parser.add_argument_group("Productivity Enhancements")
@@ -496,6 +577,12 @@ COMMON USE-CASES (Windows Operations):
     prod_group.add_argument("--export-poam", help="Export Open/Not Reviewed findings to an eMASS POAM (CSV)")
 
     args = parser.parse_args(argv)
+
+    # ------------------------------------------------------------- Interactive Wizard
+    if getattr(args, "interactive", False) or (argv is None and len(sys.argv) == 1):
+        from stig_assessor.ui.wizard import launch_wizard
+        launch_wizard()
+        return 0
 
     # ------------------------------------------------------------- Profile Management
     if getattr(args, "use_profile", None):
@@ -687,7 +774,7 @@ COMMON USE-CASES (Windows Operations):
                         apply_boilerplate=args.apply_boilerplate,
                     )
                     return True, xccdf_path.name
-                except Exception as e:
+                except (ParseError, ValidationError, OSError, ValueError) as e:
                     return False, f"{xccdf_path.name}: {e}"
 
             print(f"Batch converting {len(xccdfs)} XCCDFs to {args.batch_out_ext}...")
@@ -781,6 +868,11 @@ COMMON USE-CASES (Windows Operations):
             result = proc.diff(ckl1, ckl2, output_format=args.diff_format)
             if args.diff_format == "json":
                 print(json.dumps(result, indent=2, ensure_ascii=False))
+            elif args.diff_format == "html":
+                from stig_assessor.processor.html_diff import generate_html_diff
+                out_html = Path(ckl1).with_name(f"{Path(ckl1).stem}_diff.html")
+                generate_html_diff(ckl1, ckl2, str(out_html))
+                print(format_color(f"HTML Diff Report generated: {out_html}", "green"))
             else:
                 print(result.get("formatted_text", ""))
             return 0
@@ -818,6 +910,12 @@ COMMON USE-CASES (Windows Operations):
                     extractor.to_ansible(
                         outdir / "remediate.yml", dry_run=args.script_dry_run
                     )
+                if not getattr(args, "no_html", False):
+                    try:
+                        from stig_assessor.remediation.html_playbook import generate_html_playbook
+                        generate_html_playbook(extractor, outdir / "remediation_playbook.html")
+                    except Exception as e:
+                        LOG.w(f"Could not generate HTML playbook: {e}")
 
             print(
                 format_color(
@@ -1265,12 +1363,51 @@ COMMON USE-CASES (Windows Operations):
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0
             
+        if args.fleet_stats:
+            from stig_assessor.processor.fleet_stats import FleetStats
+
+            target = Path(args.fleet_stats)
+            fs = FleetStats()
+            with Spinner(f"Analyzing fleet compliance in {target}...") as spinner:
+                if target.is_file() and target.suffix.lower() == ".zip":
+                    stats = fs.process_zip(target)
+                else:
+                    stats = fs.process_directory(target)
+
+            stats_out = args.stats_out or "fleet_compliance_stats.json"
+            out_path = Path(stats_out)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(stats, f, indent=2, ensure_ascii=False)
+
+            print(
+                format_color(
+                    f"Fleet compliance report for {stats.get('total_assets', 0)} assets saved to {out_path}",
+                    "green",
+                )
+            )
+            return 0
+
         if args.export_poam:
             poam_str = proc.export_poam(args.export_poam)
             poam_out = Path(args.export_poam).with_name(f"{Path(args.export_poam).stem}_poam.csv")
             with open(poam_out, "w", encoding="utf-8") as f:
                 f.write(poam_str)
             print(f"eMASS POAM exported successfully to {poam_out}")
+            return 0
+
+        if args.export_html:
+            from stig_assessor.processor.html_report import generate_html_report
+
+            ckl_input = Path(args.export_html)
+            html_out = ckl_input.with_suffix(".html")
+            with Spinner(f"Generating HTML report from {ckl_input.name}..."):
+                result_path = generate_html_report(ckl_input, html_out)
+            print(
+                format_color(
+                    f"HTML compliance report generated: {result_path}", "green"
+                )
+            )
             return 0
 
         parser.print_help()

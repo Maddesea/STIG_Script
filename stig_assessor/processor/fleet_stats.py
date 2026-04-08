@@ -65,7 +65,11 @@ class FleetStats:
         temp_dir = tempfile.mkdtemp()
         try:
             with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(temp_dir)
+                target_temp = Path(temp_dir).resolve()
+                for member in zip_ref.namelist():
+                    extracted_path = Path(zip_ref.extract(member, temp_dir)).resolve()
+                    if not str(extracted_path).startswith(str(target_temp)):
+                        raise RuntimeError(f"ZipSlip detected: {extracted_path} is outside {target_temp}")
             return self.process_directory(temp_dir)
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)

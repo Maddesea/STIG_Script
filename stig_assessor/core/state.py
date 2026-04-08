@@ -72,8 +72,10 @@ class GlobalState:
                 file=sys.stderr,
             )
             self.shutdown.set()
-            self.cleanup()
-            sys.exit(0)
+            try:
+                self.cleanup()
+            finally:
+                sys.exit(0)
 
         for sig in (signal.SIGINT, signal.SIGTERM):
             with suppress(OSError, ValueError):

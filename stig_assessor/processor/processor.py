@@ -115,124 +115,123 @@ class Proc:
         except (ValidationError, OSError, ValueError, TypeError) as exc:
             raise ValidationError(f"Input validation failed: {exc}") from exc
 
-        LOG.ctx(op="xccdf_to_ckl", asset=asset, file=xccdf.name)
-        LOG.i("Converting XCCDF to CKL")
+        with LOG.context(op="xccdf_to_ckl", asset=asset, file=xccdf.name):
+            LOG.i("Converting XCCDF to CKL")
 
-        try:
-            tree = FO.parse_xml(xccdf)
-            root = tree.getroot()
-        except (ParseError, OSError, ValueError) as exc:
-            raise ParseError(f"Failed to parse XCCDF: {exc}") from exc
-
-        ns = self._namespace(root)
-        meta = self._extract_meta(root, ns)
-
-        LOG.i(f"STIG title: {meta.get('title', 'unknown')}")
-        LOG.i(f"STIG version: {meta.get('version', 'unknown')}")
-
-        checklist = ET.Element(Sch.ROOT)
-        self._build_asset(checklist, asset, ip, mac, role, marking, meta)
-
-        stigs = ET.SubElement(checklist, "STIGS")
-        istig = ET.SubElement(stigs, "iSTIG")
-        self._build_stig_info(istig, xccdf, meta)
-
-        groups = self._list_groups(root, ns)
-        if not groups:
-            raise ParseError("XCCDF contains no vulnerability groups")
-
-        if len(groups) > Cfg.MAX_VULNS:
-            LOG.w(f"Large checklist: {len(groups)} vulnerabilities")
-
-        LOG.i(f"Processing {len(groups)} vulnerabilities")
-
-        processed = 0
-        skipped = 0
-        errors: List[str] = []
-
-        for idx, group in enumerate(groups, 1):
             try:
-                vuln = self._build_vuln(group, ns, meta, apply_boilerplate, asset)
-                istig.append(vuln)
-                processed += 1
-            except ParseError as exc:
-                errors.append(str(exc))
-                skipped += 1
-                LOG.e(f"Group {idx} skipped: {exc}")
-            except (ValueError, TypeError, AttributeError, KeyError) as exc:
-                errors.append(str(exc))
-                skipped += 1
-                LOG.e(f"Group {idx} failed unexpectedly: {exc}")
+                tree = FO.parse_xml(xccdf)
+                root = tree.getroot()
+            except (ParseError, OSError, ValueError) as exc:
+                raise ParseError(f"Failed to parse XCCDF: {exc}") from exc
 
-        if processed == 0:
-            raise ParseError("No vulnerabilities could be processed")
+            ns = self._namespace(root)
+            meta = self._extract_meta(root, ns)
 
-        # Check error threshold - fail if too many vulnerabilities failed to process
-        total = processed + skipped
-        error_rate = (skipped / total) * 100 if total > 0 else 0
-        if error_rate > Cfg.ERROR_RATE_WARN_THRESHOLD:
-            LOG.w(
-                f"High error rate: {error_rate:.1f}% of vulnerabilities failed to process"
-            )
-            LOG.w(f"First 5 errors: {errors[:5]}")
-            if error_rate > Cfg.ERROR_RATE_FAIL_THRESHOLD:
-                raise ParseError(
-                    f"Critical: {error_rate:.1f}% of vulnerabilities failed to process "
-                    f"(threshold: {Cfg.ERROR_RATE_FAIL_THRESHOLD}%). "
-                    f"This likely indicates a structural XCCDF parsing issue. "
-                    f"Sample errors: {'; '.join(errors[:3])}"
+            LOG.i(f"STIG title: {meta.get('title', 'unknown')}")
+            LOG.i(f"STIG version: {meta.get('version', 'unknown')}")
+
+            checklist = ET.Element(Sch.ROOT)
+            self._build_asset(checklist, asset, ip, mac, role, marking, meta)
+
+            stigs = ET.SubElement(checklist, "STIGS")
+            istig = ET.SubElement(stigs, "iSTIG")
+            self._build_stig_info(istig, xccdf, meta)
+
+            groups = self._list_groups(root, ns)
+            if not groups:
+                raise ParseError("XCCDF contains no vulnerability groups")
+
+            if len(groups) > Cfg.MAX_VULNS:
+                LOG.w(f"Large checklist: {len(groups)} vulnerabilities")
+
+            LOG.i(f"Processing {len(groups)} vulnerabilities")
+
+            processed = 0
+            skipped = 0
+            errors: List[str] = []
+
+            for idx, group in enumerate(groups, 1):
+                try:
+                    vuln_data = self._parse_vuln_data(group, ns, meta, apply_boilerplate, asset)
+                    vuln = self._serialize_vuln(vuln_data)
+                    istig.append(vuln)
+                    processed += 1
+                except ParseError as exc:
+                    errors.append(str(exc))
+                    skipped += 1
+                    LOG.e(f"Group {idx} skipped: {exc}")
+                except (ValueError, TypeError, AttributeError, KeyError) as exc:
+                    errors.append(str(exc))
+                    skipped += 1
+                    LOG.e(f"Group {idx} failed unexpectedly: {exc}")
+
+            if processed == 0:
+                raise ParseError("No vulnerabilities could be processed")
+
+            # Check error threshold - fail if too many vulnerabilities failed to process
+            total = processed + skipped
+            error_rate = (skipped / total) * 100 if total > 0 else 0
+            if error_rate > Cfg.ERROR_RATE_WARN_THRESHOLD:
+                LOG.w(
+                    f"High error rate: {error_rate:.1f}% of vulnerabilities failed to process"
                 )
+                LOG.w(f"First 5 errors: {errors[:5]}")
+                if error_rate > Cfg.ERROR_RATE_FAIL_THRESHOLD:
+                    raise ParseError(
+                        f"Critical: {error_rate:.1f}% of vulnerabilities failed to process "
+                        f"(threshold: {Cfg.ERROR_RATE_FAIL_THRESHOLD}%). "
+                        f"This likely indicates a structural XCCDF parsing issue. "
+                        f"Sample errors: {'; '.join(errors[:3])}"
+                    )
 
-        LOG.i(
-            f"Processed: {processed} | Skipped: {skipped} | Error rate: {error_rate:.1f}%"
-        )
+            LOG.i(
+                f"Processed: {processed} | Skipped: {skipped} | Error rate: {error_rate:.1f}%"
+            )
 
-        XmlUtils.indent_xml(checklist)
+            XmlUtils.indent_xml(checklist)
 
-        # Hook: Plugins can modify the final xml ElementTree of the checklist
-        checklist = self.plugins.run_hooks(
-            "post_ckl_create",
-            payload=checklist,
-            xccdf_path=xccdf,
-            out_path=out,
-        )
+            # Hook: Plugins can modify the final xml ElementTree of the checklist
+            checklist = self.plugins.run_hooks(
+                "post_ckl_create",
+                payload=checklist,
+                xccdf_path=xccdf,
+                out_path=out,
+            )
 
-        if dry:
-            LOG.i("Dry-run requested, checklist not written")
-            LOG.clear()
+            if dry:
+                LOG.i("Dry-run requested, checklist not written")
+                return {
+                    "ok": True,
+                    "processed": processed,
+                    "skipped": skipped,
+                    "errors": errors,
+                }
+
+            if out.suffix.lower() == ".cklb":
+                cklb_data = self._checklist_to_json(checklist)
+                FO.write_cklb(cklb_data, out, backup=False)
+            else:
+                self._export_xml_to_file(checklist, out)
+
+            try:
+                ok, errs, _, _ = self.validator.validate(out)
+                if not ok:
+                    raise ValidationError(
+                        f"Generated CKL failed validation: {errs[0] if errs else 'Unknown error'}"
+                    )
+            except ValidationError:
+                raise
+            except (OSError, ParseError, ValueError) as exc:
+                LOG.w(f"Validator encountered an error (output may still be valid): {exc}")
+
+            LOG.i(f"Checklist created: {out}")
             return {
                 "ok": True,
+                "output": str(out),
                 "processed": processed,
                 "skipped": skipped,
                 "errors": errors,
             }
-
-        if out.suffix.lower() == ".cklb":
-            cklb_data = self._checklist_to_json(checklist)
-            FO.write_cklb(cklb_data, out, backup=False)
-        else:
-            self._export_xml_to_file(checklist, out)
-
-        try:
-            ok, errs, _, _ = self.validator.validate(out)
-            if not ok:
-                raise ValidationError(
-                    f"Generated CKL failed validation: {errs[0] if errs else 'Unknown error'}"
-                )
-        except ValidationError:
-            raise
-        except (OSError, ParseError, ValueError) as exc:
-            LOG.w(f"Validator encountered an error (output may still be valid): {exc}")
-
-        LOG.i(f"Checklist created: {out}")
-        LOG.clear()
-        return {
-            "ok": True,
-            "output": str(out),
-            "processed": processed,
-            "skipped": skipped,
-            "errors": errors,
-        }
 
     # ------------------------------------------------------------------- helpers
     def _namespace(self, root: ET.Element) -> Dict[str, str]:
@@ -384,16 +383,16 @@ class Proc:
                 valid.append(group)
         return valid
 
-    def _build_vuln(
+    def _parse_vuln_data(
         self,
         group: ET.Element,
         ns: Dict[str, str],
         meta: Dict[str, str],
         apply_boilerplate: bool,
         asset: str,
-    ) -> Optional[ET.Element]:
+    ) -> Dict[str, Any]:
         """
-        Parse an XCCDF vulnerability group into a CKL VULN configuration element.
+        Parse an XCCDF vulnerability group into a data dictionary.
 
         Args:
             group: Parsed group element from the XCCDF benchmark.
@@ -403,11 +402,14 @@ class Proc:
             asset: Contextual asset identifier string.
 
         Returns:
-            Fully populated VULN ElementTree element.
+            Dictionary containing the structured vulnerability data.
 
         Raises:
             ParseError: If critical parsing fails.
         """
+        if group is None:
+            raise ParseError("Group element is None")
+
         vid = group.get("id", "")
         if not vid:
             raise ParseError("Missing ID attribute in group")
@@ -420,12 +422,17 @@ class Proc:
         if rule is None:
             raise ParseError(f"Missing Rule in group {vid}")
 
-        rule_id = rule.get("id", "").strip()
+        rule_id = rule.get("id", "")
+        if rule_id is not None:
+            rule_id = rule_id.strip()
+        else:
+            rule_id = ""
+
         if not rule_id:
             raise ParseError(f"Missing id attribute in Rule for group {vid}")
 
-        severity = San.sev(rule.get("severity", "medium"))
-        weight = rule.get("weight", "10.0")
+        severity = San.sev(rule.get("severity", "medium") or "medium")
+        weight = rule.get("weight", "10.0") or "10.0"
 
         def find(tag: str):
             return rule.find(f"ns:{tag}", ns) if ns else rule.find(tag)
@@ -439,9 +446,10 @@ class Proc:
             if elem.text and elem.text.strip():
                 return elem.text.strip()
             try:
-                return ET.tostring(elem, encoding="unicode", method="text").strip()
+                txt = ET.tostring(elem, encoding="unicode", method="text")
+                return txt.strip() if txt else ""
             except (TypeError, ValueError, AttributeError) as exc:
-                LOG.w(f"Failed to extract text from XML element {elem.tag}: {exc}")
+                LOG.w(f"Failed to extract text from XML element {elem.tag if hasattr(elem, 'tag') else 'unknown'}: {exc}")
                 return ""
 
         rule_title = text(find("title"))[:TITLE_MAX_LONG]
@@ -491,7 +499,18 @@ class Proc:
             elif "legacy" in system:
                 legacy_refs.append(ident_text)
 
-        vuln_node = ET.Element("VULN")
+        status = Status.NOT_REVIEWED
+        finding = ""
+        comment = ""
+
+        if apply_boilerplate:
+            finding = self.boiler.get_finding(
+                vid, status, asset=asset, severity=severity
+            )
+            comment = self.boiler.get_comment(
+                vid, status, asset=asset, severity=severity
+            )
+
         stig_data_map = OrderedDict(
             [
                 ("Vuln_Num", vid),
@@ -526,49 +545,60 @@ class Proc:
             ]
         )
 
+        return {
+            "vid": vid,
+            "stig_data_map": stig_data_map,
+            "legacy_refs": legacy_refs,
+            "cci_refs": cci_refs,
+            "status": status,
+            "finding": finding,
+            "comment": comment
+        }
+
+    def _serialize_vuln(self, data: Dict[str, Any]) -> ET.Element:
+        """
+        Serialize parsed vulnerability data into a CKL VULN Element.
+
+        Args:
+            data: The parsed vulnerability data mapping generated by _parse_vuln_data.
+
+        Returns:
+            Fully populuated VULN ElementTree element.
+        """
+        vuln_node = ET.Element("VULN")
+        stig_data_map = data["stig_data_map"]
+        
         for attribute in Sch.VULN:
             value = stig_data_map.get(attribute, "")
             sd = ET.SubElement(vuln_node, "STIG_DATA")
             attr = ET.SubElement(sd, "VULN_ATTRIBUTE")
             attr.text = attribute
-            data = ET.SubElement(sd, "ATTRIBUTE_DATA")
+            attr_data = ET.SubElement(sd, "ATTRIBUTE_DATA")
             if value:
-                data.text = San.xml(value)
+                attr_data.text = San.xml(value)
 
-        for legacy in legacy_refs:
+        for legacy in data.get("legacy_refs", []):
             sd = ET.SubElement(vuln_node, "STIG_DATA")
             attr = ET.SubElement(sd, "VULN_ATTRIBUTE")
             attr.text = "LEGACY_ID"
-            data = ET.SubElement(sd, "ATTRIBUTE_DATA")
-            data.text = legacy
+            attr_data = ET.SubElement(sd, "ATTRIBUTE_DATA")
+            attr_data.text = legacy
 
-        for cci in cci_refs:
+        for cci in data.get("cci_refs", []):
             sd = ET.SubElement(vuln_node, "STIG_DATA")
             attr = ET.SubElement(sd, "VULN_ATTRIBUTE")
             attr.text = "CCI_REF"
-            data = ET.SubElement(sd, "ATTRIBUTE_DATA")
-            data.text = cci
-
-        status = Status.NOT_REVIEWED
-        finding = ""
-        comment = ""
-
-        if apply_boilerplate:
-            finding = self.boiler.get_finding(
-                vid, status, asset=asset, severity=severity
-            )
-            comment = self.boiler.get_comment(
-                vid, status, asset=asset, severity=severity
-            )
+            attr_data = ET.SubElement(sd, "ATTRIBUTE_DATA")
+            attr_data.text = cci
 
         status_node = ET.SubElement(vuln_node, "STATUS")
-        status_node.text = status
+        status_node.text = data["status"]
         finding_node = ET.SubElement(vuln_node, "FINDING_DETAILS")
-        if finding:
-            finding_node.text = finding
+        if data["finding"]:
+            finding_node.text = data["finding"]
         comment_node = ET.SubElement(vuln_node, "COMMENTS")
-        if comment:
-            comment_node.text = comment
+        if data["comment"]:
+            comment_node.text = data["comment"]
         ET.SubElement(vuln_node, "SEVERITY_OVERRIDE")
         ET.SubElement(vuln_node, "SEVERITY_JUSTIFICATION")
 
@@ -1817,7 +1847,7 @@ class Proc:
             out_path = San.path(out_path, mkpar=True)
             tree = self._load_file_as_xml(ckl_path)
             root = tree.getroot()
-        except Exception as exc:
+        except (ParseError, OSError, ValueError) as exc:
             raise ParseError(f"Failed to parse checklist: {exc}")
 
         vulns = self._extract_vuln_data(root)
@@ -1909,7 +1939,7 @@ class Proc:
             ckl_path = San.path(ckl_path, exist=True, file=True)
             tree = self._load_file_as_xml(ckl_path)
             root = tree.getroot()
-        except Exception as exc:
+        except (ParseError, OSError, ValueError) as exc:
             raise ParseError(f"Failed to parse checklist: {exc}")
 
         import csv
@@ -1986,7 +2016,7 @@ class Proc:
             out_path = San.path(out_path, mkpar=True)
             tree = self._load_file_as_xml(ckl_path)
             root = tree.getroot()
-        except Exception as exc:
+        except (ParseError, OSError, ValueError) as exc:
             raise ParseError(f"Failed to load checklist: {exc}")
 
         if not Status.is_valid(new_status):
@@ -2072,7 +2102,7 @@ class Proc:
             out_path = San.path(out_path, mkpar=True)
             tree = self._load_file_as_xml(ckl_path)
             root = tree.getroot()
-        except Exception as exc:
+        except (ParseError, OSError, ValueError) as exc:
             raise ParseError(f"Failed to load checklist: {exc}")
 
         count = 0

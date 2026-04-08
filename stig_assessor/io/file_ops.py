@@ -19,6 +19,7 @@ import tempfile
 import time
 import zipfile
 from contextlib import contextmanager, suppress
+from functools import wraps
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO, Any, Dict, Generator, List, Optional, Tuple, Union
@@ -59,6 +60,7 @@ def retry(
     """Retry decorator with exponential backoff."""
 
     def decorator(func):
+        @wraps(func)
         def wrapper(*args, **kwargs):
             wait = delay
             last_err: Optional[BaseException] = None

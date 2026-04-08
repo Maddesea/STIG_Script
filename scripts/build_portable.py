@@ -14,7 +14,7 @@ import zipfile
 from pathlib import Path
 
 # Configuration
-VERSION = "8.0.0"
+VERSION = "8.1.0"
 PYTHON_VERSION = "3.12.3"
 PYTHON_URL = f"https://www.python.org/ftp/python/{PYTHON_VERSION}/python-{PYTHON_VERSION}-embed-amd64.zip"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent

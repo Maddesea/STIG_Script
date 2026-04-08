@@ -803,6 +803,37 @@ def handle_bulk_edit(payload: dict) -> dict:
         _cleanup_paths([ckl_path, out_path])
 
 
+def handle_export_html(payload: dict) -> dict:
+    ckl_b64 = payload.get("ckl_b64", "")
+    filename = payload.get("filename", "report.html")
+
+    ckl_path = None
+    out_path = None
+
+    try:
+        from stig_assessor.processor.html_report import generate_html_report
+        
+        ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+        with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tf:
+            out_path = Path(tf.name)
+        GLOBAL_STATE.add_temp(out_path)
+
+        generate_html_report(ckl_path, out_path)
+
+        out_b64 = _encode_from_temp(out_path)
+
+        return {
+            "status": "success",
+            "message": "HTML Report generated successfully.",
+            "data": {
+                "html_b64": out_b64,
+                "filename": filename.replace(".ckl", ".html") if ".ckl" in filename else filename,
+            }
+        }
+    finally:
+        _cleanup_paths([ckl_path, out_path])
+
+
 def route_request(path: str, payload: dict) -> dict:
     """Route the request to the appropriate handler."""
     handlers = {
@@ -832,6 +863,7 @@ def route_request(path: str, payload: dict) -> dict:
         "/api/v1/export_poam": handle_export_poam,
         "/api/v1/bulk_edit": handle_bulk_edit,
         "/api/v1/apply_waiver": handle_apply_waiver,
+        "/api/v1/export_html": handle_export_html,
     }
 
     if path not in handlers:

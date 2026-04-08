@@ -18,8 +18,8 @@ Package Structure:
     processor/      - Main XCCDF→CKL conversion engine
     ui/             - User interfaces (CLI and GUI)
 
-Version: 8.0.0
-Build Date: 2025-11-16
+Version: 8.1.0
+Build Date: 2026-04-07
 STIG Viewer Compatibility: 2.18
 """
 

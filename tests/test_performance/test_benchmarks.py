@@ -124,10 +124,11 @@ class TestLargeFileProcessing(PerformanceBenchmark):
         self.create_large_ckl(15000)
 
         # Benchmark load
+        ckl_path = self.temp_dir / "large_15000.ckl"
         self.start_timer()
-        # from stig_assessor.io.file_ops import FO
-        # content = FO.read_with_fallback(ckl_path)
-        # tree = ET.fromstring(content)
+        from stig_assessor.io.file_ops import FO
+        content = FO.read_with_fallback(ckl_path)
+        tree = ET.fromstring(content)
         duration = self.end_timer()
 
         print(f"\nLoad 15K VULNs: {duration:.2f}s")
@@ -141,11 +142,12 @@ class TestLargeFileProcessing(PerformanceBenchmark):
         """
         self.create_large_ckl(15000)
 
+        ckl_path = self.temp_dir / "large_15000.ckl"
         self.start_timer()
         # Full processing workflow
-        # proc = Proc()
-        # proc.validate(ckl_path)
-        # proc.merge(...)
+        from stig_assessor.processor.processor import Proc
+        from stig_assessor.validation.validator import Val
+        Val().validate(ckl_path)
         duration = self.end_timer()
 
         print(f"\nProcess 15K VULNs: {duration:.2f}s")
@@ -165,11 +167,13 @@ class TestMergePerformance(PerformanceBenchmark):
         - Complete in < 30 seconds
         """
         # Create 10 test files
-        [self.create_large_ckl(100) for _ in range(10)]
+        files = [self.create_large_ckl(100) for _ in range(10)]
+        out_merge = self.temp_dir / "merge_10_out.ckl"
 
         self.start_timer()
-        # proc = Proc()
-        # proc.merge(base=files[0], histories=files[1:], output=...)
+        from stig_assessor.processor.processor import Proc
+        proc = Proc()
+        proc.merge(base=files[0], histories=files[1:], out=out_merge)
         duration = self.end_timer()
 
         print(f"\nMerge 10 files: {duration:.2f}s")
@@ -182,11 +186,13 @@ class TestMergePerformance(PerformanceBenchmark):
         - Complete in < 5 minutes (300 seconds)
         """
         # This is a stress test - may skip in quick test runs
-        [self.create_large_ckl(100) for _ in range(100)]
+        files = [self.create_large_ckl(100) for _ in range(100)]
+        out_merge = self.temp_dir / "merge_100_out.ckl"
 
         self.start_timer()
-        # proc = Proc()
-        # proc.merge(base=files[0], histories=files[1:], output=...)
+        from stig_assessor.processor.processor import Proc
+        proc = Proc()
+        proc.merge(base=files[0], histories=files[1:], out=out_merge)
         duration = self.end_timer()
 
         print(f"\nMerge 100 files: {duration:.2f}s")
@@ -228,10 +234,12 @@ class TestRemediationPerformance(PerformanceBenchmark):
         results_path = self.temp_dir / "results.json"
         results_path.write_text(json.dumps(results), encoding="utf-8")
 
+        ckl_path = self.temp_dir / "large_1000.ckl"
         self.start_timer()
-        # processor = FixResPro()
-        # processor.load(results_path)
-        # processor.update_ckl(ckl_path)
+        from stig_assessor.remediation.processor import FixResPro
+        processor = FixResPro()
+        processor.load(results_path)
+        processor.update_ckl(ckl_path, self.temp_dir / "large_1000_updated.ckl")
         duration = self.end_timer()
 
         print(f"\nImport 1000 results: {duration:.2f}s")
@@ -259,9 +267,11 @@ class TestMemoryUsage(PerformanceBenchmark):
 
         self.create_large_ckl(15000)
 
+        ckl_path = self.temp_dir / "large_15000.ckl"
         def process_file():
-            # Load and process
-            pass
+            from stig_assessor.processor.processor import Proc
+            proc = Proc()
+            proc._load_file_as_xml(ckl_path)
 
         process_file()
 

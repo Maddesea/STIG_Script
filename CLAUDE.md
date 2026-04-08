@@ -4,7 +4,7 @@
 
 **STIG Assessor Complete** is a production-ready, zero-dependency, air-gap certified security compliance tool for Department of Defense (DoD) Security Technical Implementation Guide (STIG) assessments.
 
-- **Version:** 8.0.0
+- **Version:** 8.1.0
 - **Build Date:** 2026-04-07
 - **STIG Viewer Compatibility:** 2.18
 - **Language:** Python 3.9+
@@ -20,7 +20,9 @@
 5. **Evidence Management** - Import, export, and package evidence files
 6. **History Tracking** - Microsecond-precision change tracking with deduplication
 7. **Boilerplate Templates** - Status-aware compliance text templates
-8. **GUI & CLI** - Full feature parity between interfaces
+8. **GUI, TUI, & Web UI** - Full feature parity between desktop, terminal, and web interfaces
+9. **HTML Compliance Reports** - Self-contained offline HTML reporting (SVG/Dark Mode)
+10. **Fleet Statistics** - Aggregate statistics and scores across hundreds of checklists
 
 ---
 
@@ -51,6 +53,7 @@ STIG_Script/
 │   │   └── validator.py        # CKL validation (Team 5)
 │   ├── history/                # History tracking
 │   │   ├── models.py           # History dataclass
+│   │   ├── sqlite_store.py     # SQLite history and drift tracking
 │   │   └── manager.py          # History lifecycle management
 │   ├── templates/              # Boilerplate management
 │   │   └── boilerplate.py      # Template system
@@ -61,10 +64,20 @@ STIG_Script/
 │   ├── evidence/               # Evidence management
 │   │   ├── models.py           # Evidence metadata
 │   │   └── manager.py          # Evidence lifecycle
+│   ├── processor/              # Top-level processing orchestration
+│   │   ├── processor.py        # Primary entry points (xccdf, merge, etc)
+│   │   ├── html_report.py      # Self-contained HTML report builder
+│   │   └── fleet_stats.py      # Multi-checklist aggregations
 │   └── ui/                     # User interfaces
 │       ├── cli.py              # CLI entry point
-│       ├── gui.py              # Tkinter GUI
-│       └── presets.py          # GUI preset management
+│       ├── tui.py              # Headless terminal user interface (curses)
+│       ├── presets.py          # GUI preset management
+│       ├── helpers.py          # UI shared utilities
+│       ├── gui/                # Tkinter GUI application
+│       │   └── core.py         # GUI Core
+│       └── web/                # Local web frontend/API
+│           ├── server.py       # Local HTTP server integration
+│           └── api.py          # Web API request routing
 ├── tests/                      # Test suite (~4,500 lines)
 │   ├── conftest.py             # Shared fixtures
 │   ├── test_core/              # Core infrastructure tests
@@ -625,7 +638,7 @@ Based on repository history:
 | Evidence | `~/.stig_assessor/evidence/` |
 | Templates | `~/.stig_assessor/templates/boilerplate.json` |
 
-### Key Line Numbers (STIG_Script.py v8.0.0)
+### Key Line Numbers (STIG_Script.py v8.1.0)
 | Component | Line Range |
 |-----------|------------|
 | Constants | 127-195 |

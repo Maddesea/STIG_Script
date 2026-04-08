@@ -4,7 +4,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
 name = "stig-assessor"
-version = "8.0.0"
+version = "8.1.0"
 description = "Air-gapped, zero-dependency STIG compliance assessment tool for DoD environments"
 readme = "README.md"
 license = {text = "MIT"}
