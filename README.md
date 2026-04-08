@@ -1,8 +1,10 @@
 # STIG Assessor: The Complete A-to-Z User Guide
 
-Welcome to the definitive user guide for **STIG Assessor** (v8.0 Modular Edition). This document serves as your single source of truth for expertly running STIG Assessor, whether you are using the modern Graphical User Interface (GUI) or the highly scriptable Command Line Interface (CLI).
+Welcome to the definitive user guide for **STIG Assessor** (v8.1.0 Modular Edition). This document serves as your single source of truth for expertly running STIG Assessor, whether you are using the modern Graphical User Interface (GUI) or the highly scriptable Command Line Interface (CLI).
 
 STIG Assessor simplifies DISA STIG (Security Technical Implementation Guide) compliance tracking, remediation extraction, and continuous checklist management.
+
+> **📖 Comprehensive Reference:** See [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) for the full 1,400+ line manual covering every feature, command, API endpoint, and automation recipe across CLI, GUI, and Web interfaces.
 
 ---
 

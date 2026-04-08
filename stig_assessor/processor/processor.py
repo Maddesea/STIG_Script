@@ -1799,6 +1799,99 @@ class Proc:
             if severity in stats["by_severity"]:
                 lines.append(f"{severity},{stats['by_severity'][severity]}")
         return "\n".join(lines)
+        return "\n".join(lines)
+
+    def export_html_report(self, ckl_path: Union[str, Path], out_path: Union[str, Path]) -> str:
+        """
+        Generate a standalone HTML compliance report from a checklist.
+        
+        Args:
+            ckl_path: Path to checklist.
+            out_path: Path to save the HTML file.
+            
+        Returns:
+            The path to the generated HTML report.
+        """
+        try:
+            ckl_path = San.path(ckl_path, exist=True, file=True)
+            out_path = San.path(out_path, mkpar=True)
+            tree = self._load_file_as_xml(ckl_path)
+            root = tree.getroot()
+        except Exception as exc:
+            raise ParseError(f"Failed to parse checklist: {exc}")
+
+        vulns = self._extract_vuln_data(root)
+        asset_node = root.find(".//HOST_NAME")
+        asset_name = asset_node.text if asset_node is not None else "Unknown Asset"
+        
+        # Stats
+        total = len(vulns)
+        open_count = sum(1 for v in vulns.values() if v.get("status") == "Open")
+        na_count = sum(1 for v in vulns.values() if v.get("status") in ("Not_Applicable", "NotAFinding"))
+        nr_count = sum(1 for v in vulns.values() if v.get("status") == "Not_Reviewed")
+
+        html_content = [
+            "<!DOCTYPE html>",
+            "<html>",
+            "<head>",
+            "<meta charset='utf-8'>",
+            f"<title>STIG Compliance Report - {asset_name}</title>",
+            "<style>",
+            "body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }",
+            ".container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }",
+            "h1 { border-bottom: 2px solid #0056b3; padding-bottom: 10px; color: #0056b3; }",
+            ".stats { display: flex; gap: 20px; margin: 20px 0; }",
+            ".stat-box { flex: 1; padding: 15px; border-radius: 6px; color: #fff; text-align: center; }",
+            ".bg-blue { background: #0056b3; }",
+            ".bg-red { background: #dc3545; }",
+            ".bg-green { background: #28a745; }",
+            ".bg-yellow { background: #ffc107; color: #333; }",
+            "table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }",
+            "th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }",
+            "th { background-color: #f8f9fa; font-weight: bold; }",
+            ".status-Open { color: #dc3545; font-weight: bold; }",
+            ".status-NotAFinding { color: #28a745; font-weight: bold; }",
+            ".status-Not_Applicable { color: #6c757d; }",
+            "</style>",
+            "</head>",
+            "<body>",
+            "<div class='container'>",
+            f"<h1>STIG Compliance Report: {asset_name}</h1>",
+            "<div class='stats'>",
+            f"<div class='stat-box bg-blue'><h3>Total</h3><h2>{total}</h2></div>",
+            f"<div class='stat-box bg-red'><h3>Open (Non-Compliant)</h3><h2>{open_count}</h2></div>",
+            f"<div class='stat-box bg-green'><h3>Pass / N/A</h3><h2>{na_count}</h2></div>",
+            f"<div class='stat-box bg-yellow'><h3>Not Reviewed</h3><h2>{nr_count}</h2></div>",
+            "</div>",
+            "<table>",
+            "<tr><th>Vuln ID</th><th>Severity</th><th>Status</th><th>Finding Details</th></tr>"
+        ]
+
+        for vid, vdata in vulns.items():
+            status = vdata.get("status", "Not_Reviewed")
+            severity = vdata.get("severity", "medium").upper()
+            details = vdata.get("finding_details", "")
+            if len(details) > 200:
+                details = details[:200] + "..."
+                
+            # HTML escape simple
+            details = details.replace("<", "&lt;").replace(">", "&gt;")
+            
+            html_content.append("<tr>")
+            html_content.append(f"<td><strong>{vid}</strong></td>")
+            html_content.append(f"<td>{severity}</td>")
+            html_content.append(f"<td class='status-{status}'>{status.replace('_', ' ')}</td>")
+            html_content.append(f"<td>{details}</td>")
+            html_content.append("</tr>")
+
+        html_content.append("</table>")
+        html_content.append("</div></body></html>")
+
+        with open(out_path, 'w', encoding='utf-8') as f:
+            f.write("\n".join(html_content))
+            
+        LOG.i(f"Exported HTML report to {out_path}")
+        return str(out_path)
 
     # ------------------------------------------------------------ POAM & Bulk Operations
     def export_poam(self, ckl_path: Union[str, Path]) -> str:
@@ -1945,6 +2038,79 @@ class Proc:
         self._export_xml_to_file(root, out_path)
 
         LOG.i(f"Bulk edited {count} vulnerabilities")
+        return {
+            "ok": True,
+            "updates": count,
+            "output": str(out_path)
+        }
+
+    def apply_waivers(
+        self,
+        ckl_path: Union[str, Path],
+        out_path: Union[str, Path],
+        vids: List[str],
+        approver: str,
+        reason: str,
+        valid_until: str
+    ) -> Dict[str, Any]:
+        """
+        Automated Waiver Engine pipeline.
+
+        Args:
+            ckl_path: Path to checklist.
+            out_path: Where to save the updated checklist.
+            vids: List of vulnerability IDs to apply the waiver to.
+            approver: Name of the approval authority.
+            reason: Waiver rationale/justification.
+            valid_until: Expiration date.
+
+        Returns:
+            Dictionary with waiver batch statistics.
+        """
+        try:
+            ckl_path = San.path(ckl_path, exist=True, file=True)
+            out_path = San.path(out_path, mkpar=True)
+            tree = self._load_file_as_xml(ckl_path)
+            root = tree.getroot()
+        except Exception as exc:
+            raise ParseError(f"Failed to load checklist: {exc}")
+
+        count = 0
+        waiver_block = (
+            "═" * 40 + "\n"
+            f"[WAIVER APPROVED: {approver}]\n"
+            f"Valid Until: {valid_until}\n"
+            f"Reason: {reason}\n"
+            + "═" * 40
+        )
+
+        stigs = root.find("STIGS")
+        if stigs is not None:
+            for istig in stigs.findall("iSTIG"):
+                for vuln in istig.findall("VULN"):
+                    vid = XmlUtils.get_vid(vuln) or ""
+                    
+                    if vid in vids:
+                        status_node = vuln.find("STATUS")
+                        if status_node is None:
+                            status_node = ET.SubElement(vuln, "STATUS")
+                        status_node.text = Status.NOT_APPLICABLE.value
+
+                        comment_node = vuln.find("COMMENTS")
+                        if comment_node is None:
+                            comment_node = ET.SubElement(vuln, "COMMENTS")
+
+                        if comment_node.text and comment_node.text.strip():
+                            comment_node.text = f"{waiver_block}\n\n{comment_node.text.strip()}"
+                        else:
+                            comment_node.text = waiver_block
+
+                        count += 1
+
+        XmlUtils.indent_xml(root)
+        self._export_xml_to_file(root, out_path)
+
+        LOG.i(f"Applied waivers to {count} vulnerabilities")
         return {
             "ok": True,
             "updates": count,

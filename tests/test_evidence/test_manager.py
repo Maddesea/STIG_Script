@@ -9,11 +9,9 @@ import tempfile
 import unittest
 import zipfile
 from collections import defaultdict
-from datetime import datetime, timezone
 from pathlib import Path
 
 from stig_assessor.evidence.manager import EvidenceMgr
-from stig_assessor.evidence.models import EvidenceMeta
 
 
 class TestEvidenceMgr(unittest.TestCase):

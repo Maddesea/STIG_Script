@@ -19,7 +19,6 @@ import unittest
 from pathlib import Path
 from xml.etree.ElementTree import Element
 
-from stig_assessor.exceptions import FileError
 from stig_assessor.templates.boilerplate import BOILERPLATE, BP
 
 # Add parent directory to path for imports

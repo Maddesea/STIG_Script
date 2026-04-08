@@ -13,7 +13,6 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 from stig_assessor.core.config import Cfg
 

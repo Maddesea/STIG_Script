@@ -11,7 +11,6 @@ Tests the HistMgr class including:
 """
 
 from stig_assessor.core.config import Cfg
-from stig_assessor.history.models import Hist
 from stig_assessor.history.manager import HistMgr
 import unittest
 import tempfile
@@ -211,7 +210,6 @@ class TestHistMgrCompression(unittest.TestCase):
         # After MAX_HIST entries, compression will keep HEAD + TAIL + 1 compressed entry
         # So we need middle = MAX_HIST - HEAD - TAIL > 0
         # 200 - 15 - 100 = 85, so we need more than 200 entries
-        import time
 
         for i in range(Cfg.MAX_HIST + 50):
             # Add unique entries with slight delay to ensure different timestamps
@@ -232,7 +230,7 @@ class TestHistMgrCompression(unittest.TestCase):
         # Check if compression occurred by looking for compressed entry
         # Only check if we actually added enough entries to trigger compression
         if Cfg.MAX_HIST - Cfg.HIST_COMPRESS_HEAD - Cfg.HIST_COMPRESS_TAIL > 0:
-            has_compressed = any(e.stat == "compressed" for e in entries)
+            _ = any(e.stat == "compressed" for e in entries)
             # Note: Compression may or may not create a "compressed" entry
             # depending on whether there's a middle section to compress
             # This is acceptable behavior

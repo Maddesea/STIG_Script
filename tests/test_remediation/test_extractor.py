@@ -3,7 +3,6 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
 
 # Note: These tests are designed to work when the full modular system is in place
 # For now, they serve as documentation of expected behavior

@@ -121,7 +121,7 @@ class TestLargeFileProcessing(PerformanceBenchmark):
         - Total load time < 30 seconds
         """
         # Create test file
-        ckl_path = self.create_large_ckl(15000)
+        self.create_large_ckl(15000)
 
         # Benchmark load
         self.start_timer()
@@ -139,7 +139,7 @@ class TestLargeFileProcessing(PerformanceBenchmark):
         Requirements:
         - Full processing (validation, history, etc.) < 60 seconds
         """
-        ckl_path = self.create_large_ckl(15000)
+        self.create_large_ckl(15000)
 
         self.start_timer()
         # Full processing workflow
@@ -165,7 +165,7 @@ class TestMergePerformance(PerformanceBenchmark):
         - Complete in < 30 seconds
         """
         # Create 10 test files
-        files = [self.create_large_ckl(100) for _ in range(10)]
+        [self.create_large_ckl(100) for _ in range(10)]
 
         self.start_timer()
         # proc = Proc()
@@ -182,7 +182,7 @@ class TestMergePerformance(PerformanceBenchmark):
         - Complete in < 5 minutes (300 seconds)
         """
         # This is a stress test - may skip in quick test runs
-        files = [self.create_large_ckl(100) for _ in range(100)]
+        [self.create_large_ckl(100) for _ in range(100)]
 
         self.start_timer()
         # proc = Proc()
@@ -208,7 +208,7 @@ class TestRemediationPerformance(PerformanceBenchmark):
         - Total < 30 seconds
         """
         # Create test CKL
-        ckl_path = self.create_large_ckl(1000)
+        self.create_large_ckl(1000)
 
         # Create results JSON
         results = {
@@ -257,7 +257,7 @@ class TestMemoryUsage(PerformanceBenchmark):
 
         tracemalloc.start()
 
-        ckl_path = self.create_large_ckl(15000)
+        self.create_large_ckl(15000)
 
         def process_file():
             # Load and process
@@ -288,7 +288,6 @@ class TestConcurrentOperations(PerformanceBenchmark):
         - No thread safety issues
         - Performance similar to sequential
         """
-        pass
 
 
 if __name__ == "__main__":

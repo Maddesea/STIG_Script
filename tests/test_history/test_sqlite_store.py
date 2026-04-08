@@ -140,7 +140,7 @@ class TestSQLiteStore(unittest.TestCase):
         """Rules going Open → NotAFinding should appear in 'fixed'."""
         r1 = [{"vid": "V-1", "status": "Open", "severity": "high"}]
         r2 = [{"vid": "V-1", "status": "NotAFinding", "severity": "high"}]
-        aid1 = self.store.save_assessment("SRV", "a.ckl", "STIG", r1)
+        self.store.save_assessment("SRV", "a.ckl", "STIG", r1)
         aid2 = self.store.save_assessment("SRV", "b.ckl", "STIG", r2)
         drift = self.store.get_drift("SRV", aid2)
         self.assertEqual(len(drift["fixed"]), 1)

@@ -10,7 +10,6 @@ These tests verify end-to-end functionality across all modules:
 These tests require all modules to be implemented and integrated.
 """
 
-import json
 import shutil
 import tempfile
 import unittest
@@ -70,7 +69,6 @@ class TestXCCDFtoCKLWorkflow(unittest.TestCase):
         # # Verify
         # self.assertTrue(output_path.exists())
         # # ... validate structure ...
-        pass
 
     def test_xccdf_conversion_with_boilerplate(self):
         """Test XCCDF conversion with boilerplate application.
@@ -79,7 +77,6 @@ class TestXCCDFtoCKLWorkflow(unittest.TestCase):
         - Boilerplate templates applied to matching VIDs
         - Custom templates override defaults
         """
-        pass
 
     def test_xccdf_conversion_large_benchmark(self):
         """Test conversion of large benchmark (1000+ checks).
@@ -88,7 +85,6 @@ class TestXCCDFtoCKLWorkflow(unittest.TestCase):
         - Complete within 60 seconds
         - Memory usage < 500MB
         """
-        pass
 
 
 class TestMergeWorkflow(unittest.TestCase):
@@ -119,7 +115,6 @@ class TestMergeWorkflow(unittest.TestCase):
         - History from old checklist imported
         - Timestamps maintained
         """
-        pass
 
     def test_merge_multiple_checklists(self):
         """Test merging 10+ checklists.
@@ -129,7 +124,6 @@ class TestMergeWorkflow(unittest.TestCase):
         - Duplicate entries deduplicated
         - Chronological order maintained
         """
-        pass
 
     def test_merge_with_history_limit(self):
         """Test merge respects MAX_HIST (200 entries).
@@ -138,7 +132,6 @@ class TestMergeWorkflow(unittest.TestCase):
         - Keep 200 most recent entries
         - Oldest entries discarded
         """
-        pass
 
 
 class TestRemediationWorkflow(unittest.TestCase):
@@ -197,7 +190,6 @@ class TestRemediationWorkflow(unittest.TestCase):
         #
         # # Verify
         # # ... check statuses updated ...
-        pass
 
     def test_bulk_remediation_import(self):
         """Test importing 300+ remediation results at once.
@@ -207,7 +199,6 @@ class TestRemediationWorkflow(unittest.TestCase):
         - Duplicates handled correctly
         - Performance < 30 seconds
         """
-        pass
 
     def test_remediation_script_generation(self):
         """Test generating Bash and PowerShell scripts.
@@ -217,7 +208,6 @@ class TestRemediationWorkflow(unittest.TestCase):
         - Dry-run mode supported
         - All commands included
         """
-        pass
 
 
 class TestEvidenceWorkflow(unittest.TestCase):
@@ -249,7 +239,6 @@ class TestEvidenceWorkflow(unittest.TestCase):
         3. Export all evidence to directory
         4. Verify files exported correctly
         """
-        pass
 
     def test_evidence_packaging(self):
         """Test evidence packaging to ZIP.
@@ -259,7 +248,6 @@ class TestEvidenceWorkflow(unittest.TestCase):
         - Directory structure preserved
         - Metadata manifest included
         """
-        pass
 
     def test_evidence_deduplication(self):
         """Test evidence deduplication by hash.
@@ -268,7 +256,6 @@ class TestEvidenceWorkflow(unittest.TestCase):
         - Same file not imported twice
         - Different files with same name allowed
         """
-        pass
 
 
 class TestCLIIntegration(unittest.TestCase):
@@ -280,19 +267,15 @@ class TestCLIIntegration(unittest.TestCase):
     def test_cli_create_command(self):
         """Test --create CLI command."""
         # Run: python STIG_Script.py --create --xccdf ... --out ...
-        pass
 
     def test_cli_merge_command(self):
         """Test --merge CLI command."""
-        pass
 
     def test_cli_extract_command(self):
         """Test --extract CLI command."""
-        pass
 
     def test_cli_apply_results_command(self):
         """Test --apply-results CLI command."""
-        pass
 
 
 if __name__ == "__main__":

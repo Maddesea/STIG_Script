@@ -1,17 +1,13 @@
 """Unit tests for the Web API handlers."""
 
 import base64
-import json
-import shutil
 import tempfile
 import unittest
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from stig_assessor.core.state import GLOBAL_STATE
 from stig_assessor.ui.web.api import (_decode_to_temp, handle_ping,
-                                      handle_stats, route_request)
+                                      route_request)
 
 
 class TestWebAPI(unittest.TestCase):

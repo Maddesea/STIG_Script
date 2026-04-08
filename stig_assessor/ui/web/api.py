@@ -245,6 +245,41 @@ def handle_bp_delete(payload: dict) -> dict:
     }
 
 
+def handle_bp_export(payload: dict) -> dict:
+    """Export all boilerplates as base64 JSON for download."""
+    proc = Proc()
+    bp_b64 = proc.boiler.export_b64()
+    return {
+        "status": "success",
+        "data": {"bp_b64": bp_b64},
+        "message": "Boilerplates exported",
+    }
+
+
+def handle_bp_import(payload: dict) -> dict:
+    """Import boilerplates from base64 JSON (merges with existing)."""
+    bp_b64 = payload.get("bp_b64", "")
+    if not bp_b64:
+        return {"status": "error", "message": "bp_b64 is required"}
+
+    proc = Proc()
+    count = proc.boiler.import_b64(bp_b64)
+    return {
+        "status": "success",
+        "message": f"Imported {count} VID template(s)",
+    }
+
+
+def handle_bp_reset(payload: dict) -> dict:
+    """Reset all boilerplates to factory defaults."""
+    proc = Proc()
+    proc.boiler.reset_all()
+    return {
+        "status": "success",
+        "message": "Boilerplates reset to factory defaults",
+    }
+
+
 def handle_evidence_summary(payload: dict) -> dict:
     return {"status": "success", "summary": EVIDENCE.summary()}
 
@@ -674,6 +709,45 @@ def handle_export_poam(payload: dict) -> dict:
         _cleanup_paths([ckl_path])
 
 
+def handle_apply_waiver(payload: dict) -> dict:
+    ckl_b64 = payload.get("ckl_b64", "")
+    filename = payload.get("filename", "upload.ckl")
+    vids = payload.get("vids", [])
+    approver = payload.get("approver", "")
+    reason = payload.get("reason", "")
+    valid_until = payload.get("valid_until", "")
+
+    if not all([vids, approver, reason, valid_until]):
+        return {"status": "error", "message": "Missing required waiver fields: vids, approver, reason, valid_until"}
+
+    ckl_path = None
+    out_path = None
+
+    try:
+        ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+        with tempfile.NamedTemporaryFile(suffix=".ckl", delete=False) as tf:
+            out_path = Path(tf.name)
+        GLOBAL_STATE.add_temp(out_path)
+
+        proc = Proc()
+        result = proc.apply_waivers(ckl_path, out_path, vids, approver, reason, valid_until)
+        out_b64 = _encode_from_temp(out_path)
+
+        return {
+            "status": "success",
+            "message": f"Successfully applied waivers to {result.get('updates', 0)} vulnerabilities.",
+            "data": {
+                "ckl_b64": out_b64,
+                "filename": filename.replace(".ckl", "_waiver.ckl") if ".ckl" in filename else f"{filename}_waiver.ckl",
+                "updates": result.get("updates", 0)
+            }
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    finally:
+        _cleanup_paths([ckl_path, out_path])
+
+
 def handle_bulk_edit(payload: dict) -> dict:
     ckl_b64 = payload.get("ckl_b64", "")
     filename = payload.get("filename", "upload.ckl")
@@ -739,6 +813,9 @@ def route_request(path: str, payload: dict) -> dict:
         "/api/v1/bp_list": handle_bp_list,
         "/api/v1/bp_set": handle_bp_set,
         "/api/v1/bp_delete": handle_bp_delete,
+        "/api/v1/bp_export": handle_bp_export,
+        "/api/v1/bp_import": handle_bp_import,
+        "/api/v1/bp_reset": handle_bp_reset,
         "/api/v1/evidence/summary": handle_evidence_summary,
         "/api/v1/evidence/import": handle_evidence_import,
         "/api/v1/evidence/package": handle_evidence_package,
@@ -754,6 +831,7 @@ def route_request(path: str, payload: dict) -> dict:
         "/api/v1/verify_integrity": handle_verify_integrity,
         "/api/v1/export_poam": handle_export_poam,
         "/api/v1/bulk_edit": handle_bulk_edit,
+        "/api/v1/apply_waiver": handle_apply_waiver,
     }
 
     if path not in handlers:

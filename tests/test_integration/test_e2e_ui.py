@@ -4,7 +4,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 # Import the application modules safely
 from stig_assessor.ui.cli import main as cli_main
@@ -146,7 +146,7 @@ class TestE2EWorkflows(unittest.TestCase):
         gui._do_create()
         # Should have appended an error label, blocking execution
         self.assertTrue(
-            any(l for l, _ in gui._inline_labels if "Missing input" in l.cget("text"))
+            any(lbl for lbl, _ in gui._inline_labels if "Missing input" in lbl.cget("text"))
         )
 
         # 2. Test successful creation
@@ -174,12 +174,10 @@ class TestE2EWorkflows(unittest.TestCase):
 
         start = time.time()
         # validate doesn't create a file, it just populates validate_tree. Look for rows.
-        validate_complete = False
         while time.time() - start < 5.0:
             gui.root.update()
             time.sleep(0.05)
             if len(gui.validate_tree.get_children()) > 0:
-                validate_complete = True
                 break
 
         if mock_err.called:

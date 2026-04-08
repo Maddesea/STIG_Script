@@ -9,15 +9,12 @@ Tests cover:
 - Error handling and edge cases
 """
 
-import os
 import shutil
 import tempfile
 import unittest
-import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Optional
 
-from stig_assessor.exceptions import FileError, ParseError, ValidationError
+from stig_assessor.exceptions import FileError, ValidationError
 from stig_assessor.io.file_ops import FO, retry
 
 
@@ -221,7 +218,6 @@ class TestFileOperations(unittest.TestCase):
         """Test that parsing file exceeding MAX_XML_SIZE raises error."""
         # This test would need a very large file
         # Skipping actual implementation to avoid creating huge files
-        pass
 
     def test_parse_xml_nonexistent_file_raises_error(self):
         """Test that parsing nonexistent XML file raises error."""
@@ -328,7 +324,7 @@ class TestEdgeCases(unittest.TestCase):
         """Test atomic write with empty content."""
         test_file = self.test_dir / "empty.txt"
 
-        with FO.atomic(test_file) as f:
+        with FO.atomic(test_file):
             pass  # Write nothing
 
         self.assertTrue(test_file.exists())
@@ -351,7 +347,7 @@ class TestEdgeCases(unittest.TestCase):
             f.write(content)
 
         # Note: Null character handling may vary
-        result = test_file.read_text()
+        test_file.read_text()
         # The newline normalization may affect the result
 
 

@@ -9,7 +9,6 @@ portable application.
 
 import os
 import shutil
-import sys
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -26,7 +25,7 @@ STAGE_DIR = BUILD_DIR / APP_NAME
 
 
 def clean_build():
-    print(f"Cleaning build directories...")
+    print("Cleaning build directories...")
     if BUILD_DIR.exists():
         shutil.rmtree(BUILD_DIR)
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
@@ -70,7 +69,7 @@ def download_python():
     print(f"Downloading Python {PYTHON_VERSION} embedded package...")
     try:
         urllib.request.urlretrieve(PYTHON_URL, python_zip)
-        print(f"Extracting Python...")
+        print("Extracting Python...")
         with zipfile.ZipFile(python_zip, "r") as zf:
             zf.extractall(python_dir)
 

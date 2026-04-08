@@ -84,7 +84,7 @@ def format_color(text: str, color: str) -> str:
 
 # Import GUI conditionally
 if Deps.HAS_TKINTER:
-    from stig_assessor.ui.gui import GUI
+    from stig_assessor.ui.gui.core import GUI
 
 
 def ensure_default_boilerplates() -> None:
@@ -188,6 +188,9 @@ COMMON USE-CASES (Windows Operations):
     parser.add_argument(
         "--web", action="store_true", help="Launch native web interface"
     )
+    parser.add_argument(
+        "--tui", action="store_true", help="Launch interactive text user interface (CLI)"
+    )
 
     create_group = parser.add_argument_group("Create CKL from XCCDF")
     create_group.add_argument(
@@ -247,6 +250,10 @@ COMMON USE-CASES (Windows Operations):
         metavar="DIR_OR_ZIP",
         help="Calculate fleet statistics from a folder or ZIP of CKLs",
     )
+    batch_group.add_argument(
+        "--export-html",
+        help="Generate a beautiful offline HTML report from a Checklist",
+    )
 
     merge_group = parser.add_argument_group("Merge Checklists")
     merge_group.add_argument(
@@ -274,6 +281,17 @@ COMMON USE-CASES (Windows Operations):
         action="store_true",
         help="Dry run (no output written)",
     )
+
+    waiver_group = parser.add_argument_group("Waiver Operations")
+    waiver_group.add_argument(
+        "--apply-waiver",
+        help="Apply a waiver to a list of VIDs. Requires --checklist, --vids, --approver, --reason, and --until",
+        action="store_true"
+    )
+    waiver_group.add_argument("--vids", nargs="+", help="Space-separated list of vulnerability IDs (e.g. V-254440)")
+    waiver_group.add_argument("--approver", help="Name or ID of the waiver approval authority")
+    waiver_group.add_argument("--reason", help="Justification/Reason for the waiver")
+    waiver_group.add_argument("--until", help="Expiration date for the waiver (YYYY-MM-DD)")
 
     diff_group = parser.add_argument_group("Compare Checklists")
     diff_group.add_argument(
@@ -393,6 +411,22 @@ COMMON USE-CASES (Windows Operations):
     )
     bp_group.add_argument(
         "--bp-delete", action="store_true", help="Delete a boilerplate comment"
+    )
+    bp_group.add_argument(
+        "--bp-export", metavar="PATH",
+        help="Export all boilerplates to a JSON file",
+    )
+    bp_group.add_argument(
+        "--bp-import", metavar="PATH",
+        help="Import boilerplates from a JSON file (merges with current)",
+    )
+    bp_group.add_argument(
+        "--bp-reset", action="store_true",
+        help="Reset all boilerplates to factory defaults",
+    )
+    bp_group.add_argument(
+        "--bp-clone", nargs=2, metavar=("FROM_VID", "TO_VID"),
+        help="Clone boilerplate templates from one VID to another",
     )
     bp_group.add_argument("--vid", help="Vulnerability ID (e.g. V-12345)")
     bp_group.add_argument("--status", help="Finding Status (e.g. NotAFinding, Open)")
@@ -563,7 +597,27 @@ COMMON USE-CASES (Windows Operations):
             start_server(port=8080)
             return 0
 
+        if args.tui:
+            try:
+                from stig_assessor.ui.tui import start_tui
+                start_tui()
+                return 0
+            except ImportError:
+                print("ERROR: Curses environment is incomplete or unsupported on this OS. Please use --gui or --web instead.", file=sys.stderr)
+                return 1
+
         proc = Proc()
+
+        if getattr(args, "apply_waiver", False):
+            if not all([args.base, args.vids, args.approver, args.reason, getattr(args, "until", None)]):
+                parser.error("--apply-waiver requires --base (checklist file), --vids, --approver, --reason, and --until")
+            out_file = args.merge_out or args.base
+            LOG.i(f"Applying waivers to {args.base} for VIDs: {args.vids}")
+            res = proc.apply_waivers(
+                args.base, out_file, args.vids, args.approver, args.reason, getattr(args, "until")
+            )
+            print(f"Waivers applied directly to {res['updates']} findings. Output saved to {out_file}")
+            return 0
 
         if args.convert_to_cklb:
             ckl_path = Path(args.convert_to_cklb)
@@ -1060,6 +1114,47 @@ COMMON USE-CASES (Windows Operations):
                 )
             else:
                 print(format_color("Boilerplate not found", "yellow"))
+            return 0
+
+        if args.bp_export:
+            proc.boiler.export(args.bp_export)
+            print(
+                format_color(
+                    f"Boilerplates exported to {args.bp_export}", "green"
+                )
+            )
+            return 0
+
+        if args.bp_import:
+            proc.boiler.imp(args.bp_import)
+            print(
+                format_color(
+                    f"Boilerplates imported from {args.bp_import}", "green"
+                )
+            )
+            return 0
+
+        if args.bp_reset:
+            proc.boiler.reset_all()
+            print(format_color("Boilerplates reset to factory defaults", "green"))
+            return 0
+
+        if args.bp_clone:
+            vid_from, vid_to = args.bp_clone
+            ok = proc.boiler.clone(vid_from, vid_to)
+            if ok:
+                print(
+                    format_color(
+                        f"Cloned boilerplates from {vid_from} → {vid_to}",
+                        "green",
+                    )
+                )
+            else:
+                print(
+                    format_color(
+                        f"Source VID {vid_from} not found", "yellow"
+                    )
+                )
             return 0
 
         if args.validate:

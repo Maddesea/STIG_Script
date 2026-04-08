@@ -25,7 +25,7 @@ __all__ = [
 
 # Try to import GUI - it will only be available if tkinter is installed
 try:
-    from stig_assessor.ui.gui import GUI
+    from stig_assessor.ui.gui.core import GUI
 
     __all__.append("GUI")
 except ImportError:

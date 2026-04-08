@@ -14,7 +14,7 @@ def run_test():
         {"vid": "V-222", "status": "Open", "severity": "medium", "find": "bad", "comm": ""},
         {"vid": "V-333", "status": "Not_Reviewed", "severity": "low", "find": "", "comm": ""},
     ]
-    id1 = db.save_assessment("SERVER_A", "file1.ckl", "Win11", res1)
+    db.save_assessment("SERVER_A", "file1.ckl", "Win11", res1)
 
     res2 = [
         {"vid": "V-111", "status": "NotAFinding", "severity": "high", "find": "ok", "comm": ""},

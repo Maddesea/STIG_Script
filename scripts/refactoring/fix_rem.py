@@ -1,4 +1,3 @@
-import re
 
 with open("stig_assessor/validation/validator.py", "r") as f:
     text = f.read()

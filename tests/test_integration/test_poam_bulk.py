@@ -1,7 +1,7 @@
 import pytest
-from pathlib import Path
 from stig_assessor.processor.processor import Proc as STIGProcessor
 from stig_assessor.core.constants import Status
+
 
 @pytest.fixture
 def temp_ckl(tmp_path):
@@ -44,6 +44,7 @@ def temp_ckl(tmp_path):
 </CHECKLIST>""")
     return ckl_path
 
+
 def test_export_poam(temp_ckl):
     processor = STIGProcessor()
     csv_str = processor.export_poam(temp_ckl)
@@ -53,6 +54,7 @@ def test_export_poam(temp_ckl):
     assert "V-1,Rule 1 high,HIGH,Open,comment 1,test_poam_bulk.ckl" in csv_str
     assert "V-3,Rule 3 low test,LOW,Not_Reviewed,,test_poam_bulk.ckl" in csv_str
     assert "V-2" not in csv_str
+
 
 def test_bulk_edit_severity(temp_ckl, tmp_path):
     processor = STIGProcessor()
@@ -84,6 +86,7 @@ def test_bulk_edit_severity(temp_ckl, tmp_path):
                 
     assert v3_status == Status.NOT_A_FINDING
     assert v3_comment == "Mass changed due to risk acceptance"
+
 
 def test_bulk_edit_regex(temp_ckl, tmp_path):
     processor = STIGProcessor()

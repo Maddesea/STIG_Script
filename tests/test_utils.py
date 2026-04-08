@@ -9,11 +9,8 @@ This module provides:
 - Shared test utilities
 """
 
-import shutil
-import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Generator
 
 # ============================================================================
 # Test Data Fixtures

@@ -538,6 +538,13 @@
                 <h2>Boilerplate Templates</h2>
                 <p>Manage reusable finding details and comment templates for common vulnerability assessments.</p>
             </div>
+            <div class="bp-toolbar" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+                <button class="btn btn-primary" id="bp-add-vid-btn" style="padding:6px 14px;font-size:.88rem;">+ Add VID</button>
+                <button class="btn btn-ghost" id="bp-export-btn" style="padding:6px 14px;font-size:.88rem;">⬇ Export</button>
+                <button class="btn btn-ghost" id="bp-import-btn" style="padding:6px 14px;font-size:.88rem;">⬆ Import</button>
+                <input type="file" id="bp-import-file" accept=".json" hidden>
+                <button class="btn btn-ghost" id="bp-reset-btn" style="padding:6px 14px;font-size:.88rem;margin-left:auto;color:var(--status-danger);">↻ Reset Defaults</button>
+            </div>
             <div class="grid-2">
                 <div class="bp-sidebar">
                     <div class="bp-search-box"><input class="glass-input" id="bp-search" aria-label="Search boilerplates" placeholder="Search VID..."></div>
@@ -545,13 +552,21 @@
                 </div>
                 <div class="card">
                     <div class="card-header"><h3 id="bp-editor-title">Select a boilerplate</h3></div>
-                    <div class="form-group"><label for="bp-vid">Vulnerability ID</label><input class="glass-input" id="bp-vid" placeholder="V-12345"></div>
+                    <div class="form-group"><label for="bp-vid">Vulnerability ID</label><input class="glass-input" id="bp-vid" placeholder="V-12345 or V-* for global"></div>
                     <div class="form-group"><label for="bp-status">Status</label><select class="glass-input" id="bp-status"><option value="NotAFinding">NotAFinding</option><option value="Open">Open</option><option value="Not_Applicable">Not_Applicable</option><option value="Not_Reviewed">Not_Reviewed</option></select></div>
                     <div class="form-group"><label for="bp-finding">Finding Details</label><textarea class="glass-input" id="bp-finding" rows="4" placeholder="Default finding details text..."></textarea></div>
                     <div class="form-group"><label for="bp-comment">Comments</label><textarea class="glass-input" id="bp-comment" rows="4" placeholder="Default comments text..."></textarea></div>
                     <div class="form-actions">
                         <button class="btn btn-danger" id="bp-delete-btn">Delete</button>
                         <button class="btn btn-primary" id="bp-save-btn">Save</button>
+                    </div>
+                    <div class="bp-variables-help" style="margin-top:16px;padding:12px 16px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid rgba(255,255,255,.06);">
+                        <h4 style="font-size:.85rem;color:var(--tx-muted);margin-bottom:6px;">📌 Template Variables</h4>
+                        <p style="font-size:.82rem;color:var(--tx-muted);margin:0;">Use placeholders in your templates that get replaced at apply time:</p>
+                        <ul style="margin:6px 0 0 16px;font-size:.82rem;color:var(--tx-muted);">
+                            <li><code style="color:var(--ac-primary);font-size:.82rem;">{asset}</code> — Asset hostname or identifier</li>
+                            <li><code style="color:var(--ac-primary);font-size:.82rem;">{severity}</code> — Vulnerability severity level</li>
+                        </ul>
                     </div>
                 </div>
             </div>

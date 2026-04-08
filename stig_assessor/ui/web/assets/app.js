@@ -103,6 +103,15 @@ async function postApi(url, payload, btn, loadingMsg) {
     }
 }
 
+async function copyToClipboard(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        showToast('Copied to clipboard!', 'success');
+    } catch (err) {
+        showToast('Failed to copy', 'error');
+    }
+}
+
 
 /* ═══════════════════════════════════════════════════════════════════
    NAVIGATION — Sidebar panel switching
@@ -131,9 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Theme
+    const savedTheme = localStorage.getItem('theme-preference') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    
     document.getElementById('theme-toggle')?.addEventListener('click', () => {
         const h = document.documentElement;
-        h.setAttribute('data-theme', h.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+        const newTheme = h.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        h.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme-preference', newTheme);
     });
 
     // Modal close
@@ -254,6 +268,10 @@ function initDropZones() {
     // Repair
     initDZ('repair-upload-zone', 'repair-ckl-file', 'repair-file-label', () => {
         const btn = document.getElementById('repair-submit'); if (btn) btn.disabled = false;
+    });
+    // Bulk Ops
+    initDZ('bulk-upload-zone', 'bulk-ckl-file', 'bulk-file-label', () => {
+        const btn = document.getElementById('btn-run-bulk'); if (btn) btn.disabled = false;
     });
 }
 
@@ -855,6 +873,8 @@ let _bpData = {}, _selectedVid = null;
 
 function wireBoilerplates() {
     loadBpList();
+
+    // Save boilerplate
     document.getElementById('bp-save-btn')?.addEventListener('click', async () => {
         const vid = document.getElementById('bp-vid')?.value?.trim();
         if (!vid) { showToast('VID required.', 'error'); return; }
@@ -867,18 +887,84 @@ function wireBoilerplates() {
         if (res.status === 'success') { showToast('Saved!', 'success'); loadBpList(); }
     });
 
+    // Delete boilerplate
     document.getElementById('bp-delete-btn')?.addEventListener('click', async () => {
         const vid = document.getElementById('bp-vid')?.value?.trim();
         if (!vid) return;
+        if (!confirm(`Delete boilerplate for ${vid} / ${document.getElementById('bp-status')?.value}?`)) return;
         const res = await postApi('/api/v1/bp_delete', { vid, status: document.getElementById('bp-status')?.value });
         if (res.status === 'success') { showToast('Deleted.', 'success'); loadBpList(); }
     });
 
+    // Status change → reload editor fields
+    document.getElementById('bp-status')?.addEventListener('change', () => {
+        if (!_selectedVid || !_bpData[_selectedVid]) return;
+        const status = document.getElementById('bp-status').value;
+        const entry = (_bpData[_selectedVid] || {})[status] || {};
+        document.getElementById('bp-finding').value = entry.finding_details || '';
+        document.getElementById('bp-comment').value = entry.comments || '';
+    });
+
+    // Search / filter
     document.getElementById('bp-search')?.addEventListener('input', (e) => {
         const f = e.target.value.toLowerCase();
         document.querySelectorAll('#bp-list li').forEach(li => {
             li.style.display = li.textContent.toLowerCase().includes(f) ? '' : 'none';
         });
+    });
+
+    // Add new VID
+    document.getElementById('bp-add-vid-btn')?.addEventListener('click', () => {
+        const vid = prompt('Enter Vulnerability ID (e.g. V-12345 or V-* for global):');
+        if (!vid || !vid.trim()) return;
+        const trimmed = vid.trim();
+        // Auto-select the new VID in the editor
+        document.getElementById('bp-vid').value = trimmed;
+        document.getElementById('bp-editor-title').textContent = trimmed;
+        document.getElementById('bp-finding').value = '';
+        document.getElementById('bp-comment').value = '';
+        document.getElementById('bp-status').value = 'NotAFinding';
+        _selectedVid = trimmed;
+        showToast(`Editing new VID: ${trimmed}. Set fields and click Save.`, 'info');
+    });
+
+    // Export boilerplates
+    document.getElementById('bp-export-btn')?.addEventListener('click', async () => {
+        showToast('Exporting boilerplates…', 'info');
+        const res = await postApi('/api/v1/bp_export', {});
+        if (res.status === 'success' && res.data?.bp_b64) {
+            downloadB64(res.data.bp_b64, 'boilerplates.json');
+            showToast('Boilerplates exported!', 'success');
+        }
+    });
+
+    // Import boilerplates
+    const bpImportInput = document.getElementById('bp-import-file');
+    document.getElementById('bp-import-btn')?.addEventListener('click', () => {
+        bpImportInput?.click();
+    });
+    bpImportInput?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        showToast('Importing boilerplates…', 'info');
+        const res = await postApi('/api/v1/bp_import', {
+            bp_b64: await toBase64(file),
+        });
+        if (res.status === 'success') {
+            showToast(res.message || 'Imported!', 'success');
+            loadBpList();
+        }
+        bpImportInput.value = ''; // Reset for re-import
+    });
+
+    // Reset to defaults
+    document.getElementById('bp-reset-btn')?.addEventListener('click', async () => {
+        if (!confirm('Reset ALL boilerplates to factory defaults? This cannot be undone.')) return;
+        const res = await postApi('/api/v1/bp_reset', {});
+        if (res.status === 'success') {
+            showToast('Boilerplates reset to defaults.', 'success');
+            loadBpList();
+        }
     });
 }
 
@@ -891,19 +977,24 @@ async function loadBpList() {
     list.innerHTML = '';
     Object.keys(_bpData).sort().forEach(vid => {
         const li = document.createElement('li');
-        li.textContent = vid;
+        const statuses = Object.keys(_bpData[vid] || {});
+        // Show VID name + status count badge
+        li.innerHTML = `<span class="bp-vid-name">${vid}</span>` +
+            `<span class="bp-status-count">${statuses.length}</span>`;
+        li.title = `Statuses: ${statuses.join(', ') || 'none'}`;
         li.addEventListener('click', () => {
             list.querySelectorAll('li').forEach(l => l.classList.remove('active'));
             li.classList.add('active');
             _selectedVid = vid;
             document.getElementById('bp-vid').value = vid;
             document.getElementById('bp-editor-title').textContent = vid;
-            const statuses = _bpData[vid] || {};
-            const first = Object.keys(statuses)[0] || 'NotAFinding';
-            document.getElementById('bp-status').value = first;
-            const entry = statuses[first] || {};
-            document.getElementById('bp-finding').value = entry.finding || '';
-            document.getElementById('bp-comment').value = entry.comment || '';
+            const statusSel = document.getElementById('bp-status');
+            // Pick the first available status, or keep current
+            const first = statuses[0] || statusSel.value || 'NotAFinding';
+            statusSel.value = first;
+            const entry = (_bpData[vid] || {})[first] || {};
+            document.getElementById('bp-finding').value = entry.finding_details || '';
+            document.getElementById('bp-comment').value = entry.comments || '';
         });
         list.appendChild(li);
     });
@@ -969,9 +1060,10 @@ function wireRepair() {
             if (log) {
                 let html = `<p>${res.message}</p>`;
                 if (d.details?.length) {
-                    html += '<ul>';
+                    html += '<ul id="repair-log-list">';
                     d.details.forEach(det => html += `<li>${det}</li>`);
                     html += '</ul>';
+                    html += `<div style="margin-top: 10px;"><button class="btn btn-ghost btn-sm" onclick="copyToClipboard(document.getElementById('repair-log-list').innerText)"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy Log to Clipboard</button></div>`;
                 }
                 log.innerHTML = html;
             }
@@ -1007,9 +1099,15 @@ function wireApiDocs() {
         { path:'/api/v1/validate', desc:'Validate CKL structure. Params: ckl_b64.' },
         { path:'/api/v1/repair', desc:'Repair broken CKL. Params: ckl_b64, filename.' },
         { path:'/api/v1/verify_integrity', desc:'Checksums and validation. Params: ckl_b64.' },
+        { path:'/api/v1/fleet_stats', desc:'Generate fleet compliance stats from a ZIP map of CKLs. Params: zip_b64.' },
+        { path:'/api/v1/export_poam', desc:'Generate an eMASS-compatible POAM. Params: ckl_b64, filename.' },
+        { path:'/api/v1/bulk_edit', desc:'Apply bulk changes to a checklist. Params: ckl_b64, filename, severity, regex_vid, new_status, new_comment, append_comment.' },
         { path:'/api/v1/bp_list', desc:'List all boilerplate templates. No params.' },
         { path:'/api/v1/bp_set', desc:'Save boilerplate. Params: vid, status, finding, comment.' },
         { path:'/api/v1/bp_delete', desc:'Delete boilerplate. Params: vid, status.' },
+        { path:'/api/v1/bp_export', desc:'Export all boilerplates as base64 JSON. No params.' },
+        { path:'/api/v1/bp_import', desc:'Import boilerplates from base64 JSON (merges). Params: bp_b64.' },
+        { path:'/api/v1/bp_reset', desc:'Reset boilerplates to factory defaults. No params.' },
         { path:'/api/v1/evidence/summary', desc:'Evidence summary stats. No params.' },
         { path:'/api/v1/evidence/import', desc:'Import evidence file. Params: vid, filename, content_b64, description, category.' },
         { path:'/api/v1/evidence/package', desc:'Package all evidence as ZIP. No params.' },
