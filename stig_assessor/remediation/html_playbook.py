@@ -191,14 +191,26 @@ def generate_html_playbook(extractor: Any, out_path: str) -> str:
     def render_fix(f):
         sev_class = f.severity.lower()
         cmd_html = ""
+        cmd_html = ""
         if f.fix_command:
             safe_id = f.vid.replace("-", "_")
             # Base64 encode command to safely store in attribute for JS
             b64_cmd = base64.b64encode(f.fix_command.encode('utf-8')).decode('ascii')
-            cmd_html = f"""
-        <div class="code-block" id="code-{safe_id}">
-            <button class="copy-btn" onclick="copyCode(this, '{b64_cmd}')">Copy</button>
+            cmd_html += f"""
+        <div class="code-block" id="fix-code-{safe_id}">
+            <div style="font-size: 0.7rem; color: var(--tx-muted); margin-bottom: 5px; text-transform: uppercase;">Fix Command</div>
+            <button class="copy-btn" onclick="copyCode(this, '{b64_cmd}')">Copy Fix</button>
             <code>{html.escape(f.fix_command)}</code>
+        </div>
+"""
+        if f.check_command:
+            safe_id = f.vid.replace("-", "_")
+            b64_check = base64.b64encode(f.check_command.encode('utf-8')).decode('ascii')
+            cmd_html += f"""
+        <div class="code-block" style="margin-top: 10px; border-color: rgba(59, 130, 246, 0.3);" id="check-code-{safe_id}">
+             <div style="font-size: 0.7rem; color: var(--tx-muted); margin-bottom: 5px; text-transform: uppercase;">Check / Evidence Command</div>
+            <button class="copy-btn" onclick="copyCode(this, '{b64_check}')">Copy Check</button>
+            <code>{html.escape(f.check_command)}</code>
         </div>
 """
         return f"""

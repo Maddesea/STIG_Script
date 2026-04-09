@@ -4,10 +4,11 @@ from tkinter import ttk, filedialog, messagebox
 from tkinter.scrolledtext import ScrolledText
 import xml.etree.ElementTree as ET
 
-from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_FONT_MONO, Status, GUI_FONT_HEADING
+from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_FONT_MONO, Status, GUI_FONT_HEADING, GUI_ENTRY_WIDTH_MEDIUM
 from stig_assessor.io.file_ops import FO
 from stig_assessor.processor.html_report import _parse_checklist
 from stig_assessor.ui.helpers import ToolTip, TextContextMenu
+from stig_assessor.remediation.extractor import FixExt
 
 def build_editor_tab(app, frame):
     frame.columnconfigure(0, weight=1)
@@ -85,6 +86,79 @@ def build_editor_tab(app, frame):
         width=15
     )
     status_filter_cb.pack(side="left")
+    
+    def _export_remediation():
+        if not app._editor_active_xml_tree or not hasattr(app, "_editor_ckl_path"):
+            messagebox.showwarning("Warning", "Please load a checklist first.")
+            return
+
+        # Simple dialog for remediation options
+        dialog = tk.Toplevel(app.root)
+        dialog.title("Generate Remediation Playbook")
+        dialog.geometry("450x400")
+        dialog.transient(app.root)
+        dialog.grab_set()
+
+        content = ttk.Frame(dialog, padding=GUI_PADDING_LARGE)
+        content.pack(fill="both", expand=True)
+
+        ttk.Label(content, text="Target Platform:", font=(GUI_FONT_NORMAL[0], 10, "bold")).pack(anchor="w")
+        platform_var = tk.StringVar(value="windows")
+        ttk.Radiobutton(content, text="Windows (PowerShell)", variable=platform_var, value="windows").pack(anchor="w", padx=10)
+        ttk.Radiobutton(content, text="Linux (Bash)", variable=platform_var, value="linux").pack(anchor="w", padx=10)
+
+        ttk.Separator(content, orient="horizontal").pack(fill="x", pady=10)
+        ttk.Label(content, text="Filter by Status:", font=(GUI_FONT_NORMAL[0], 10, "bold")).pack(anchor="w")
+        
+        status_vars = {}
+        for s in [Status.OPEN.value, Status.NOT_REVIEWED.value, Status.NOT_A_FINDING.value, Status.NOT_APPLICABLE.value]:
+            var = tk.BooleanVar(value=(s in [Status.OPEN.value, Status.NOT_REVIEWED.value]))
+            status_vars[s] = var
+            ttk.Checkbutton(content, text=s, variable=var).pack(anchor="w", padx=10)
+
+        def _select_all_status():
+            for v in status_vars.values(): v.set(True)
+        
+        ttk.Button(content, text="Select All", command=_select_all_status, style="Text.TButton").pack(anchor="w", padx=10)
+
+        ttk.Separator(content, orient="horizontal").pack(fill="x", pady=10)
+        
+        def _generate():
+            selected_statuses = [s for s, v in status_vars.items() if v.get()]
+            if not selected_statuses:
+                messagebox.showwarning("No Status Selected", "Please select at least one status.")
+                return
+
+            xccdf_path = filedialog.askopenfilename(title="Select Source Benchmark (XCCDF/XML)", filetypes=[("XML files", "*.xml")])
+            if not xccdf_path: return
+
+            out_dir = filedialog.askdirectory(title="Select Output Directory")
+            if not out_dir: return
+
+            try:
+                ext = FixExt(xccdf_path, checklist=app._editor_ckl_path)
+                ext.extract(status_filter=selected_statuses)
+                
+                plat = platform_filter = platform_var.get()
+                out_name = f"remediate_{plat}.ps1" if plat == "windows" else f"remediate_{plat}.sh"
+                out_path = Path(out_dir) / out_name
+                
+                if plat == "windows":
+                    ext.to_powershell(out_path)
+                else:
+                    ext.to_bash(out_path)
+                
+                dialog.destroy()
+                messagebox.showinfo("Success", f"Playbook generated successfully:\n{out_path}\n\nMapping logs: evidence/*.log")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to generate playbook: {e}")
+
+        btn_frame = ttk.Frame(content)
+        btn_frame.pack(side="bottom", fill="x", pady=(20, 0))
+        ttk.Button(btn_frame, text="Generate Playbook", command=_generate).pack(side="right")
+        ttk.Button(btn_frame, text="Cancel", command=dialog.destroy).pack(side="right", padx=GUI_PADDING)
+
+    ttk.Button(search_row, text="🛠 Remediation Playbook", command=_export_remediation).pack(side="right", padx=(GUI_PADDING, 0))
 
     # Filter Persistence
     if hasattr(app, "_editor_filter_state"):

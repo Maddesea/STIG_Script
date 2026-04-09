@@ -180,6 +180,21 @@ class InteractiveWizard:
         self._header("Extract Remediation Playbooks")
 
         xccdf = self._prompt("Path to DISA XCCDF XML", validate_file=True)
+        checklist = self._prompt("Path to Checklist (for filtering, optional)", required=False, validate_file=True)
+        
+        print(_c("\n  Pick Statuses to Include:", "bold"))
+        print("    1. Open + Not_Reviewed (Recommended)")
+        print("    2. Everything (All Statuses)")
+        print("    3. Custom Status List")
+        choice = input(_c("  Select: ", "yellow")).strip()
+        
+        status_filter = ["Open", "Not_Reviewed"]
+        if choice == "2":
+            status_filter = ["All"]
+        elif choice == "3":
+            status_filter = [s.strip() for s in self._prompt("Enter statuses (comma-sep, e.g. Open,NotAFinding)").split(",")]
+
+        platform = self._prompt_choice("Target Platform", ["windows", "linux", "both"])
         out_dir = self._prompt("Output Directory")
 
         print(_c(f"\n  Extracting scripts to {out_dir}…", "cyan"))
@@ -187,13 +202,18 @@ class InteractiveWizard:
             os.makedirs(out_dir, exist_ok=True)
             from stig_assessor.remediation.extractor import FixExt
 
-            extractor = FixExt(xccdf)
-            extractor.extract()
+            extractor = FixExt(xccdf, checklist=checklist if checklist else None)
+            extractor.extract(status_filter=None if "All" in status_filter else status_filter)
+            
             extractor.to_json(os.path.join(out_dir, "fixes.json"))
             extractor.to_csv(os.path.join(out_dir, "fixes.csv"))
-            extractor.to_bash(os.path.join(out_dir, "remediate.sh"))
-            extractor.to_powershell(os.path.join(out_dir, "Remediate.ps1"), enable_rollbacks=False)
-            extractor.to_ansible(os.path.join(out_dir, "remediate.yml"))
+            
+            if platform in ("linux", "both"):
+                extractor.to_bash(os.path.join(out_dir, "remediate.sh"))
+                extractor.to_ansible(os.path.join(out_dir, "remediate.yml"))
+            
+            if platform in ("windows", "both"):
+                extractor.to_powershell(os.path.join(out_dir, "Remediate.ps1"), enable_rollbacks=True)
 
             try:
                 from stig_assessor.remediation.html_playbook import generate_html_playbook
@@ -202,6 +222,7 @@ class InteractiveWizard:
                 pass
 
             self._success(f"Playbooks generated in {out_dir}")
+            print(_c(f"  Note: Evidence logs will be mapped to 'evidence/' directory when scripts run.", "dim"))
         except (ParseError, FileError, OSError, ValueError) as e:
             self._error(str(e))
         self._pause()

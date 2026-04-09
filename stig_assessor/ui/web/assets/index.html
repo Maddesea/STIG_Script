@@ -208,25 +208,54 @@
         <!-- EXTRACT FIXES -->
         <section class="panel" id="panel-extract">
             <div class="panel-header">
-                <h2>Extract Fixes</h2>
-                <p>Extract remediation scripts from XCCDF benchmarks in JSON, CSV, Bash, PowerShell, and Ansible formats.</p>
+                <h2>Extract Fixes & Evidence</h2>
+                <p>Extract remediation scripts from XCCDF benchmarks, optionally filtered by checklist status.</p>
             </div>
-            <div class="card" style="margin-bottom: 16px;">
-                <div class="upload-zone" tabindex="0" role="button" aria-label="File upload drop area" id="ext-upload-zone">
-                    <input type="file" id="ext-xccdf-file" accept=".xml" hidden>
-                    <div class="upload-icon"><svg aria-hidden="true" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
-                    <div class="highlight">Upload XCCDF benchmark</div>
-                    <div class="sub-text">Remediation scripts will be extracted and packaged as a ZIP</div>
-                    <div class="file-name hidden" id="ext-file-label"></div>
+            <div class="grid-2" style="margin-bottom: 16px;">
+                <div class="card">
+                    <div class="card-header"><h3>1. XCCDF Source *</h3></div>
+                    <div class="upload-zone" tabindex="0" role="button" aria-label="File upload drop area" id="ext-upload-zone">
+                        <input type="file" id="ext-xccdf-file" accept=".xml" hidden>
+                        <div class="upload-icon"><svg aria-hidden="true" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                        <div class="highlight">Upload XCCDF benchmark</div>
+                        <div class="file-name hidden" id="ext-file-label"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>2. Assessment Filter (Optional)</h3></div>
+                    <div class="upload-zone" tabindex="0" role="button" aria-label="File upload drop area" id="ext-ckl-zone">
+                        <input type="file" id="ext-ckl-file" accept=".ckl,.cklb" hidden>
+                        <div class="upload-icon"><svg aria-hidden="true" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                        <div class="highlight">Upload CKL/CKLB to filter status</div>
+                        <div class="file-name hidden" id="ext-ckl-label"></div>
+                    </div>
                 </div>
             </div>
+
             <div class="card">
-                <div class="card-header"><h3>Options</h3></div>
-                <div class="grid-2" style="margin-bottom:12px;">
-                    <label class="checkbox-label"><input type="checkbox" id="ext-ansible" checked> Ansible Playbook</label>
-                    <label class="checkbox-label"><input type="checkbox" id="ext-rollbacks"> Enable PS Rollbacks</label>
+                <div class="card-header"><h3>Extraction Options</h3></div>
+                
+                <div id="ext-status-filter-group" class="hidden" style="margin-bottom: 20px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                    <h4 style="font-size: 0.85rem; color: var(--tx-muted); margin-bottom: 10px; text-transform: uppercase;">Status Filter (Applied to Checklist)</h4>
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <label class="checkbox-label"><input type="checkbox" id="ext-stat-open" checked> Open</label>
+                        <label class="checkbox-label"><input type="checkbox" id="ext-stat-nr" checked> Not Reviewed</label>
+                        <label class="checkbox-label"><input type="checkbox" id="ext-stat-na"> Not Applicable</label>
+                        <label class="checkbox-label"><input type="checkbox" id="ext-stat-naf"> NotAFinding</label>
+                    </div>
                 </div>
-                <div class="form-actions"><button class="btn btn-secondary" id="ext-submit" disabled>Extract Fixes</button></div>
+
+                <div class="grid-2" style="margin-bottom:12px;">
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <label class="checkbox-label"><input type="checkbox" id="ext-ansible" checked> Ansible Playbook</label>
+                        <label class="checkbox-label"><input type="checkbox" id="ext-evidence" checked> Standalone Evidence Scripts</label>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <label class="checkbox-label"><input type="checkbox" id="ext-rollbacks"> Enable PS Rollbacks</label>
+                        <label class="checkbox-label"><input type="checkbox" id="ext-dry"> Dry-Run Mode (Script execution only)</label>
+                    </div>
+                </div>
+                <div class="form-actions"><button class="btn btn-secondary" id="ext-submit" disabled>Extract Fixes & Evidence</button></div>
             </div>
         </section>
 

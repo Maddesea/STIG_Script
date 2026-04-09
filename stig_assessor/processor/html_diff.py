@@ -22,15 +22,17 @@ def generate_html_diff(ckl1: str, ckl2: str, out_path: str) -> str:
     <title>STIG Checklist Diff Report</title>
     <style>
         :root {{
-            --bg-base: #0f111a;
-            --bg-surface: #1a1e2e;
-            --bg-card: #23283c;
-            --tx-main: #e2e8f0;
-            --tx-muted: #94a3b8;
-            --bg-red: rgba(239, 68, 68, 0.15);
-            --bg-green: rgba(34, 197, 94, 0.15);
-            --fg-red: #fca5a5;
-            --fg-green: #86efac;
+            --bg-base: #0a0c10;
+            --bg-surface: #12161b;
+            --bg-card: #1c2128;
+            --tx-main: #adbac7;
+            --tx-muted: #768390;
+            --bg-red: rgba(229, 83, 75, 0.15);
+            --bg-green: rgba(52, 125, 57, 0.15);
+            --fg-red: #e5534b;
+            --fg-green: #57ab5a;
+            --accent: #539bf5;
+            --border: #444c56;
         }}
         body {{
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -42,115 +44,146 @@ def generate_html_diff(ckl1: str, ckl2: str, out_path: str) -> str:
         }}
         .header {{
             background-color: var(--bg-surface);
-            padding: 2rem;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 2.5rem 2rem;
+            border-bottom: 1px solid var(--border);
             text-align: center;
         }}
-        .header h1 {{ margin: 0 0 10px 0; }}
+        .header h1 {{ margin: 0 0 10px 0; color: #fff; font-weight: 300; letter-spacing: 1px; }}
         .header p {{ color: var(--tx-muted); margin: 0; font-size: 0.95rem; }}
         
         .container {{
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 2rem;
         }}
         
         .summary-banner {{
-            display: flex;
-            gap: 2rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }}
+        .stat-card {{
             background: var(--bg-card);
             padding: 1.5rem;
-            border-radius: 8px;
-            margin-bottom: 2rem;
-            justify-content: center;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            text-align: center;
+            transition: transform 0.2s;
         }}
-        .stat {{ text-align: center; }}
-        .stat-val {{ font-size: 2rem; font-weight: bold; margin-bottom: 0.25rem; }}
-        .stat-label {{ color: var(--tx-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }}
+        .stat-card:hover {{ transform: translateY(-3px); }}
+        .stat-val {{ font-size: 2.5rem; font-weight: 700; color: var(--accent); display: block; }}
+        .stat-label {{ color: var(--tx-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }}
         
+        .diff-section {{ margin-bottom: 3rem; }}
+        .section-title {{ font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; color: #fff; display: flex; align-items: center; gap: 10px; }}
+        .badge {{ font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: var(--border); }}
+
         .diff-table {{
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             background: var(--bg-card);
-            border-radius: 8px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
             overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }}
         .diff-table th, .diff-table td {{
-            padding: 1rem;
+            padding: 1.25rem;
             text-align: left;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid var(--border);
             vertical-align: top;
         }}
         .diff-table th {{
-            background: rgba(0,0,0,0.2);
+            background: rgba(68, 76, 86, 0.3);
             font-weight: 600;
             color: var(--tx-muted);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
         }}
-        .vid-col {{ font-family: monospace; font-size: 0.95rem; font-weight: bold; width: 120px; }}
-        .field-col {{ color: var(--tx-muted); font-size: 0.9rem; width: 100px; }}
+        .vid-col {{ font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.9rem; font-weight: 600; width: 150px; color: var(--accent); }}
+        .field-col {{ color: var(--tx-muted); font-size: 0.85rem; width: 120px; font-weight: 500; }}
         
-        .diff-side {{ width: 35%; white-space: pre-wrap; font-size: 0.9rem; }}
-        .diff-old {{ background-color: var(--bg-red); color: var(--fg-red); }}
-        .diff-new {{ background-color: var(--bg-green); color: var(--fg-green); }}
+        .diff-side {{ width: 40%; white-space: pre-wrap; font-size: 0.85rem; font-family: ui-monospace, SFMono-Regular, monospace; }}
+        .diff-old {{ background-color: var(--bg-red); border-left: 3px solid var(--fg-red); }}
+        .diff-new {{ background-color: var(--bg-green); border-left: 3px solid var(--fg-green); }}
         
-        .empty {{ color: var(--tx-muted); font-style: italic; }}
+        .empty {{ color: var(--tx-muted); font-style: italic; opacity: 0.6; }}
+        
+        .rule-title {{ display: block; font-size: 0.75rem; color: var(--tx-muted); font-weight: 400; margin-top: 4px; }}
     </style>
 </head>
 <body>
 
 <div class="header">
-    <h1>STIG Checklist Diff Report</h1>
-    <p>Baseline: {html.escape(os.path.basename(ckl1))} &nbsp;|&nbsp; Target: {html.escape(os.path.basename(ckl2))}</p>
+    <h1>STIG Comparison Engine</h1>
+    <p>Baseline: {html.escape(os.path.basename(ckl1))} &nbsp;&rarr;&nbsp; Target: {html.escape(os.path.basename(ckl2))}</p>
 </div>
 
 <div class="container">
     <div class="summary-banner">
-        <div class="stat">
-            <div class="stat-val">{len(diff_data.get('changes', []))}</div>
-            <div class="stat-label">Changed Items</div>
+        <div class="stat-card">
+            <span class="stat-val">{diff_data.get('summary', {}).get('changed', 0)}</span>
+            <span class="stat-label">Changed Findings</span>
         </div>
-        <div class="stat">
-            <div class="stat-val" style="color: var(--fg-green);">{len(diff_data.get('added', []))}</div>
-            <div class="stat-label">Added Rules</div>
+        <div class="stat-card">
+            <span class="stat-val" style="color: var(--fg-green);">{diff_data.get('summary', {}).get('only_in_comparison', 0)}</span>
+            <span class="stat-label">Added Rules</span>
         </div>
-        <div class="stat">
-            <div class="stat-val" style="color: var(--fg-red);">{len(diff_data.get('removed', []))}</div>
-            <div class="stat-label">Removed Rules</div>
+        <div class="stat-card">
+            <span class="stat-val" style="color: var(--fg-red);">{diff_data.get('summary', {}).get('only_in_baseline', 0)}</span>
+            <span class="stat-label">Removed Rules</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-val" style="color: var(--tx-muted);">{diff_data.get('summary', {}).get('unchanged', 0)}</span>
+            <span class="stat-label">Unchanged</span>
         </div>
     </div>
     
-    <table class="diff-table">
-        <thead>
-            <tr>
-                <th class="vid-col">Vulnerability ID</th>
-                <th class="field-col">Field Changed</th>
-                <th class="diff-side">Baseline (Previous)</th>
-                <th class="diff-side">Target (Current)</th>
-            </tr>
-        </thead>
-        <tbody>
+    <div class="diff-section">
+        <div class="section-title">Differences Found <span class="badge">{len(diff_data.get('changes', []))} items</span></div>
+        <table class="diff-table">
+            <thead>
+                <tr>
+                    <th class="vid-col">Vulnerability</th>
+                    <th class="field-col">Field</th>
+                    <th class="diff-side">Baseline</th>
+                    <th class="diff-side">Target</th>
+                </tr>
+            </thead>
+            <tbody>
 """
 
     for ch in diff_data.get("changes", []):
-        old_val = ch.get("old", "")
-        new_val = ch.get("new", "")
-        html_content += f"""
-            <tr>
-                <td class="vid-col">{html.escape(ch.get("vid", ""))}</td>
-                <td class="field-col">{html.escape(ch.get("field", ""))}</td>
-                <td class="diff-side diff-old">{html.escape(str(old_val)) if old_val else '<span class="empty">empty</span>'}</td>
-                <td class="diff-side diff-new">{html.escape(str(new_val)) if new_val else '<span class="empty">empty</span>'}</td>
-            </tr>
+        vid = ch.get("vid", "Unknown")
+        title = ch.get("rule_title", "")
+        for df in ch.get("differences", []):
+            field = df.get("field", "status")
+            old_val = df.get("from", "")
+            new_val = df.get("to", "")
+            
+            # Special handling for text diffs to make them look cleaner in HTML
+            old_display = html.escape(str(old_val)) if old_val else '<span class="empty">empty</span>'
+            new_display = html.escape(str(new_val)) if new_val else '<span class="empty">empty</span>'
+
+            html_content += f"""
+                <tr>
+                    <td class="vid-col">{html.escape(vid)}<span class="rule-title">{html.escape(title[:80])}</span></td>
+                    <td class="field-col">{html.escape(field.replace('_', ' ').title())}</td>
+                    <td class="diff-side diff-old">{old_display}</td>
+                    <td class="diff-side diff-new">{new_display}</td>
+                </tr>
 """
 
+    # Handle Added/Removed
     for ad in diff_data.get("added", []):
         html_content += f"""
             <tr>
                 <td class="vid-col">{html.escape(ad)}</td>
-                <td class="field-col">Rule</td>
-                <td class="diff-side diff-old"><span class="empty">not present</span></td>
-                <td class="diff-side diff-new">Added to checklist</td>
+                <td class="field-col">Checklist</td>
+                <td class="diff-side diff-old"><span class="empty">Not present in baseline</span></td>
+                <td class="diff-side diff-new"><span style="color:var(--fg-green); font-weight:bold;">+ ADDED TO CHECKLIST</span></td>
             </tr>
 """
 
@@ -158,15 +191,20 @@ def generate_html_diff(ckl1: str, ckl2: str, out_path: str) -> str:
         html_content += f"""
             <tr>
                 <td class="vid-col">{html.escape(rm)}</td>
-                <td class="field-col">Rule</td>
-                <td class="diff-side diff-old">Present in baseline</td>
-                <td class="diff-side diff-new"><span class="empty">removed</span></td>
+                <td class="field-col">Checklist</td>
+                <td class="diff-side diff-old"><span style="color:var(--fg-red); font-weight:bold;">- REMOVED FROM CHECKLIST</span></td>
+                <td class="diff-side diff-new"><span class="empty">Not present in comparison</span></td>
             </tr>
 """
 
     html_content += """
-        </tbody>
-    </table>
+            </tbody>
+        </table>
+    </div>
+    
+    <div style="text-align:center; color: var(--tx-muted); font-size: 0.8rem; margin-top: 4rem; border-top: 1px solid var(--border); padding-top: 2rem;">
+        Generated by STIG Assessor Comparison Engine &middot; High Efficiency Compliance Diff
+    </div>
 </div>
 
 </body>

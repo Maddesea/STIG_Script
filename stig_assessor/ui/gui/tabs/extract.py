@@ -66,14 +66,67 @@ def build_extract_tab(app, frame):
     )
     app._extract_outdir_err.grid(row=1, column=3, sticky="w", padx=GUI_PADDING)
 
+    ttk.Label(io_frame, text="Filter by Checklist:").grid(row=2, column=0, sticky="w")
+    app.extract_checklist = tk.StringVar()
+    ent_ckl = ttk.Entry(
+        io_frame,
+        textvariable=app.extract_checklist,
+        width=GUI_ENTRY_WIDTH,
+    )
+    ent_ckl.grid(row=2, column=1, padx=GUI_PADDING, sticky="we")
+
+    def _browse_extract_ckl():
+        path = filedialog.askopenfilename(
+            title="Select Checklist (.ckl/.cklb)",
+            initialdir=app._last_dir(),
+            filetypes=[("Checklist Files", "*.ckl;*.cklb"), ("All Files", "*.*")],
+        )
+        if path:
+            app.extract_checklist.set(path)
+            app._remember_file(path)
+
+    ttk.Button(
+        io_frame, text="📂 Browse…", command=_browse_extract_ckl
+    ).grid(row=2, column=2)
+    app._enable_dnd(ent_ckl, app.extract_checklist)
+
+    # ═══ FILTERING SECTION ═══
+    status_frame = ttk.LabelFrame(
+        frame, text="Compliance Status Filter (requires Checklist)", padding=GUI_PADDING_LARGE
+    )
+    status_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+    
+    app.status_all = tk.BooleanVar(value=False)
+    app.status_open = tk.BooleanVar(value=True)
+    app.status_not_reviewed = tk.BooleanVar(value=True)
+    app.status_na = tk.BooleanVar(value=False)
+    app.status_naf = tk.BooleanVar(value=False)
+
+    def _on_status_all_toggle():
+        state = not app.status_all.get()
+        # Toggle others or disable them? Let's just have it as a choice.
+
+    ttk.Checkbutton(status_frame, text="All Statuses", variable=app.status_all).grid(row=0, column=0, padx=GUI_PADDING_LARGE)
+    ttk.Checkbutton(status_frame, text="Open", variable=app.status_open).grid(row=0, column=1, padx=GUI_PADDING_LARGE)
+    ttk.Checkbutton(status_frame, text="Not Reviewed", variable=app.status_not_reviewed).grid(row=0, column=2, padx=GUI_PADDING_LARGE)
+    ttk.Checkbutton(status_frame, text="Not Applicable", variable=app.status_na).grid(row=0, column=3, padx=GUI_PADDING_LARGE)
+    ttk.Checkbutton(status_frame, text="NotAFinding", variable=app.status_naf).grid(row=0, column=4, padx=GUI_PADDING_LARGE)
+
     def _clear_extract_form():
         app.extract_xccdf.set("")
         app.extract_outdir.set("")
+        app.extract_checklist.set("")
+        app.status_all.set(False)
+        app.status_open.set(True)
+        app.status_not_reviewed.set(True)
+        app.status_na.set(False)
+        app.status_naf.set(False)
         app.extract_json.set(True)
         app.extract_csv.set(True)
         app.extract_bash.set(True)
         app.extract_ps.set(True)
         app.extract_ansible.set(True)
+        app.extract_evidence.set(False)
         app.extract_dry.set(False)
         app.extract_rollbacks.set(False)
 
@@ -126,12 +179,18 @@ def build_extract_tab(app, frame):
     opts_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
     app.extract_dry = tk.BooleanVar(value=False)
     app.extract_rollbacks = tk.BooleanVar(value=False)
+    app.extract_evidence = tk.BooleanVar(value=False)
 
+    ttk.Checkbutton(
+        opts_frame,
+        text="Generate automated evidence gathering scripts (Bash & PowerShell)",
+        variable=app.extract_evidence,
+    ).pack(anchor="center")
     ttk.Checkbutton(
         opts_frame,
         text="Generate scripts in dry-run mode",
         variable=app.extract_dry,
-    ).pack(anchor="center")
+    ).pack(anchor="center", pady=(5, 0))
     ttk.Checkbutton(
         opts_frame,
         text="Enable PowerShell Registry Rollbacks (`reg export`)",
@@ -147,6 +206,7 @@ def build_extract_tab(app, frame):
             return
 
         in_xccdf = app.extract_xccdf.get()
+        in_ckl = app.extract_checklist.get()
         outdir = Path(app.extract_outdir.get())
         outdir.mkdir(parents=True, exist_ok=True, mode=0o700)
 
@@ -155,11 +215,23 @@ def build_extract_tab(app, frame):
         do_bash = app.extract_bash.get()
         do_ps = app.extract_ps.get()
         do_ansible = app.extract_ansible.get()
+        do_evidence = app.extract_evidence.get()
         dry = app.extract_dry.get()
 
+        # Status filter
+        if app.status_all.get():
+            status_filter = ["ALL"]
+        else:
+            status_filter = []
+            if app.status_open.get(): status_filter.append("Open")
+            if app.status_not_reviewed.get(): status_filter.append("Not_Reviewed")
+            if app.status_na.get(): status_filter.append("Not_Applicable")
+            if app.status_naf.get(): status_filter.append("NotAFinding")
+
         def work():
-            extractor = FixExt(in_xccdf)
-            extractor.extract()
+            extractor = FixExt(in_xccdf, checklist=in_ckl if in_ckl else None)
+            extractor.extract(status_filter=status_filter if in_ckl else None)
+
             outpaths = []
             if do_json:
                 extractor.to_json(outdir / "fixes.json")
@@ -182,6 +254,10 @@ def build_extract_tab(app, frame):
                 if hasattr(extractor, "to_ansible"):
                     extractor.to_ansible(outdir / "remediate.yml", dry_run=dry)
                 outpaths.append("Ansible")
+            if do_evidence:
+                extractor.to_evidence_bash(outdir / "gather_evidence.sh")
+                extractor.to_evidence_powershell(outdir / "GatherEvidence.ps1")
+                outpaths.append("Evidence")
             return extractor.stats_summary(), outpaths
 
         def done(result):

@@ -253,6 +253,9 @@ function initDropZones() {
     initDZ('ext-upload-zone', 'ext-xccdf-file', 'ext-file-label', () => {
         const btn = document.getElementById('ext-submit'); if (btn) btn.disabled = false;
     });
+    initDZ('ext-ckl-zone', 'ext-ckl-file', 'ext-ckl-label', () => {
+        document.getElementById('ext-status-filter-group')?.classList.remove('hidden');
+    });
     // Remediate
     initDZ('rem-ckl-zone', 'rem-ckl-file', 'rem-ckl-label', checkRemReady);
     initDZ('rem-json-zone', 'rem-json-file', 'rem-json-label', checkRemReady);
@@ -384,21 +387,36 @@ function wireExtract() {
         const file = document.getElementById('ext-xccdf-file')?.files[0];
         if (!file) { showToast('Upload an XCCDF first.', 'error'); return; }
 
+        const cklFile = document.getElementById('ext-ckl-file')?.files[0];
+        const statusFilter = [];
+        if (cklFile) {
+            if (document.getElementById('ext-stat-open').checked) statusFilter.push('Open');
+            if (document.getElementById('ext-stat-nr').checked) statusFilter.push('Not_Reviewed');
+            if (document.getElementById('ext-stat-na').checked) statusFilter.push('Not_Applicable');
+            if (document.getElementById('ext-stat-naf').checked) statusFilter.push('NotAFinding');
+        }
+
         const btn = document.getElementById('ext-submit');
         showToast('Extracting fixes…', 'info');
         const res = await postApi('/api/v1/extract', {
             b64_content: await toBase64(file),
             filename: file.name,
+            ckl_b64: cklFile ? await toBase64(cklFile) : '',
+            status_filter: statusFilter,
             enable_rollbacks: document.getElementById('ext-rollbacks')?.checked || false,
             do_ansible: document.getElementById('ext-ansible')?.checked !== false,
+            do_evidence: document.getElementById('ext-evidence')?.checked || false,
+            dry_run: document.getElementById('ext-dry')?.checked || false
         }, btn, 'Extracting remediation scripts…');
 
         if (res.status === 'success') {
             const s = res.stats || {};
             showModal('Fixes Extracted', 'Remediation package ready.',
-                statBox(s.total_fixes||0,'Fixes','success') + statBox(s.total_vulns||0,'Vulns','info'),
+                statBox(s.filtered || s.total_fixes || 0, 'Checks', 'success') + 
+                statBox(s.with_command || 0, 'With Commands', 'info') +
+                statBox(s.total_groups || 0, 'Total in STIG', 'warn'),
                 res.package_b64, res.filename);
-            showToast('Extraction complete!', 'success');
+            showToast('Fixes extracted!', 'success');
         }
     });
 }

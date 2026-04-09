@@ -261,12 +261,10 @@ if Deps.HAS_TKINTER:
             self.root.bind_all("<Control-q>", lambda e: self._close())
             self.root.bind_all("<Escape>", lambda e: self._close())
             self.root.bind_all("<Control-comma>", lambda e: self._show_settings())
-            # Tab switching Ctrl+1..6
-            for i in range(6):
-                self.root.bind_all(
-                    f"<Control-Key-{i+1}>",
-                    lambda e, idx=i: self._switch_tab(idx),
-                )
+            
+            # Setup advanced Phase 2 shortcuts (Tab jumping 1-9 and Ctrl+F)
+            self._setup_global_shortcuts()
+
             # Ctrl+Return — execute current tab action
             self.root.bind_all("<Control-Return>", lambda e: self._exec_current_tab())
             

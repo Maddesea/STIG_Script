@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
+import difflib
 from collections import OrderedDict, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -891,19 +892,39 @@ class Proc:
                         }
                     )
                 if v1["finding_details"] != v2["finding_details"]:
+                    diff_text = list(difflib.unified_diff(
+                        (v1["finding_details"] or "").splitlines(),
+                        (v2["finding_details"] or "").splitlines(),
+                        lineterm="",
+                        fromfile="Baseline",
+                        tofile="Target"
+                    ))
                     differences.append(
                         {
                             "field": "finding_details",
                             "from_length": len(v1["finding_details"]),
                             "to_length": len(v2["finding_details"]),
+                            "diff": diff_text,
+                            "from": v1["finding_details"],
+                            "to": v2["finding_details"],
                         }
                     )
                 if v1["comments"] != v2["comments"]:
+                    diff_text = list(difflib.unified_diff(
+                        (v1["comments"] or "").splitlines(),
+                        (v2["comments"] or "").splitlines(),
+                        lineterm="",
+                        fromfile="Baseline",
+                        tofile="Target"
+                    ))
                     differences.append(
                         {
                             "field": "comments",
                             "from_length": len(v1["comments"]),
                             "to_length": len(v2["comments"]),
+                            "diff": diff_text,
+                            "from": v1["comments"],
+                            "to": v2["comments"],
                         }
                     )
 
@@ -913,6 +934,7 @@ class Proc:
                             "vid": vid,
                             "rule_title": v1.get("rule_title", "Unknown"),
                             "differences": differences,
+                            "severity": v1.get("severity", "medium"),
                         }
                     )
                 else:
@@ -932,6 +954,10 @@ class Proc:
                 "only_in_baseline": sorted(only_in_1),
                 "only_in_comparison": sorted(only_in_2),
                 "changed": changed,
+                # For compatibility with legacy/web expectations
+                "changes": changed,
+                "added": sorted(only_in_2),
+                "removed": sorted(only_in_1),
             }
 
             # Format output based on requested format

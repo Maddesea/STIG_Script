@@ -79,6 +79,20 @@ class FixExt:
         re.MULTILINE | re.VERBOSE,
     )
 
+    # ═══ PATTERN 2.1: Network CLI prompts (Cisco, Juniper, etc.) ═══
+    NETWORK_PROMPT = re.compile(
+        r"""
+        ^                      # Start of line
+        [\w.-]+                # Hostname
+        (?:\([\w.-]+\))?       # Optional (config) or (config-if)
+        [#>]?                  # Optional prompt char before actual command
+        \s*                    # Optional whitespace
+        (?![#>\s])             # Ensure we don't just capture a prompt
+        (.+)                   # Capture the command
+    """,
+        re.MULTILINE | re.VERBOSE,
+    )
+
     # ═══ PATTERN 3: Bullet-style commands ═══
     BULLET_CMD = re.compile(
         r"""
@@ -220,17 +234,22 @@ class FixExt:
         re.IGNORECASE | re.DOTALL | re.VERBOSE,
     )
 
-    def __init__(self, xccdf: Union[str, Path]):
+    def __init__(self, xccdf: Union[str, Path], checklist: Optional[Union[str, Path]] = None):
         """
         Initialize fix extractor.
 
         Args:
             xccdf: Path to XCCDF benchmark file
+            checklist: Optional path to assessment CKL/CKLB file for status filtering
 
         Raises:
             FileError: If XCCDF file doesn't exist or is invalid
         """
         self.xccdf = San.path(xccdf, exist=True, file=True)
+        self.checklist_path = (
+            San.path(checklist, exist=True, file=True) if checklist else None
+        )
+        self.statuses: Dict[str, str] = {}  # VID -> Status
         self.ns: Dict[str, str] = {}
         self.fixes: List[Fix] = []
         self._text_cache: Dict[Any, str] = {}
@@ -241,10 +260,17 @@ class FixExt:
             "platforms": defaultdict(int),
         }
 
+        if self.checklist_path:
+            self._load_statuses()
+
     # ---------------------------------------------------------------- extract
-    def extract(self) -> List[Fix]:
+    def extract(self, status_filter: Optional[List[str]] = None) -> List[Fix]:
         """
-        Extract all fixes from XCCDF.
+        Extract all fixes from XCCDF, optionally filtering by checklist status.
+
+        Args:
+            status_filter: Optional list of statuses to include (e.g. ['Open', 'Not_Reviewed']).
+                          Only applies if a checklist was provided during initialization.
 
         Returns:
             List of Fix objects
@@ -252,6 +278,13 @@ class FixExt:
         Raises:
             ParseError: If XCCDF cannot be parsed
         """
+        self.fixes = []  # Reset
+        self.stats["with_fix"] = 0
+        self.stats["with_command"] = 0
+        self.stats["platforms"] = defaultdict(int)
+
+        status_set = {s.lower() for s in status_filter} if status_filter else None
+
         with LOG.context(op="extract_fix", file=self.xccdf.name):
             LOG.i("Extracting fix information")
 
@@ -267,21 +300,79 @@ class FixExt:
                 raise ParseError("No vulnerability groups found in XCCDF")
 
             self.stats["total_groups"] = len(groups)
+            
+            # Enhanced Status Filter Logic
+            is_all = False
+            if status_filter:
+                status_set = {s.lower().strip() for s in status_filter}
+                if "all" in status_set:
+                    is_all = True
+            else:
+                status_set = None
+
             for idx, group in enumerate(groups, 1):
                 with suppress(ValueError, AttributeError, KeyError):
                     fix = self._parse_group(group)
-                    if fix:
+                    if not fix:
+                        continue
+
+                    # Universal Status Filter
+                    include = True
+                    if not is_all and status_set and self.checklist_path:
+                        current_status = self.statuses.get(fix.vid, "not_reviewed").lower().replace(" ", "_").strip()
+                        if current_status not in status_set:
+                            include = False
+
+                    if include:
                         self.fixes.append(fix)
                         self.stats["with_fix"] += 1
                         if fix.fix_command:
                             self.stats["with_command"] += 1
                         self.stats["platforms"][fix.platform] += 1
 
+            filter_msg = ""
+            if is_all:
+                filter_msg = " [ALL checks]"
+            elif status_filter:
+                filter_msg = f" [Filtered by: {', '.join(status_filter)}]"
+
             LOG.i(
                 f"Extracted {len(self.fixes)} fixes "
                 f"({self.stats['with_command']} with actionable commands)"
+                f"{filter_msg}"
             )
             return self.fixes
+
+    def _load_statuses(self) -> None:
+        """Extract vulnerability statuses from provided checklist."""
+        if not self.checklist_path:
+            return
+        try:
+            if self.checklist_path.suffix.lower() == ".cklb":
+                data = FO.parse_cklb(self.checklist_path)
+                reviews = data.get("reviews", [])
+                for rev in reviews:
+                    vid = rev.get("Vuln_Num") or rev.get("vid")
+                    status = rev.get("status")
+                    if vid and status:
+                        self.statuses[San.vuln(str(vid))] = str(status).strip()
+            else:
+                tree = FO.parse_xml(self.checklist_path)
+                root = tree.getroot()
+                for vuln in root.findall(".//VULN"):
+                    vid = None
+                    for sd in vuln.findall("STIG_DATA"):
+                        if sd.findtext("VULN_ATTRIBUTE") == "Vuln_Num":
+                            vid = sd.findtext("ATTRIBUTE_DATA")
+                            break
+                    status_node = vuln.find("STATUS")
+                    if vid and status_node is not None:
+                        status = (status_node.text or "").strip()
+                        if status:
+                            self.statuses[San.vuln(str(vid))] = status
+            LOG.i(f"Loaded {len(self.statuses)} statuses from {self.checklist_path.name}")
+        except Exception as e:
+            LOG.w(f"Failed to load statuses from checklist: {e}")
 
     # ---------------------------------------------------------------- helpers
     def _namespace(self, root: ET.Element) -> Dict[str, str]:
@@ -425,6 +516,7 @@ class FixExt:
         """Extract commands matching terminal prompts or bulleted list prefixes."""
         candidates.extend(self.SHELL_PROMPT.findall(text_block))
         candidates.extend(self.POWERSHELL_PROMPT.findall(text_block))
+        candidates.extend(self.NETWORK_PROMPT.findall(text_block))
         candidates.extend(self.BULLET_CMD.findall(text_block))
 
     def _extract_keyword_patterns(self, text_block: str, candidates: List[str]) -> None:
@@ -685,7 +777,8 @@ DRY_RUN=%{dry_run}
 LOG_FILE="stig_fix_$$(date +%%Y%%m%%d_%%H%%M%%S).log"
 RESULT_FILE="stig_results_$$(date +%%Y%%m%%d_%%H%%M%%S).json"
 
-echo "Remediation started" | tee -a "$LOG_FILE"
+mkdir -p evidence
+echo "Remediation started (Output mapping to evidence/ folder)" | tee -a "$LOG_FILE"
 declare -i PASS=0 FAIL=0 SKIP=0
 declare -a RESULTS=()
 
@@ -707,15 +800,25 @@ record_result() {
 
         live_fix_tmpl = BashTemplate(
             """echo "[%{idx}/%{total}] %{vid} - %{title}" | tee -a "$LOG_FILE"
+# ═══ EVIDENCE CAPTURE ═══
+EVID_LOG="evidence/%{vid}_out.log"
+echo "--- PRE-FIX CHECK ---" > "$EVID_LOG"
+%{check_block} >> "$EVID_LOG" 2>&1 || true
+
+# ═══ FIX ═══
+echo "--- APPLYING FIX ---" >> "$EVID_LOG"
 {
 %{cmd}
-} >>"$LOG_FILE" 2>&1
+} >> "$EVID_LOG" 2>&1
 if [ $? -eq 0 ]; then
-  echo "  ✔ Success" | tee -a "$LOG_FILE"
+  echo "  ✔ Remediation Success" | tee -a "$LOG_FILE"
+  # ═══ VERIFY ═══
+  echo "--- POST-FIX VERIFY ---" >> "$EVID_LOG"
+  %{check_block} >> "$EVID_LOG" 2>&1 && echo "  ✔ Evidence: Check now PASSES" | tee -a "$LOG_FILE" || echo "  ! Evidence: Manual check required" | tee -a "$LOG_FILE"
   record_result "%{vid}" true "success"
   ((PASS++))
 else
-  echo "  ✘ Failed" | tee -a "$LOG_FILE"
+  echo "  ✘ Remediation Failed (See $EVID_LOG)" | tee -a "$LOG_FILE"
   record_result "%{vid}" false "failed"
   ((FAIL++))
 fi
@@ -732,6 +835,16 @@ record_result "%{vid}" true "dry_run"
         )
 
         for idx, fix in enumerate(fixes, 1):
+            check_block = ""
+            verify_block = ""
+            if fix.check_command:
+                check_block = fix.check_command
+
+                verify_block = f"""echo "  [VERIFY] Running post-fix verification..." | tee -a "$LOG_FILE"
+{{
+{indented_check}
+}} >>"$LOG_FILE" 2>&1 && echo "  ✔ Evidence: Check now PASSES (CLOSED)" | tee -a "$LOG_FILE" || echo "  ! Evidence: Check still FAILS" | tee -a "$LOG_FILE" """
+
             if dry_run:
                 lines.append(
                     dry_fix_tmpl.substitute(
@@ -753,6 +866,8 @@ record_result "%{vid}" true "dry_run"
                         vid=fix.vid,
                         title=fix.title[:60],
                         cmd=indented_cmd,
+                        check_block=check_block,
+                        verify_block=verify_block
                     )
                 )
 
@@ -816,10 +931,11 @@ record_result "%{vid}" true "dry_run"
 # Mode: %{mode}
 # Rollbacks Enabled: %{rollbacks}
 
-$$ErrorActionPreference = 'Stop'
+$$ErrorActionPreference = 'Continue'
 $$DryRun = %{dry_run}
 $$Log = "stig_fix_$$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
 $$Results = @()
+if (-not (Test-Path "evidence")) { New-Item -ItemType Directory -Path "evidence" | Out-Null }
 Start-Transcript -Path $$Log -Append | Out-Null
 %{rollback_block}
 
@@ -857,13 +973,29 @@ try {
             )
         ]
 
-        live_fix_tmpl = PsTemplate("""Write-Host "[%{idx}/%{total}] %{vid} - %{title}"
+        live_fix_tmpl = PsTemplate("""Write-Host "[%{idx}/%{total}] %{vid} - %{title}" -ForegroundColor Cyan
+$$EvidLog = "evidence\\%{vid}_out.log"
+"--- PRE-FIX CHECK ---" | Out-File $$EvidLog -Encoding utf8
+try { %{check_block} | Out-File $$EvidLog -Append -Encoding utf8 } catch { "Check failed: $$($$_)" | Out-File $$EvidLog -Append }
+
+# ═══ FIX ═══
+"--- APPLYING FIX ---" | Out-File $$EvidLog -Append -Encoding utf8
 try {
-%{cmd}
-    Write-Host "  ✔ Success"
+%{cmd} | Out-File $$EvidLog -Append -Encoding utf8
+    Write-Host "  ✔ Remediation Success" -ForegroundColor Green
+    
+    # ═══ VERIFY ═══
+    "--- POST-FIX VERIFY ---" | Out-File $$EvidLog -Append -Encoding utf8
+    try { 
+        %{check_block} | Out-File $$EvidLog -Append -Encoding utf8
+        Write-Host "  ✔ Evidence: Check now PASSES" -ForegroundColor Green
+    } catch { 
+        Write-Host "  ! Evidence: Manual verification suggested" -ForegroundColor Yellow
+    }
     Add-Result "%{vid}" $$true "success"
 } catch {
-    Write-Warning "  ✘ Failed: $$($$_.Exception.Message)"
+    Write-Warning "  ✘ Remediation Failed: $$($$_.Exception.Message)"
+    "ERROR: $$($$_.Exception.Message)" | Out-File $$EvidLog -Append -Encoding utf8
     Add-Result "%{vid}" $$false $$_.Exception.Message
 }
 """)
@@ -875,6 +1007,21 @@ Continue
 """)
 
         for idx, fix in enumerate(fixes, 1):
+            check_block = ""
+            verify_block = ""
+            if fix.check_command:
+                indented_check = "\n".join(f"    {line}" for line in fix.check_command.splitlines())
+                check_block = f"""Write-Host "  [CHECK] Running evidence collection..."
+try {{
+{indented_check}
+}} catch {{ Write-Host "  ! Check command failed (Expected if finding is OPEN)" }}"""
+
+                verify_block = f"""Write-Host "  [VERIFY] Running post-fix verification..."
+try {{
+{indented_check}
+    Write-Host "  ✔ Evidence: Check now PASSES (CLOSED)" -ForegroundColor Green
+}} catch {{ Write-Host "  ! Evidence: Check still FAILS" -ForegroundColor Yellow }}"""
+
             if dry_run:
                 lines.append(
                     dry_fix_tmpl.substitute(
@@ -896,6 +1043,8 @@ Continue
                         vid=fix.vid,
                         title=fix.title[:60],
                         cmd=indented_cmd,
+                        check_block=check_block,
+                        verify_block=verify_block
                     )
                 )
 
@@ -997,6 +1146,156 @@ Continue
 
         LOG.i(f"Ansible remediation playbook generated: {path} ({len(fixes)} fixes)")
 
+    def to_evidence_bash(
+        self,
+        path: Union[str, Path],
+    ) -> None:
+        """
+        Generate Bash evidence gathering script.
+
+        Args:
+            path: Output .sh file path
+        """
+        path = San.path(path, mkpar=True)
+        fixes = [
+            fix
+            for fix in self.fixes
+            if fix.check_command and fix.platform in ("linux", "generic")
+        ]
+        if not fixes:
+            LOG.w("No Linux/generic fixes with check commands found")
+            return
+
+        class BashTemplate(string.Template):
+            delimiter = "%"
+
+        header = BashTemplate("""#!/usr/bin/env bash
+# Auto-generated evidence gathering script
+# Generated: %{dt}
+
+EVIDENCE_DIR="stig_evidence_$$(date +%%Y%%m%%d_%%H%%M%%S)"
+mkdir -p "$EVIDENCE_DIR"
+LOG_FILE="$EVIDENCE_DIR/gathering.log"
+MANIFEST="$EVIDENCE_DIR/manifest.csv"
+
+echo "Evidence gathering started" | tee -a "$LOG_FILE"
+echo "VID,Status,Output_File" > "$MANIFEST"
+
+run_check() {
+  local vid="$1"
+  local title="$2"
+  local out_file="$EVIDENCE_DIR/$${vid}.txt"
+  
+  echo "[*] Gathering evidence for $vid - $title" | tee -a "$LOG_FILE"
+  echo "--- EVIDENCE FOR $vid ---" > "$out_file"
+  echo "Title: $title" >> "$out_file"
+  echo "Timestamp: $$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)" >> "$out_file"
+  echo "------------------------" >> "$out_file"
+  return 0
+}
+""").substitute(dt=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"))
+
+        lines = [header]
+        
+        check_tmpl = BashTemplate("""
+run_check "%{vid}" "%{title}"
+{
+%{cmd}
+} >>"$EVIDENCE_DIR/%{vid}.txt" 2>&1
+if [ $? -eq 0 ]; then
+  echo "%{vid},PASS,$EVIDENCE_DIR/%{vid}.txt" >> "$MANIFEST"
+else
+  echo "%{vid},FAIL,$EVIDENCE_DIR/%{vid}.txt" >> "$MANIFEST"
+fi
+""")
+
+        for fix in fixes:
+            lines.append(
+                check_tmpl.substitute(
+                    vid=fix.vid,
+                    title=fix.title[:60].replace('"', '\\"'),
+                    cmd=fix.check_command
+                )
+            )
+
+        lines.append('\necho "Evidence gathering complete. Results in $EVIDENCE_DIR"')
+
+        with FO.atomic(path) as handle:
+            handle.write("\n".join(lines))
+        
+        if not Cfg.IS_WIN:
+            with suppress(OSError):
+                os.chmod(path, 0o750)
+        LOG.i(f"Bash evidence script generated: {path} ({len(fixes)} checks)")
+
+    def to_evidence_powershell(
+        self,
+        path: Union[str, Path],
+    ) -> None:
+        """
+        Generate PowerShell evidence gathering script.
+
+        Args:
+            path: Output .ps1 file path
+        """
+        path = San.path(path, mkpar=True)
+        fixes = [
+            fix
+            for fix in self.fixes
+            if fix.check_command and fix.platform == "windows"
+        ]
+        if not fixes:
+            LOG.w("No Windows fixes with check commands found")
+            return
+
+        class PsTemplate(string.Template):
+            delimiter = "%"
+
+        header = PsTemplate("""# Auto-generated evidence gathering script
+# Generated: %{dt}
+
+$EvidenceDir = "stig_evidence_$$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+New-Item -ItemType Directory -Path $EvidenceDir -Force | Out-Null
+$LogFile = "$EvidenceDir/gathering.log"
+$Manifest = "$EvidenceDir/manifest.csv"
+
+"VID,Status,Output_File" | Out-File $Manifest -Encoding utf8
+Write-Host "Evidence gathering started. Logging to $LogFile"
+
+function Run-Check {
+    param($vid, $title, $cmd)
+    $outFile = "$EvidenceDir/$($vid).txt"
+    Write-Host "[*] Gathering evidence for $vid - $title"
+    "--- EVIDENCE FOR $vid ---" | Out-File $outFile -Encoding utf8
+    "Title: $title" | Out-File $outFile -Append
+    "Timestamp: $$(Get-Date -Format 'o')" | Out-File $outFile -Append
+    "------------------------" | Out-File $outFile -Append
+    
+    try {
+        Invoke-Expression $cmd | Out-File $outFile -Append
+        "$vid,PASS,$outFile" | Out-File $Manifest -Append
+    } catch {
+        "Error: $$($$_.Exception.Message)" | Out-File $outFile -Append
+        "$vid,FAIL,$outFile" | Out-File $Manifest -Append
+    }
+}
+""").substitute(dt=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"))
+
+        lines = [header]
+
+        for fix in fixes:
+            cmd_escaped = fix.check_command.replace('"', '`"').replace('$', '`$')
+            lines.append(
+                f'Run-Check -vid "{fix.vid}" -title "{fix.title[:60]}" -cmd @\'\n{fix.check_command}\n\'@'
+            )
+
+        lines.append('\nWrite-Host "Evidence gathering complete. Results in $EvidenceDir"')
+
+        with FO.atomic(path) as handle:
+            handle.write("\n".join(lines))
+        
+        LOG.i(f"PowerShell evidence script generated: {path} ({len(fixes)} checks)")
+
     def stats_summary(self) -> Dict[str, Any]:
         """
         Get extraction statistics summary.
@@ -1009,4 +1308,117 @@ Continue
             "with_fix": self.stats["with_fix"],
             "with_command": self.stats["with_command"],
             "platforms": dict(self.stats["platforms"]),
+            "filtered": len(self.fixes)
         }
+
+    # ═══ NEW: Evidence Collection Scripts ═══
+
+    def to_evidence_bash(self, path: Union[str, Path]) -> str:
+        """
+        Export checks to a Bash script that collects evidence and generates a JSON result.
+        """
+        path = Path(path)
+        script_parts = [
+            "#!/bin/bash",
+            "# Automated STIG Evidence Collection Script",
+            f"# Source: {self.xccdf.name}",
+            f"# Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            "",
+            "RESULTS_FILE=\"$(pwd)/evidence_results.json\"",
+            "echo \"{\" > \"$RESULTS_FILE\"",
+            "echo \"  \\\"meta\\\": {\", >> \"$RESULTS_FILE\"",
+            f"echo \"    \\\"source\\\": \\\"{self.xccdf.name}\\\",\", >> \"$RESULTS_FILE\"",
+            f"echo \"    \\\"timestamp\\\": \\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\",\", >> \"$RESULTS_FILE\"",
+            "echo \"    \\\"mode\\\": \\\"evidence_collection\\\"\", >> \"$RESULTS_FILE\"",
+            "echo \"  },\", >> \"$RESULTS_FILE\"",
+            "echo \"  \\\"results\\\": [\", >> \"$RESULTS_FILE\"",
+            ""
+        ]
+
+        valid_fixes = [f for f in self.fixes if f.check_command]
+        for idx, fix in enumerate(valid_fixes):
+            script_parts.append(f"echo \"    [#] Collecting evidence for {fix.vid}...\"")
+            script_parts.append("OUTPUT=$(timeout 30s " + fix.check_command + " 2>&1)")
+            script_parts.append("EXIT_CODE=$?")
+            script_parts.append("OK=\"false\"")
+            script_parts.append("[ $EXIT_CODE -eq 0 ] && OK=\"true\"")
+            
+            # Append result to JSON using a heredoc for safety
+            script_parts.append("cat <<EOF >> \"$RESULTS_FILE\"")
+            script_parts.append("    {")
+            script_parts.append(f"      \"vid\": \"{fix.vid}\",")
+            script_parts.append("      \"ok\": $OK,")
+            script_parts.append("      \"ts\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",")
+            script_parts.append("      \"output\": $(echo \"$OUTPUT\" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))' 2>/dev/null || echo '\"'\"$OUTPUT\"'\"')")
+            script_parts.append("    }$( [ " + str(idx) + " -eq " + str(len(valid_fixes)-1) + " ] || echo \",\" )")
+            script_parts.append("EOF")
+            script_parts.append("")
+
+        script_parts.append("echo \"  ]\" >> \"$RESULTS_FILE\"")
+        script_parts.append("echo \"}\" >> \"$RESULTS_FILE\"")
+        script_parts.append(f"echo \"[COMPLETED] Evidence saved to $RESULTS_FILE\"")
+
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write("\n".join(script_parts))
+        
+        try:
+            os.chmod(path, 0o755)
+        except (AttributeError, OSError):
+            pass
+
+        return str(path)
+
+    def to_evidence_powershell(self, path: Union[str, Path]) -> str:
+        """
+        Export checks to a PowerShell script that collects evidence and generates a JSON result.
+        """
+        path = Path(path)
+        script_parts = [
+            "<#",
+            "Automated STIG Evidence Collection Script (PowerShell)",
+            f"Source: {self.xccdf.name}",
+            f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            "#> ",
+            "",
+            "$Results = @()",
+            "$ResultsPath = \"$PSScriptRoot\\evidence_results.json\"",
+            ""
+        ]
+
+        valid_fixes = [f for f in self.fixes if f.check_command]
+        for fix in valid_fixes:
+            safe_vid = fix.vid.replace("'", "''")
+            safe_cmd = fix.check_command.replace("'", "''")
+            
+            script_parts.append(f"Write-Host \"[#] Collecting evidence for {fix.vid}...\" -ForegroundColor Cyan")
+            script_parts.append("$Output = \"\"")
+            script_parts.append("$Ok = $false")
+            script_parts.append("try {")
+            script_parts.append(f"    $Output = Invoke-Expression '{safe_cmd}' 2>&1 | Out-String")
+            script_parts.append("    if ($LASTEXITCODE -eq 0 -or $?) { $Ok = $true }")
+            script_parts.append("} catch {")
+            script_parts.append("    $Output = \"Error: $_\"")
+            script_parts.append("}")
+            script_parts.append("")
+            script_parts.append(" $Results += @{")
+            script_parts.append(f"    vid = '{fix.vid}'")
+            script_parts.append("    ok = $Ok")
+            script_parts.append("    ts = [DateTime]::UtcNow.ToString('o')")
+            script_parts.append("    output = $Output.Trim()")
+            script_parts.append(" }")
+            script_parts.append("")
+
+        script_parts.append("$Payload = @{")
+        script_parts.append(f"    meta = @{{ source = '{self.xccdf.name}'; mode = 'evidence_collection'; timestamp = [DateTime]::UtcNow.ToString('o') }}")
+        script_parts.append("    results = $Results")
+        script_parts.append("}")
+        script_parts.append("$Payload | ConvertTo-Json -Depth 10 | Out-File -FilePath $ResultsPath -Encoding UTF8")
+        script_parts.append("Write-Host \"`n[COMPLETED] Evidence saved to $ResultsPath\" -ForegroundColor Green")
+
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("\n".join(script_parts))
+            
+        return str(path)
+
+
+__all__ = ["FixExt"]

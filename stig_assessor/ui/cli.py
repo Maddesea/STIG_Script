@@ -46,7 +46,6 @@ class Spinner:
             sys.stderr.flush()
             idx = (idx + 1) % len(spinner_chars)
             time.sleep(0.1)
-        sys.stderr.write("\r" + " " * (len(self.message) + 4) + "\r")
         sys.stderr.flush()
 
     def __enter__(self):
@@ -379,6 +378,17 @@ COMMON USE-CASES (Windows Operations):
 
     extract_group = parser.add_argument_group("Extract Fixes")
     extract_group.add_argument("--extract", help="XCCDF file to extract fixes from")
+    extract_group.add_argument(
+        "--checklist", "--ckl", 
+        help="Optional checklist file (.ckl/.cklb) to filter fixes by assessment status"
+    )
+    extract_group.add_argument(
+        "--status-filter",
+        nargs="+",
+        choices=["Open", "Not_Reviewed", "Not_Applicable", "NotAFinding", "All"],
+        default=["Open", "Not_Reviewed"],
+        help="Filter fixes by status found in --checklist (default: Open Not_Reviewed)",
+    )
     extract_group.add_argument("--outdir", help="Output directory for fixes")
     extract_group.add_argument(
         "--no-json", action="store_true", help="Do not export JSON"
@@ -410,7 +420,12 @@ COMMON USE-CASES (Windows Operations):
     extract_group.add_argument(
         "--enable-rollbacks",
         action="store_true",
-        help="Generate pre-flight registry backups",
+        help="Generate pre-flight registry backups (Win only)",
+    )
+    extract_group.add_argument(
+        "--evidence",
+        action="store_true",
+        help="Generate automated evidence gathering scripts (Bash & PowerShell)",
     )
 
     result_group = parser.add_argument_group("Apply Remediation Results")
@@ -887,8 +902,14 @@ COMMON USE-CASES (Windows Operations):
                 LOG.i(f"Auto-resolved output directory: {extract_outdir}")
 
             with Spinner("Extracting fixes..."):
-                extractor = FixExt(args.extract)
-                extractor.extract()
+                extractor = FixExt(args.extract, checklist=args.checklist)
+                
+                # Handle 'All' status filter
+                status_filter = args.status_filter
+                if status_filter and "All" in status_filter:
+                    status_filter = None
+                
+                extractor.extract(status_filter=status_filter)
                 outdir = Path(extract_outdir)
                 outdir.mkdir(parents=True, exist_ok=True, mode=0o700)
 
@@ -906,6 +927,9 @@ COMMON USE-CASES (Windows Operations):
                         dry_run=args.script_dry_run,
                         enable_rollbacks=args.enable_rollbacks,
                     )
+                if getattr(args, "evidence", False):
+                    extractor.to_evidence_bash(outdir / "gather_evidence.sh")
+                    extractor.to_evidence_powershell(outdir / "GatherEvidence.ps1")
                 if not args.no_ansible:
                     extractor.to_ansible(
                         outdir / "remediate.yml", dry_run=args.script_dry_run

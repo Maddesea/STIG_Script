@@ -340,8 +340,12 @@ def handle_evidence_package(payload: dict) -> dict:
 def handle_extract_fixes(payload: dict) -> dict:
     b64_content = payload.get("b64_content", "") or payload.get("content_b64", "")
     filename = payload.get("filename", "upload.xml")
+    
+    ckl_b64 = payload.get("ckl_b64", "")
+    status_filter = payload.get("status_filter", ["Open", "Not_Reviewed"])
 
     in_path = None
+    ckl_path = None
     zip_path = None
     dir_path = Path(tempfile.mkdtemp())
     GLOBAL_STATE.add_temp(dir_path)
@@ -352,18 +356,37 @@ def handle_extract_fixes(payload: dict) -> dict:
         ext = Path(filename).suffix
         in_path = _decode_to_temp(b64_content, ext)
 
-        extractor = FixExt(str(in_path))
-        extractor.extract()
+        if ckl_b64:
+            ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+
+        extractor = FixExt(str(in_path), checklist=ckl_path)
+        extractor.extract(status_filter=status_filter if ckl_path else None)
 
         extractor.to_json(dir_path / "fixes.json")
         extractor.to_csv(dir_path / "fixes.csv")
-        extractor.to_bash(dir_path / "remediate.sh")
+        extractor.to_bash(dir_path / "remediate.sh", dry_run=payload.get("dry_run", False))
         extractor.to_powershell(
-            dir_path / "remediate.ps1", enable_rollbacks=enable_rollbacks
+            dir_path / "remediate.ps1",
+            dry_run=payload.get("dry_run", False),
+            enable_rollbacks=enable_rollbacks,
         )
+        
+        # Automated Evidence Gathering
+        if payload.get("do_evidence", True):
+            extractor.to_evidence_bash(dir_path / "gather_evidence.sh")
+            extractor.to_evidence_powershell(dir_path / "GatherEvidence.ps1")
+
+        # Generate HTML playbook by default now
+        try:
+            from stig_assessor.remediation.html_playbook import generate_html_playbook
+            generate_html_playbook(extractor, dir_path / "remediation_playbook.html")
+        except Exception:
+            pass
 
         if payload.get("do_ansible", True):
-            extractor.to_ansible(dir_path / "remediate.yml")
+            extractor.to_ansible(
+                dir_path / "remediate.yml", dry_run=payload.get("dry_run", False)
+            )
 
         zip_path_str = shutil.make_archive(
             str(dir_path) + "_archive", "zip", str(dir_path)
@@ -380,7 +403,7 @@ def handle_extract_fixes(payload: dict) -> dict:
             "stats": extractor.stats_summary(),
         }
     finally:
-        _cleanup_paths([in_path, zip_path])
+        _cleanup_paths([in_path, ckl_path, zip_path])
         try:
             shutil.rmtree(dir_path)
         except Exception:
