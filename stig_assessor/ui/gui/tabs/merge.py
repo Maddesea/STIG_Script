@@ -95,6 +95,24 @@ def build_merge_tab(app, frame):
                 app.merge_histories.append(path)
                 app.merge_list.insert(tk.END, Path(path).name)
 
+    def _add_merge_folder():
+        directory = filedialog.askdirectory(
+            title="Select Folder containing Historical Checklists",
+            initialdir=app._last_dir()
+        )
+        if not directory:
+            return
+        added = 0
+        for p in Path(directory).rglob("*.ckl"):
+            if p.is_file():
+                str_p = str(p)
+                if str_p not in app.merge_histories:
+                    app.merge_histories.append(str_p)
+                    app.merge_list.insert(tk.END, p.name)
+                    added += 1
+        if added:
+            LOG.i(f"Added {added} historical checklists from folder")
+
     def _remove_merge_hist():
         selection = app.merge_list.curselection()
         if not selection:
@@ -117,13 +135,16 @@ def build_merge_tab(app, frame):
 
     btn_frame = ttk.Frame(input_frame)
     btn_frame.grid(row=1, column=2, sticky="n", pady=GUI_PADDING)
-    ttk.Button(btn_frame, text="Add…", command=_add_merge_hist).pack(
+    ttk.Button(btn_frame, text="Add Files…", command=_add_merge_hist).pack(
+        fill="x", pady=2
+    )
+    ttk.Button(btn_frame, text="Add Folder…", command=_add_merge_folder).pack(
         fill="x", pady=2
     )
     ttk.Button(btn_frame, text="Remove", command=_remove_merge_hist).pack(
         fill="x", pady=2
     )
-    ttk.Button(btn_frame, text="Clear", command=_clear_merge_hist).pack(
+    ttk.Button(btn_frame, text="Clear All", command=_clear_merge_hist).pack(
         fill="x", pady=2
     )
     app.merge_histories: List[str] = []
@@ -153,6 +174,17 @@ def build_merge_tab(app, frame):
     ttk.Button(
         out_frame, text="📂 Browse…", command=_browse_merge_out
     ).grid(row=0, column=2)
+
+    def _clear_merge_form():
+        app.merge_base.set("")
+        _clear_merge_hist()
+        app.merge_out.set("")
+        app.merge_preserve.set(True)
+        app.merge_bp.set(True)
+
+    ttk.Button(
+        out_frame, text="🗑 Clear Form", command=_clear_merge_form
+    ).grid(row=0, column=3, padx=GUI_PADDING_LARGE)
 
     # Options
     options = ttk.LabelFrame(frame, text="Options", padding=GUI_PADDING_LARGE)
@@ -240,3 +272,4 @@ def build_merge_tab(app, frame):
     )
     btn_merge.pack(pady=GUI_PADDING_SECTION)
     app._action_buttons.append(btn_merge)
+    app.action_merge = _do_merge

@@ -203,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
     wireValidate();
     wireRepair();
     wireBulkOps();
+    wireAssessmentEditor();
     wireApiDocs();
 });
 
@@ -258,6 +259,13 @@ function initDropZones() {
     // Merge
     initDZ('merge-base-zone', 'merge-base-file', 'merge-base-label', checkMergeReady);
     initDZ('merge-hist-zone', 'merge-hist-files', 'merge-hist-label', checkMergeReady);
+    // Analytics
+    initDZ('analytics-upload-zone', 'analytics-ckl-file', 'analytics-file-label');
+    // Dashboard
+    initDZ('dash-upload-zone', 'dash-ckl-file', 'dash-file-label');
+    // Editor
+    initDZ('editor-upload-zone', 'editor-ckl-file', 'editor-file-label');
+}
     // Analytics & Fleet
     initDZ('analytics-upload-zone', 'analytics-ckl-file', 'analytics-file-label');
     initDZ('fleet-upload-zone', 'fleet-zip-file', 'fleet-file-label');
@@ -1206,3 +1214,184 @@ function wireBulkOps() {
     });
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   ASSESSMENT EDITOR
+   ═══════════════════════════════════════════════════════════════════ */
+
+function wireAssessmentEditor() {
+    let editorVisibleFile = null;
+    let editorB64Str = null;
+    let editorFindingsCache = [];
+    let editorActiveVid = null;
+    let editorDetailsPane = document.getElementById('editor-details-pane');
+    let editorPlaceholder = document.getElementById('editor-placeholder');
+    
+    document.getElementById('editor-ckl-file')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        showToast('Loading Checklist details for editing...', 'info');
+        
+        editorVisibleFile = file;
+        editorB64Str = await toBase64(file);
+        
+        const res = await postApi('/api/v1/stats', { ckl_b64: editorB64Str });
+        if (res.status === 'success') {
+            document.getElementById('editor-workspace').classList.remove('hidden');
+            
+            const stats = res.stats_data || {};
+            editorFindingsCache = stats.findings_details || [];
+            
+            // Draw summary stats
+            const counts = stats.status_counts || {};
+            document.getElementById('editor-stats-grid').innerHTML =
+                statBox(stats.total_vulns || 0, 'Total Vulns', 'info') +
+                statBox(counts.Open || 0, 'Open', 'danger') +
+                statBox(counts.NotAFinding || 0, 'Compliant', 'success') +
+                statBox((stats.compliance_pct || 0).toFixed(1) + '%', 'Compliance', 'success');
+
+            renderEditorVulnList();
+            showToast('Checklist loaded successfully!', 'success');
+        }
+    });
+    
+    function renderEditorVulnList(filterText = '') {
+        const ul = document.getElementById('editor-vuln-list');
+        ul.innerHTML = '';
+        
+        const searchVal = filterText.toLowerCase();
+        
+        editorFindingsCache.forEach(vuln => {
+            if (searchVal && !(vuln.vid||'').toLowerCase().includes(searchVal) && !(vuln.status||'').toLowerCase().includes(searchVal)) return;
+
+            const li = document.createElement('li');
+            li.className = 'vuln-list-item' + (editorActiveVid === vuln.vid ? ' active' : '');
+            
+            let statusClass = 'nr';
+            if (vuln.status === 'Open') statusClass = 'fail';
+            else if (vuln.status === 'NotAFinding') statusClass = 'pass';
+            else if (vuln.status === 'Not_Applicable') statusClass = 'na';
+            
+            li.innerHTML = `
+                <div class="vid-text">${vuln.vid}</div>
+                <div class="status-indicator ${statusClass}" title="${vuln.status}"></div>
+            `;
+            
+            li.addEventListener('click', () => {
+                editorActiveVid = vuln.vid;
+                renderEditorVulnList(document.getElementById('editor-search').value);
+                
+                // Show pane
+                editorPlaceholder.classList.add('hidden');
+                editorDetailsPane.classList.remove('hidden');
+                
+                // Populate pane
+                document.getElementById('editor-vid-title').textContent = vuln.vid;
+                document.getElementById('editor-rule-title').textContent = vuln.rule_title;
+                document.getElementById('editor-check-content').textContent = vuln.check_content;
+                document.getElementById('editor-fix-text').textContent = vuln.fix_text;
+                
+                document.getElementById('editor-status').value = vuln.status;
+                document.getElementById('editor-finding-details').value = vuln.details || '';
+                document.getElementById('editor-comments').value = vuln.comments || '';
+                
+                // Badge
+                const badge = document.getElementById('editor-status-badge');
+                badge.style.display = 'inline-block';
+                badge.className = `status-badge badge-${vuln.status === 'Open' ? 'Open' : vuln.status}`;
+                badge.textContent = vuln.status;
+            });
+            ul.appendChild(li);
+        });
+    }
+
+    document.getElementById('editor-search')?.addEventListener('input', (e) => {
+        renderEditorVulnList(e.target.value);
+    });
+    
+    document.getElementById('editor-save-btn')?.addEventListener('click', async () => {
+        if (!editorActiveVid || !editorB64Str) return;
+        
+        const newStatus = document.getElementById('editor-status').value;
+        const newDetails = document.getElementById('editor-finding-details').value;
+        const newComments = document.getElementById('editor-comments').value;
+        const btn = document.getElementById('editor-save-btn');
+        
+        const res = await postApi('/api/v1/assess_update', {
+            ckl_b64: editorB64Str,
+            filename: editorVisibleFile.name,
+            vid: editorActiveVid,
+            status: newStatus,
+            finding_details: newDetails,
+            comments: newComments
+        }, btn, `Saving ${editorActiveVid}...`);
+        
+        if (res.status === 'success') {
+            editorB64Str = res.data.ckl_b64;
+            const idx = editorFindingsCache.findIndex(v => v.vid === editorActiveVid);
+            if (idx > -1) {
+                editorFindingsCache[idx].status = newStatus;
+                editorFindingsCache[idx].details = newDetails;
+                editorFindingsCache[idx].comments = newComments;
+            }
+            
+            showToast(`${editorActiveVid} saved!`, 'success');
+            renderEditorVulnList(document.getElementById('editor-search').value);
+            
+            document.getElementById('editor-status-badge').className = `status-badge badge-${newStatus === 'Open' ? 'Open' : newStatus}`;
+            document.getElementById('editor-status-badge').textContent = newStatus;
+            
+            document.getElementById('editor-download-btn')?.classList.add('btn-pulse');
+            setTimeout(() => document.getElementById('editor-download-btn')?.classList.remove('btn-pulse'), 3000);
+            
+            // Allow caller to hook into post-save success
+            return true;
+        }
+        return false;
+    });
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', async (e) => {
+        // Ensure Editor is actually visible/loaded before intercepting
+        if (!editorActiveVid || editorDetailsPane.classList.contains('hidden')) return;
+
+        if (e.ctrlKey && e.key.toLowerCase() === 's') {
+            e.preventDefault();
+            
+            if (e.shiftKey) {
+                // Save & Next
+                const success = await document.getElementById('editor-save-btn').click();
+                const elList = document.querySelectorAll('#editor-vuln-list li');
+                const currIdx = Array.from(elList).findIndex(li => li.classList.contains('active'));
+                if (currIdx > -1 && currIdx < elList.length - 1) {
+                    elList[currIdx + 1].click();
+                    elList[currIdx + 1].scrollIntoView({ block: 'nearest' });
+                }
+            } else {
+                // Just Save
+                document.getElementById('editor-save-btn').click();
+            }
+        } else if (!e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+            // Traverse Vuln List if not inside a textarea
+            if (e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const elList = document.querySelectorAll('#editor-vuln-list li');
+                    const currIdx = Array.from(elList).findIndex(li => li.classList.contains('active'));
+                    if (currIdx > -1) {
+                        const nextIdx = e.key === 'ArrowDown' ? currIdx + 1 : currIdx - 1;
+                        if (nextIdx >= 0 && nextIdx < elList.length) {
+                            elList[nextIdx].click();
+                            elList[nextIdx].scrollIntoView({ block: 'nearest' });
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    document.getElementById('editor-download-btn')?.addEventListener('click', () => {
+        if (!editorB64Str) return;
+        downloadB64(editorB64Str, editorVisibleFile.name.replace('.ckl', '_edited.ckl'));
+        showToast('Checklist Downloaded!', 'success');
+    });
+}

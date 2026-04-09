@@ -70,6 +70,19 @@ def build_create_tab(app, frame):
         files_frame, text="📂 Browse…", command=_browse_create_out
     ).grid(row=1, column=2)
 
+    def _clear_create_form():
+        app.create_xccdf.set("")
+        app.create_out.set("")
+        app.create_asset.set("")
+        app.create_ip.set("")
+        app.create_mac.set("")
+        app.create_bp.set(False)
+        app.create_mark.set("CUI")
+
+    ttk.Button(
+        files_frame, text="🗑 Clear Form", command=_clear_create_form
+    ).grid(row=1, column=3, padx=GUI_PADDING_LARGE)
+
     # Asset Info Frame
     asset_frame = ttk.LabelFrame(
         frame, text="Asset Details", padding=GUI_PADDING_LARGE
@@ -219,3 +232,4 @@ def build_create_tab(app, frame):
     )
     btn_create.pack(pady=GUI_PADDING_SECTION)
     app._action_buttons.append(btn_create)
+    app.action_create = _do_create

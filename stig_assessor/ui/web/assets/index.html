@@ -44,7 +44,11 @@
             </div>
 
             <div class="nav-section">
-                <div class="nav-section-label">Analysis</div>
+                <div class="nav-section-label">Analysis & Edit</div>
+                <div class="nav-item" tabindex="0" role="treeitem" data-panel="editor" id="nav-editor">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    <span>Assessment Editor</span>
+                </div>
                 <div class="nav-item" tabindex="0" role="treeitem" data-panel="analytics" id="nav-analytics">
                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                     <span>Analytics</span>
@@ -290,6 +294,106 @@
             <div class="card">
                 <label class="checkbox-label" style="margin-bottom:12px;"><input type="checkbox" id="merge-preserve" checked> Preserve full history</label>
                 <div class="form-actions"><button class="btn btn-primary" id="merge-submit" disabled>Merge Checklists</button></div>
+            </div>
+        </section>
+
+        <!-- ASSESSMENT EDITOR -->
+        <section class="panel" id="panel-editor">
+            <div class="panel-header">
+                <h2>Assessment Editor</h2>
+                <p>Interactively review and update checklist findings directly from the browser.</p>
+            </div>
+            
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="upload-zone" tabindex="0" role="button" aria-label="Upload CKL to Edit" id="editor-upload-zone">
+                    <input type="file" id="editor-ckl-file" accept=".ckl,.cklb" hidden>
+                    <div class="upload-icon">
+                        <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    </div>
+                    <div class="highlight">Upload Checklist to Edit</div>
+                    <div class="sub-text">Select a .ckl file to begin interactive assessment</div>
+                    <div class="file-name hidden" id="editor-file-label"></div>
+                </div>
+            </div>
+
+            <div id="editor-workspace" class="hidden">
+                <div class="stats-grid" id="editor-stats-grid" style="margin-bottom: 16px;"></div>
+                
+                <div class="editor-layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px; align-items: start;">
+                    <!-- LEFT PANE: List of findings -->
+                    <div class="card" style="padding: 16px; display: flex; flex-direction: column; height: 600px;">
+                        <input class="glass-input" id="editor-search" placeholder="Filter by VID, Status..." style="margin-bottom: 12px; font-size: 0.85rem;">
+                        <div class="table-scroll" style="flex: 1; overflow-y: auto;">
+                            <ul id="editor-vuln-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px;">
+                                <!-- Dynamically populated list -->
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT PANE: Details and Editor Form -->
+                    <div class="card" style="min-height: 600px; display: flex; flex-direction: column;">
+                        <div class="card-header" style="margin-bottom: 12px; border-bottom: 1px solid var(--border-default); padding-bottom: 12px;">
+                            <h3 id="editor-vid-title" style="font-size: 1.2rem; color: var(--ac-primary);">Select a Vulnerability</h3>
+                            <div class="status-badge" id="editor-status-badge" style="display: none;">Status</div>
+                        </div>
+
+                        <div id="editor-details-pane" class="hidden" style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
+                            <div>
+                                <h4 style="font-size: 0.85rem; color: var(--tx-muted); margin-bottom: 4px; text-transform: uppercase;">Rule Title</h4>
+                                <div id="editor-rule-title" style="font-size: 0.95rem; font-weight: 500;"></div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); padding: 12px; border-radius: var(--radius-sm); max-height: 200px; overflow-y: auto;">
+                                    <h4 style="font-size: 0.8rem; color: var(--tx-muted); margin-bottom: 6px;">Check Content</h4>
+                                    <div id="editor-check-content" style="font-size: 0.85rem; line-height: 1.5; font-family: var(--font-mono); white-space: pre-wrap;"></div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); padding: 12px; border-radius: var(--radius-sm); max-height: 200px; overflow-y: auto;">
+                                    <h4 style="font-size: 0.8rem; color: var(--tx-muted); margin-bottom: 6px;">Fix Text</h4>
+                                    <div id="editor-fix-text" style="font-size: 0.85rem; line-height: 1.5; font-family: var(--font-mono); white-space: pre-wrap;"></div>
+                                </div>
+                            </div>
+
+                            <hr style="border: 0; border-top: 1px solid var(--border-default); margin: 4px 0;">
+
+                            <div class="form-group">
+                                <label for="editor-status">Status Update</label>
+                                <select class="glass-input" id="editor-status">
+                                    <option value="Not_Reviewed">Not_Reviewed</option>
+                                    <option value="Open">Open</option>
+                                    <option value="NotAFinding">NotAFinding</option>
+                                    <option value="Not_Applicable">Not_Applicable</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="editor-finding-details">Finding Details</label>
+                                <textarea class="glass-input" id="editor-finding-details" rows="3"></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="editor-comments">Comments</label>
+                                <textarea class="glass-input" id="editor-comments" rows="2"></textarea>
+                            </div>
+
+                            <div class="form-actions" style="margin-top: auto;">
+                                <button class="btn btn-primary" id="editor-save-btn">Save Changes</button>
+                            </div>
+                        </div>
+                        
+                        <div id="editor-placeholder" style="flex: 1; display: flex; align-items: center; justify-content: center; color: var(--tx-muted);">
+                            Select a vulnerability from the list to view and edit details.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h4 style="margin: 0; color: var(--tx-main);">Export Checklist</h4>
+                        <p style="margin: 0; font-size: 0.85rem; color: var(--tx-muted);">Download the edited CKL file with all your saved changes.</p>
+                    </div>
+                    <button class="btn btn-success" id="editor-download-btn">Download Updated CKL</button>
+                </div>
             </div>
         </section>
 

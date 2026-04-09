@@ -103,7 +103,7 @@ def build_evidence_tab(app, frame):
                 s = app.evidence.summary()
                 text = f"Storage: {s['size_mb']:.1f} MB  |  Files: {s['files']}  |  Mapped VIDs: {s['vulnerabilities']}"
                 app.evid_stats_label.config(text=text)
-        except Exception:
+        except (AttributeError, KeyError, TypeError, ValueError):
             import traceback
             traceback.print_exc()
 
@@ -124,7 +124,7 @@ def build_evidence_tab(app, frame):
             return
         try:
             San.vuln(vid)
-        except Exception as _val_err:
+        except (ValueError, TypeError) as _val_err:
             app._show_inline_error(
                 app.vid_entry,
                 f"Invalid Vuln ID: Please enter a valid Vuln ID (e.g. V-12345). ({_val_err})",
@@ -165,6 +165,17 @@ def build_evidence_tab(app, frame):
         command=_import_evidence,
     )
     app.btn_import_evid.grid(row=0, column=6, padx=GUI_PADDING)
+    
+    def _clear_evid_inputs():
+        app.evid_vid.set("")
+        app.evid_desc.set("")
+        app.evid_cat.set("general")
+        
+    ttk.Button(
+        import_frame,
+        text="🗑 Clear",
+        command=_clear_evid_inputs,
+    ).grid(row=0, column=7, padx=(0, GUI_PADDING))
 
     action_frame = ttk.LabelFrame(
         frame, text="Export / Package", padding=GUI_PADDING_LARGE
@@ -263,6 +274,36 @@ def build_evidence_tab(app, frame):
         frame, text="Summary", padding=GUI_PADDING_LARGE
     )
     summary_frame.pack(fill="both", expand=True, pady=GUI_PADDING_LARGE)
+    
+    action_btn_frame = ttk.Frame(summary_frame)
+    action_btn_frame.pack(side="top", fill="x", pady=(0, GUI_PADDING))
+    
+    def _remove_selected_evidence():
+        selected = app.evid_tree.selection()
+        if not selected:
+            messagebox.showinfo("Wait", "Please select at least one evidence file from the list to remove.")
+            return
+            
+        if not messagebox.askyesno("Confirm Delete", f"Are you sure you want to permanently delete {len(selected)} selected evidence file(s)?"):
+            return
+            
+        removed_count = 0
+        for item_id in selected:
+            values = app.evid_tree.item(item_id, "values")
+            if values:
+                vid, filename = values[0], values[1]
+                if getattr(app.evidence, "remove_file", None):
+                    if app.evidence.remove_file(vid, filename):
+                        removed_count += 1
+                
+        app._refresh_evidence_summary()
+        app.status_var.set(f"Removed {removed_count} evidence file(s).")
+        
+    ttk.Button(
+        action_btn_frame,
+        text="🗑 Remove Selected",
+        command=_remove_selected_evidence,
+    ).pack(side="left")
 
     cols = ("vid", "file", "category", "timestamp")
     app.evid_tree = ttk.Treeview(
@@ -284,8 +325,62 @@ def build_evidence_tab(app, frame):
     app.evid_tree.pack(side="left", fill="both", expand=True)
     evid_scroll.pack(side="right", fill="y")
 
-    # Context menu for copy
-    app._attach_tree_context_menu(app.evid_tree)
+    # Advanced Context Menu for Evidence
+    evid_ctx = tk.Menu(app.evid_tree, tearoff=0)
+    
+    def _open_evid_location():
+        sel = app.evid_tree.selection()
+        if not sel: return
+        vid = app.evid_tree.item(sel[0])['values'][0]
+        fname = app.evid_tree.item(sel[0])['values'][1]
+        path = app.evidence.get_path(vid, fname)
+        if path and path.exists():
+            import subprocess
+            if os.name == 'nt':
+                subprocess.run(['explorer', '/select,', str(path)])
+            elif sys.platform == 'darwin':
+                subprocess.run(['open', '-R', str(path)])
+
+    def _copy_evid_path():
+        sel = app.evid_tree.selection()
+        if not sel: return
+        vid = app.evid_tree.item(sel[0])['values'][0]
+        fname = app.evid_tree.item(sel[0])['values'][1]
+        path = app.evidence.get_path(vid, fname)
+        if path:
+            app.root.clipboard_clear()
+            app.root.clipboard_append(str(path))
+
+    def _open_evid_file():
+        sel = app.evid_tree.selection()
+        if not sel: return
+        vid = app.evid_tree.item(sel[0])['values'][0]
+        fname = app.evid_tree.item(sel[0])['values'][1]
+        path = app.evidence.get_path(vid, fname)
+        if path and path.exists():
+            import os
+            try:
+                os.startfile(str(path))
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not open file: {e}")
+
+    evid_ctx.add_command(label="📄 Open File", command=_open_evid_file)
+    evid_ctx.add_command(label="📂 Open File Location", command=_open_evid_location)
+    evid_ctx.add_command(label="🔗 Copy Absolute Path", command=_copy_evid_path)
+    evid_ctx.add_separator()
+    evid_ctx.add_command(label="Copy Cell Content", command=lambda: app._attach_tree_context_menu(app.evid_tree)) # Fallback to generic internally or just use manual copy
+    evid_ctx.add_command(label="Remove This File", command=_remove_selected_evidence)
+
+    def _show_evid_menu(event):
+        item = app.evid_tree.identify_row(event.y)
+        if item:
+            app.evid_tree.selection_set(item)
+            evid_ctx.tk_popup(event.x_root, event.y_root)
+
+    app.evid_tree.bind("<Button-3>", _show_evid_menu)
+    if sys.platform == "darwin":
+        app.evid_tree.bind("<Button-2>", _show_evid_menu)
+        app.evid_tree.bind("<Control-Button-1>", _show_evid_menu)
 
     app.evid_status = tk.StringVar()
     ttk.Label(frame, textvariable=app.evid_status, font=GUI_FONT_MONO).pack(

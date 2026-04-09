@@ -66,6 +66,21 @@ def build_extract_tab(app, frame):
     )
     app._extract_outdir_err.grid(row=1, column=3, sticky="w", padx=GUI_PADDING)
 
+    def _clear_extract_form():
+        app.extract_xccdf.set("")
+        app.extract_outdir.set("")
+        app.extract_json.set(True)
+        app.extract_csv.set(True)
+        app.extract_bash.set(True)
+        app.extract_ps.set(True)
+        app.extract_ansible.set(True)
+        app.extract_dry.set(False)
+        app.extract_rollbacks.set(False)
+
+    ttk.Button(
+        io_frame, text="🗑 Clear Form", command=_clear_extract_form
+    ).grid(row=1, column=4, padx=GUI_PADDING_LARGE)
+
     def _validate_extract_form(*args):
         app._extract_xccdf_err.config(
             text=("* Required" if not app.extract_xccdf.get().strip() else "")
@@ -172,11 +187,22 @@ def build_extract_tab(app, frame):
         def done(result):
             if isinstance(result, Exception):
                 app.status_var.set(f"✘ Error: {result}")
+                messagebox.showerror("Extraction Failed", str(result))
             else:
                 stats, formats = result
-                app.status_var.set(
-                    f"✔ Fix extraction complete. Total groups: {stats['total_groups']}"
-                )
+                msg = f"Fix extraction complete.\nTotal groups: {stats['total_groups']}\n\nFormats: {', '.join(formats)}"
+                app.status_var.set(f"✔ Fix extraction complete.")
+                messagebox.showinfo("Extraction Complete", msg)
+                
+                if messagebox.askyesno("Open Directory", "Extraction successful. Would you like to open the output directory now?"):
+                    import os, sys, subprocess
+                    path = str(outdir)
+                    if os.name == "nt":
+                        os.startfile(path)
+                    elif sys.platform == "darwin":
+                        subprocess.call(["open", path])
+                    else:
+                        subprocess.call(["xdg-open", path])
 
         app.status_var.set("Processing…")
         app._async(work, done)
@@ -190,3 +216,4 @@ def build_extract_tab(app, frame):
     )
     btn_extract.pack(pady=GUI_PADDING_SECTION)
     app._action_buttons.append(btn_extract)
+    app.action_extract = _do_extract

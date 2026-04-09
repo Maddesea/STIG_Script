@@ -98,7 +98,6 @@ class FO:
 
     @staticmethod
     @contextmanager
-    @retry()
     def atomic(
         target: Union[str, Path],
         mode: str = "w",

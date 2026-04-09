@@ -25,7 +25,7 @@ def build_compare_tab(app, frame):
 
     def _browse_ckl1():
         app.diff_ckl1.set(
-            filedialog.askopenfilename(filetypes=[("CKL", "*.ckl")])
+            filedialog.askopenfilename(initialdir=app._last_dir(), filetypes=[("CKL", "*.ckl")])
         )
 
     ttk.Button(
@@ -46,7 +46,7 @@ def build_compare_tab(app, frame):
 
     def _browse_ckl2():
         app.diff_ckl2.set(
-            filedialog.askopenfilename(filetypes=[("CKL", "*.ckl")])
+            filedialog.askopenfilename(initialdir=app._last_dir(), filetypes=[("CKL", "*.ckl")])
         )
 
     ttk.Button(
@@ -56,11 +56,44 @@ def build_compare_tab(app, frame):
     ).grid(row=1, column=2)
     app._enable_dnd(ent_2, app.diff_ckl2)
 
+    def _swap_diff():
+        tmp = app.diff_ckl1.get()
+        app.diff_ckl1.set(app.diff_ckl2.get())
+        app.diff_ckl2.set(tmp)
+
+    btn_swap = ttk.Button(
+        io_frame,
+        text="🔁 Swap",
+        command=_swap_diff,
+    )
+    btn_swap.grid(row=0, column=3, rowspan=2, sticky="ns", padx=(GUI_PADDING_LARGE, GUI_PADDING), pady=GUI_PADDING)
+
+    def _clear_compare_form():
+        app.diff_ckl1.set("")
+        app.diff_ckl2.set("")
+        app.diff_results_txt.configure(state="normal")
+        app.diff_results_txt.delete("1.0", tk.END)
+        app.diff_results_txt.configure(state="disabled")
+
+    btn_clear = ttk.Button(
+        io_frame,
+        text="🗑 Clear Form",
+        command=_clear_compare_form,
+    )
+    btn_clear.grid(row=0, column=4, rowspan=2, sticky="ns", padx=GUI_PADDING, pady=GUI_PADDING)
+
+    try:
+        from stig_assessor.ui.helpers import ToolTip
+        ToolTip(btn_swap, "Swap Base and Target checklists to reverse the diff perspective")
+        ToolTip(btn_clear, "Clear current form")
+    except ImportError:
+        pass
+
     def _do_diff_tab():
         if not app.diff_ckl1.get() or not app.diff_ckl2.get():
             messagebox.showerror(
                 "Error",
-                "Please provide two checklists down for comparison.",
+                "Please provide two checklists for comparison.",
             )
             return
         try:
@@ -86,7 +119,7 @@ def build_compare_tab(app, frame):
             else:
                 app.diff_results_txt.insert(tk.END, str(d))
             app.diff_results_txt.configure(state="disabled")
-        except Exception as e:
+        except (ValueError, FileNotFoundError, OSError, TypeError) as e:
             messagebox.showerror("Diff Error", str(e))
 
     btn = ttk.Button(
@@ -97,8 +130,10 @@ def build_compare_tab(app, frame):
         style="Accent.TButton",
     )
     btn.pack(pady=GUI_PADDING_SECTION)
+    app._action_buttons.append(btn)
+    app.action_compare = _do_diff_tab
 
     app.diff_results_txt = ScrolledText(
-        frame, font=app._colors.get("font_mono",GUI_FONT_MONO) if hasattr(app,'GUI_FONT_MONO') else ("Courier New", 10), wrap=tk.NONE, height=15
+        frame, font=GUI_FONT_MONO, wrap=tk.NONE, height=15
     )
     app.diff_results_txt.pack(fill="both", expand=True)

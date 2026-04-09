@@ -113,12 +113,43 @@ def build_results_tab(app, frame):
         app.results_list.delete(0, tk.END)
         app.status_var.set("Queue cleared")
 
+    def _add_results_folder():
+        directory = filedialog.askdirectory(
+            title="Select Folder containing Remediation Results",
+            initialdir=app._last_dir()
+        )
+        if not directory:
+            return
+            
+        added = 0
+        path_dir = Path(directory)
+        for p in path_dir.rglob("*"):
+            if p.is_file() and p.suffix.lower() in [".json", ".csv"]:
+                str_p = str(p)
+                if str_p not in app.results_files:
+                    app.results_files.append(str_p)
+                    app.results_list.insert(tk.END, p.name)
+                    added += 1
+                    
+        if added:
+            app.status_var.set(
+                f"✓ Added {added} file(s) from folder - Total: {len(app.results_files)} queued"
+            )
+        else:
+            app.status_var.set("No JSON/CSV files found in selected folder")
+
     btn_container = ttk.Frame(batch_frame)
     btn_container.grid(row=0, column=2, sticky="n", padx=GUI_PADDING)
     ttk.Button(
         btn_container,
         text="Add Files…",
         command=_add_results_files,
+        width=15,
+    ).pack(fill="x", pady=2)
+    ttk.Button(
+        btn_container,
+        text="Add Folder…",
+        command=_add_results_folder,
         width=15,
     ).pack(fill="x", pady=2)
     ttk.Button(
@@ -235,6 +266,7 @@ def build_results_tab(app, frame):
     def _browse_results_out():
         path = filedialog.asksaveasfilename(
             title="Save updated CKL As",
+            initialdir=app._last_dir(),
             defaultextension=".ckl",
             filetypes=[("CKL Files", "*.ckl")],
         )
@@ -387,7 +419,7 @@ def build_results_tab(app, frame):
                     imported, skipped = combined_processor.load(result_file)
                     total_loaded += imported
                     total_skipped += skipped
-                except Exception as exc:
+                except (FileNotFoundError, PermissionError, ValueError, ValidationError) as exc:
                     LOG.e(f"Failed to load {result_file}: {exc}")
                     failed_files.append((Path(result_file).name, str(exc)))
                     continue
@@ -438,13 +470,36 @@ def build_results_tab(app, frame):
         app.status_var.set("Processing batch import…")
         app._async(work, done)
 
-    # Action
+    # Actions
+    def _clear_results_form():
+        if app.results_files:
+            if not messagebox.askyesno("Confirm Clear", "Clear all form inputs and the batch file queue?"):
+                return
+            app.results_files.clear()
+            app.results_list.delete(0, tk.END)
+        app.results_json.set("")
+        app.results_ckl.set("")
+        app.results_out.set("")
+        app.results_details_mode.set("prepend")
+        app.results_comment_mode.set("prepend")
+        app.results_auto.set(True)
+        app.results_dry.set(False)
+
+    btn_row = ttk.Frame(frame)
+    btn_row.pack(pady=GUI_PADDING_SECTION)
+
     btn_results = ttk.Button(
-        frame,
+        btn_row,
         text="📥 Apply Remediation Results",
         command=_do_results,
         width=GUI_BUTTON_WIDTH_WIDE,
         style="Accent.TButton",
     )
-    btn_results.pack(pady=GUI_PADDING_SECTION)
+    btn_results.pack(side="left", padx=(0, GUI_PADDING_LARGE))
+    
+    ttk.Button(
+        btn_row, text="🗑 Clear Form", command=_clear_results_form
+    ).pack(side="left")
+    
     app._action_buttons.append(btn_results)
+    app.action_results = _do_results

@@ -25,7 +25,7 @@ def build_batch_tab(app, frame):
     ent_1.grid(row=0, column=1, padx=GUI_PADDING, sticky="we")
 
     def _browse_batch_in():
-        path = filedialog.askdirectory(title="Select Input Directory")
+        path = filedialog.askdirectory(title="Select Input Directory", initialdir=app._last_dir())
         if path:
             app.batch_ind.set(path)
 
@@ -51,7 +51,7 @@ def build_batch_tab(app, frame):
     )
 
     def _browse_batch_out():
-        path = filedialog.askdirectory(title="Select Output Directory")
+        path = filedialog.askdirectory(title="Select Output Directory", initialdir=app._last_dir())
         if path:
             app.batch_out.set(path)
 
@@ -61,24 +61,34 @@ def build_batch_tab(app, frame):
         command=_browse_batch_out,
     ).grid(row=1, column=2, pady=GUI_PADDING)
 
+    def _clear_batch_form():
+        app.batch_ind.set("")
+        app.batch_out.set("")
+        app.batch_prefix.set("ASSET")
+        app.batch_bp.set(False)
+
+    ttk.Button(
+        io_frame,
+        text="🗑 Clear Form",
+        command=_clear_batch_form,
+    ).grid(row=1, column=3, pady=GUI_PADDING, padx=GUI_PADDING_LARGE)
+
     opt_frame = ttk.LabelFrame(frame, text="Options", padding=GUI_PADDING_LARGE)
     opt_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
 
-    ttk.Label(opt_frame, text="Format:").grid(row=0, column=0, sticky="w")
-    app.batch_fmt = tk.StringVar(value="csv")
-    ttk.Combobox(
+    ttk.Label(opt_frame, text="Asset Prefix:").grid(row=0, column=0, sticky="w")
+    app.batch_prefix = tk.StringVar(value="ASSET")
+    ttk.Entry(
         opt_frame,
-        textvariable=app.batch_fmt,
-        values=["csv", "json"],
-        state="readonly",
-        width=10,
+        textvariable=app.batch_prefix,
+        width=20,
     ).grid(row=0, column=1, padx=GUI_PADDING, sticky="w")
 
-    app.batch_merge = tk.BooleanVar(value=True)
+    app.batch_bp = tk.BooleanVar(value=False)
     ttk.Checkbutton(
         opt_frame,
-        text="Merge into single file",
-        variable=app.batch_merge,
+        text="Apply boilerplate templates",
+        variable=app.batch_bp,
     ).grid(
         row=1,
         column=0,
@@ -97,15 +107,15 @@ def build_batch_tab(app, frame):
             )
             return
 
-        fmt = app.batch_fmt.get()
-        merge = app.batch_merge.get()
+        prefix = app.batch_prefix.get()
+        bp = app.batch_bp.get()
 
         def work():
             return app.proc.batch_convert(
-                input_dir=in_dir,
-                output_dir=out_dir,
-                format_=fmt,
-                merge=merge,
+                xccdf_dir=in_dir,
+                out_dir=out_dir,
+                asset_prefix=prefix,
+                apply_boilerplate=bp,
             )
 
         def done(result):
@@ -113,26 +123,35 @@ def build_batch_tab(app, frame):
                 app.status_var.set(f"✘ Batch convert failed: {result}")
                 messagebox.showerror("Batch Convert Error", str(result))
             else:
-                processed = result.get("processed", 0)
-                skipped = result.get("skipped", 0)
-                errors = result.get("errors", 0)
-                out_path = result.get("output", "")
+                successes = result.get("successes", 0)
+                failures = result.get("failures", 0)
+                total = result.get("total", 0)
 
-                msg = f"Processed: {processed}\nSkipped: {skipped}\nErrors: {errors}\n\nOutput saved in: {out_path}"
+                msg = f"Total files: {total}\nSuccesses: {successes}\nFailures: {failures}\n\nOutput saved in: {out_dir}"
                 app.status_var.set(
-                    f"✔ Batch conversion complete. Output: {out_path}"
+                    f"✔ Batch conversion complete. Output: {out_dir}"
                 )
                 messagebox.showinfo("Batch Convert Complete", msg)
+                
+                if successes > 0 and messagebox.askyesno("Open Directory", "Batch conversion complete. Would you like to open the output directory?"):
+                    import os, sys, subprocess
+                    if os.name == "nt":
+                        os.startfile(out_dir)
+                    elif sys.platform == "darwin":
+                        subprocess.call(["open", out_dir])
+                    else:
+                        subprocess.call(["xdg-open", out_dir])
 
         app.status_var.set("Running batch conversion...")
         app._async(work, done)
 
     btn_batch = ttk.Button(
         frame,
-        text="🏭 Export Batch",
+        text="🏭 Convert Batch",
         command=_do_batch_convert,
         width=GUI_BUTTON_WIDTH_WIDE,
         style="Accent.TButton",
     )
     btn_batch.pack(pady=GUI_PADDING_SECTION)
     app._action_buttons.append(btn_batch)
+    app.action_batch = _do_batch_convert

@@ -239,9 +239,102 @@ try:
             finally:
                 self.menu.grab_release()
 
+    class TextContextMenu:
+        """Right-click context menu for Text/ScrolledText widgets providing native clipboard actions."""
+        def __init__(self, widget: tk.Text):
+            self.widget = widget
+            self.menu = tk.Menu(widget, tearoff=0)
+            self.menu.add_command(label="Cut", command=lambda: widget.event_generate("<<Cut>>"))
+            self.menu.add_command(label="Copy", command=lambda: widget.event_generate("<<Copy>>"))
+            self.menu.add_command(label="Paste", command=lambda: widget.event_generate("<<Paste>>"))
+            self.menu.add_separator()
+            self.menu.add_command(label="Select All", command=self._select_all)
+            self.menu.add_command(label="Clear", command=lambda: widget.delete("1.0", tk.END))
+            
+            widget.bind("<Button-2>", self._show)
+            widget.bind("<Button-3>", self._show)
+
+        def _select_all(self):
+            self.widget.tag_add("sel", "1.0", "end-1c")
+            return "break"
+
+        def _show(self, event) -> None:
+            if self.widget.tag_ranges("sel"):
+                self.menu.entryconfig("Cut", state="normal")
+                self.menu.entryconfig("Copy", state="normal")
+            else:
+                self.menu.entryconfig("Cut", state="disabled")
+                self.menu.entryconfig("Copy", state="disabled")
+            
+            # Check clipboard for Paste enablement
+            try:
+                if self.widget.clipboard_get():
+                    self.menu.entryconfig("Paste", state="normal")
+                else:
+                    self.menu.entryconfig("Paste", state="disabled")
+            except tk.TclError:
+                self.menu.entryconfig("Paste", state="disabled")
+                
+            try:
+                self.menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                self.menu.grab_release()
+
     # ──────────────────────────────────────────────────────────────
-    # OPEN FILE LOCATION
+    # PREMIUM VISUALS (CANVAS)
     # ──────────────────────────────────────────────────────────────
+
+    class PremiumChart:
+        """Helper for drawing modern, high-quality charts on a tk.Canvas."""
+
+        @staticmethod
+        def draw_bar(canvas: tk.Canvas, x, y_bottom, width, height, color, label, count, font_normal, font_bold, fg_color, text_color):
+            """Draw a single 'premium' bar with rounded top and subtle shadow."""
+            # Shadow effect
+            shadow_offset = 3
+            canvas.create_rectangle(
+                x + shadow_offset,
+                y_bottom - height + shadow_offset,
+                x + width + shadow_offset,
+                y_bottom + shadow_offset,
+                fill="#000000",
+                stipple="gray25",  # Faux transparency
+                outline=""
+            )
+
+            # Main bar body
+            canvas.create_rectangle(
+                x,
+                y_bottom - height,
+                x + width,
+                y_bottom,
+                fill=color,
+                outline=color
+            )
+            
+            # Subtle "shine" gradient (lighter top edge)
+            canvas.create_line(
+                x, y_bottom - height, x + width, y_bottom - height,
+                fill="#ffffff", width=1, dash=(2, 2)
+            )
+
+            # Bar label (the count)
+            canvas.create_text(
+                x + width / 2,
+                y_bottom - height - 12,
+                text=str(count),
+                fill=fg_color,
+                font=(font_bold[0], font_bold[1], "bold"),
+            )
+
+            # Category Label
+            canvas.create_text(
+                x + width / 2,
+                y_bottom + 15,
+                text=label,
+                fill=text_color,
+                font=font_normal,
+            )
 
     def open_file_location(filepath: str) -> None:
         """Open the containing folder of a file in the system file manager."""

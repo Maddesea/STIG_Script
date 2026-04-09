@@ -14,53 +14,53 @@
     --bg-input: rgba(4, 6, 10, 0.6);
 
     /* ── Typography ── */
-    --tx-main: #e6edf3;
-    --tx-secondary: #b1bac4;
-    --tx-muted: #7d8590;
-    --tx-dim: #484f58;
+    --tx-main: #f0f6fc;
+    --tx-secondary: #c9d1d9;
+    --tx-muted: #8b949e;
+    --tx-dim: #6e7681;
 
     /* ── Accent Colors ── */
-    --ac-primary: #58a6ff;
-    --ac-primary-dim: rgba(88, 166, 255, 0.15);
-    --ac-secondary: #bc8cff;
-    --ac-accent: #f778ba;
-    --ac-success: #3fb950;
-    --ac-danger: #f85149;
-    --ac-warn: #d29922;
-    --ac-info: #58a6ff;
+    --ac-primary: #3b82f6;
+    --ac-primary-dim: rgba(59, 130, 246, 0.2);
+    --ac-secondary: #a855f7;
+    --ac-accent: #ec4899;
+    --ac-success: #22c55e;
+    --ac-danger: #ef4444;
+    --ac-warn: #eab308;
+    --ac-info: #0ea5e9;
 
     /* ── Status Colors ── */
-    --status-pass: #3fb950;
-    --status-pass-bg: rgba(63, 185, 80, 0.15);
-    --status-fail: #f85149;
-    --status-fail-bg: rgba(248, 81, 73, 0.15);
-    --status-na: #7d8590;
-    --status-na-bg: rgba(125, 133, 144, 0.15);
-    --status-nr: #d29922;
-    --status-nr-bg: rgba(210, 153, 34, 0.15);
+    --status-pass: #22c55e;
+    --status-pass-bg: rgba(34, 197, 94, 0.15);
+    --status-fail: #ef4444;
+    --status-fail-bg: rgba(239, 68, 68, 0.15);
+    --status-na: #8b949e;
+    --status-na-bg: rgba(139, 148, 158, 0.15);
+    --status-nr: #eab308;
+    --status-nr-bg: rgba(234, 179, 8, 0.15);
 
     /* ── Borders & Shadows ── */
-    --border-default: rgba(240, 246, 252, 0.15);
-    --border-subtle: rgba(240, 246, 252, 0.08);
-    --border-input: rgba(240, 246, 252, 0.22);
-    --border-active: rgba(88, 166, 255, 0.55);
-    --shadow-sm: 0 2px 6px rgba(0,0,0,0.4);
-    --shadow-md: 0 6px 20px rgba(0,0,0,0.5);
-    --shadow-lg: 0 12px 40px rgba(0,0,0,0.6);
-    --shadow-glow: 0 0 30px rgba(88, 166, 255, 0.25);
+    --border-default: rgba(255, 255, 255, 0.12);
+    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-input: rgba(255, 255, 255, 0.18);
+    --border-active: rgba(59, 130, 246, 0.55);
+    --shadow-sm: 0 4px 12px rgba(0,0,0,0.4);
+    --shadow-md: 0 8px 24px rgba(0,0,0,0.5);
+    --shadow-lg: 0 16px 40px rgba(0,0,0,0.7);
+    --shadow-glow: 0 0 35px rgba(59, 130, 246, 0.35);
 
     /* ── Layout ── */
-    --sidebar-width: 250px;
-    --sidebar-collapsed: 68px;
-    --header-height: 60px;
+    --sidebar-width: 260px;
+    --sidebar-collapsed: 72px;
+    --header-height: 64px;
     --radius-sm: 8px;
     --radius-md: 12px;
-    --radius-lg: 16px;
-    --radius-xl: 20px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
 
     /* ── Typography ── */
-    --font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
-    --font-mono: 'Cascadia Code', 'SF Mono', 'Fira Code', 'Consolas', 'Courier New', monospace;
+    --font-stack: 'Inter', 'Roboto', 'Outfit', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
+    --font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
 }
 
 *, *::before, *::after {
@@ -78,8 +78,9 @@ body {
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     background-image:
-        radial-gradient(ellipse at 15% 0%, rgba(88, 166, 255, 0.09) 0%, transparent 60%),
-        radial-gradient(ellipse at 85% 100%, rgba(188, 140, 255, 0.07) 0%, transparent 60%);
+        radial-gradient(ellipse at 10% 0%, rgba(59, 130, 246, 0.18) 0%, transparent 55%),
+        radial-gradient(ellipse at 90% 100%, rgba(168, 85, 247, 0.15) 0%, transparent 60%),
+        radial-gradient(ellipse at 50% 50%, rgba(236, 72, 153, 0.05) 0%, transparent 70%);
     background-attachment: fixed;
 }
 
@@ -392,22 +393,23 @@ body {
     position: relative;
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     overflow: hidden;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
 }
 .card::before {
     content: "";
     position: absolute;
     inset: 0;
-    background: radial-gradient(800px circle at var(--mouse-x, 50%) var(--mouse-y, -100%), rgba(255,255,255,0.04), transparent 40%);
+    background: radial-gradient(800px circle at var(--mouse-x, 50%) var(--mouse-y, -100%), rgba(255,255,255,0.06), transparent 40%);
     opacity: 0;
     transition: opacity 0.4s;
     pointer-events: none;
 }
 .card:hover {
-    border-color: rgba(88, 166, 255, 0.4);
-    box-shadow: 0 16px 50px rgba(0,0,0,0.5), var(--shadow-glow);
-    transform: translateY(-5px) scale(1.008);
+    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), var(--shadow-glow);
+    transform: translateY(-6px) scale(1.006);
 }
 .card:hover::before {
     opacity: 1;
@@ -632,6 +634,42 @@ textarea.glass-input {
     color: var(--ac-primary);
     font-family: var(--font-mono);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   EDITOR VULN LIST ITEMS
+   ═══════════════════════════════════════════════════════════════════════ */
+.vuln-list-item {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.vuln-list-item:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-default);
+}
+.vuln-list-item.active {
+    background: var(--ac-primary-dim);
+    border-color: var(--ac-primary);
+}
+.vuln-list-item .vid-text {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+.vuln-list-item .status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+.status-indicator.pass { background: var(--status-pass); box-shadow: 0 0 5px var(--status-pass); }
+.status-indicator.fail { background: var(--status-fail); box-shadow: 0 0 5px var(--status-fail); }
+.status-indicator.na { background: var(--status-na); }
+.status-indicator.nr { background: var(--status-nr); box-shadow: 0 0 5px var(--status-nr); }
 
 /* ═══════════════════════════════════════════════════════════════════════
    BUTTONS

@@ -89,6 +89,10 @@ class Cfg:
 
             # Find writable home directory
             candidates: List[Path] = []
+            
+            # Prioritize local portable directory for fully isolated "portable app" behavior
+            with suppress(OSError):
+                candidates.append(Path.cwd() / ".stig_home")
 
             with suppress(OSError):
                 candidates.append(Path.home())
@@ -99,8 +103,6 @@ class Cfg:
                     candidates.append(Path(val))
 
             candidates.append(Path(tempfile.gettempdir()) / "stig_user")
-            with suppress(OSError):
-                candidates.append(Path.cwd() / ".stig_home")
 
             attempted_paths: List[str] = []
             for candidate in candidates:

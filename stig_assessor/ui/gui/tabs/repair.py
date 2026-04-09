@@ -4,7 +4,7 @@ from tkinter import ttk, filedialog, messagebox
 from tkinter.scrolledtext import ScrolledText
 from pathlib import Path
 
-from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_ENTRY_WIDTH, GUI_PADDING_SECTION, GUI_BUTTON_WIDTH_WIDE
+from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_ENTRY_WIDTH, GUI_PADDING_SECTION, GUI_BUTTON_WIDTH_WIDE, GUI_FONT_MONO
 
 
 def build_repair_tab(app, frame):
@@ -24,7 +24,7 @@ def build_repair_tab(app, frame):
     ent_1.grid(row=0, column=1, padx=GUI_PADDING, sticky="we")
 
     def _browse_repair_ckl():
-        path = filedialog.askopenfilename(filetypes=[("CKL", "*.ckl")])
+        path = filedialog.askopenfilename(initialdir=app._last_dir(), filetypes=[("CKL", "*.ckl")])
         if path:
             app.repair_ckl.set(path)
 
@@ -41,6 +41,21 @@ def build_repair_tab(app, frame):
         text="Create backup copy before altering file",
         variable=app.repair_backup,
     ).grid(row=1, column=1, sticky="w", pady=(GUI_PADDING, 0))
+
+    def _clear_repair_form():
+        app.repair_ckl.set("")
+        app.repair_backup.set(True)
+        app.repair_txt.config(state="normal")
+        app.repair_txt.delete("1.0", tk.END)
+        app.repair_txt.insert(
+            "1.0",
+            "Select a CKL file to verify its checksum or repair structural issues.",
+        )
+        app.repair_txt.config(state="disabled")
+
+    ttk.Button(
+        io_frame, text="🗑 Clear Form", command=_clear_repair_form
+    ).grid(row=0, column=3, rowspan=2, padx=GUI_PADDING_LARGE)
 
     btn_frame = ttk.Frame(frame)
     btn_frame.pack(pady=GUI_PADDING_SECTION)
@@ -101,7 +116,7 @@ def build_repair_tab(app, frame):
                 app.repair_txt.insert(tk.END, f"[ERROR] Repair Failed:\n{result}")
                 messagebox.showerror("Repair Failed", str(result))
             else:
-                fixed_lines = result.get("fixed", [])
+                fixed_lines = result.get("details", [])
                 output_file = result.get("file", ckl_path)
 
                 if not fixed_lines:
@@ -136,8 +151,9 @@ def build_repair_tab(app, frame):
     )
     btn_repair.pack(side="left", padx=5)
     app._action_buttons.append(btn_repair)
+    app.action_repair = _do_repair
 
-    app.repair_txt = ScrolledText(frame, font=app._colors.get("font_mono",GUI_FONT_MONO) if hasattr(app,'GUI_FONT_MONO') else ("Courier New", 10), height=15)
+    app.repair_txt = ScrolledText(frame, font=GUI_FONT_MONO, height=15)
     app.repair_txt.pack(fill="both", expand=True)
     app.repair_txt.insert(
         "1.0",

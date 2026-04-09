@@ -460,8 +460,11 @@ def handle_stats(payload: dict) -> dict:
                         "vid": vid,
                         "status": vdata.get("status", "Not_Reviewed"),
                         "severity": vdata.get("severity", "medium"),
-                        "details": (vdata.get("finding_details", "") or "")[:300],
+                        "details": vdata.get("finding_details", ""),
                         "rule_title": vdata.get("rule_title", ""),
+                        "check_content": vdata.get("check_content", ""),
+                        "fix_text": vdata.get("fix_text", ""),
+                        "comments": vdata.get("comments", ""),
                     }
                 )
         except Exception:
@@ -834,6 +837,101 @@ def handle_export_html(payload: dict) -> dict:
         _cleanup_paths([ckl_path, out_path])
 
 
+def handle_assess_update(payload: dict) -> dict:
+    ckl_b64 = payload.get("ckl_b64", "")
+    filename = payload.get("filename", "upload.ckl")
+    vid = payload.get("vid", "")
+    new_status = payload.get("status", "")
+    new_details = payload.get("finding_details", "")
+    new_comments = payload.get("comments", "")
+
+    if not vid:
+        return {"status": "error", "message": "vid is required"}
+    
+    ckl_path = None
+    out_path = None
+    
+    try:
+        from stig_assessor.processor.xml_utils import XmlUtils
+        ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+        
+        proc = Proc()
+        tree = proc._load_file_as_xml(ckl_path)
+        root = tree.getroot()
+        
+        vulns = root.findall(".//VULN")
+        updated = False
+        
+        for vuln in vulns:
+            attrs = vuln.findall("VULN_ATTRIBUTE")
+            if any(a.text == "Vuln_Num" for a in attrs):
+                # Try to map attribute accurately
+                vnum_node = None
+                for a in vuln.findall("VULN_ATTRIBUTE"):
+                    if a.text == "Vuln_Num":
+                        # The actual VID is typically in the sibling ATTRIBUTE_DATA
+                        pass
+                
+                # Alternate faster lookup:
+                vuln_vid = None
+                for attr_node in vuln.findall("STIG_DATA"):
+                    name_node = attr_node.find("VULN_ATTRIBUTE")
+                    if name_node is not None and name_node.text == "Vuln_Num":
+                        data_node = attr_node.find("ATTRIBUTE_DATA")
+                        if data_node is not None:
+                            vuln_vid = data_node.text
+                            break
+                            
+                if vuln_vid == vid:
+                    status_node = vuln.find("STATUS")
+                    if status_node is not None:
+                        status_node.text = new_status
+                    else:
+                        ET.SubElement(vuln, "STATUS").text = new_status
+                        
+                    finding_node = vuln.find("FINDING_DETAILS")
+                    if finding_node is not None:
+                        finding_node.text = new_details
+                    else:
+                        ET.SubElement(vuln, "FINDING_DETAILS").text = new_details
+                        
+                    comments_node = vuln.find("COMMENTS")
+                    if comments_node is not None:
+                        comments_node.text = new_comments
+                    else:
+                        ET.SubElement(vuln, "COMMENTS").text = new_comments
+                        
+                    updated = True
+                    break
+                    
+        if not updated:
+            return {"status": "error", "message": f"Vulnerability {vid} not found in this CKL."}
+            
+        with tempfile.NamedTemporaryFile(suffix=".ckl", delete=False) as tf:
+            out_path = Path(tf.name)
+        GLOBAL_STATE.add_temp(out_path)
+        
+        # Write repaired checklist
+        XmlUtils.indent_xml(root)
+        proc._export_xml_to_file(root, out_path)
+        
+        out_b64 = _encode_from_temp(out_path)
+        
+        return {
+            "status": "success",
+            "message": f"Successfully updated {vid}.",
+            "data": {
+                "ckl_b64": out_b64,
+                "filename": filename,
+                "updated": 1
+            }
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    finally:
+        _cleanup_paths([ckl_path, out_path])
+
+
 def route_request(path: str, payload: dict) -> dict:
     """Route the request to the appropriate handler."""
     handlers = {
@@ -864,6 +962,7 @@ def route_request(path: str, payload: dict) -> dict:
         "/api/v1/bulk_edit": handle_bulk_edit,
         "/api/v1/apply_waiver": handle_apply_waiver,
         "/api/v1/export_html": handle_export_html,
+        "/api/v1/assess_update": handle_assess_update,
     }
 
     if path not in handlers:

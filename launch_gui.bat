@@ -25,7 +25,6 @@ echo Starting STIG Assessor GUI...
 %PYTHON% -m stig_assessor.ui.cli --gui
 if errorlevel 1 (
     echo.
-    echo If the above failed, try:  %PYTHON% STIG_Script.py --gui
-    %PYTHON% STIG_Script.py --gui
+    echo ERROR: Failed to launch the GUI. Please check errors above.
 )
 pause

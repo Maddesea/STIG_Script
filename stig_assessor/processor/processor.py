@@ -8,6 +8,7 @@ from collections import OrderedDict, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Union
+import html as _html_module
 
 if TYPE_CHECKING:
     import xml.etree.ElementTree as ET
@@ -1175,20 +1176,33 @@ class Proc:
 
     # ------------------------------------------------------------ new features v7.2.0
     def repair(
-        self, ckl_path: Union[str, Path], out_path: Union[str, Path]
+        self,
+        ckl_path: Union[str, Path],
+        out_path: Optional[Union[str, Path]] = None,
+        *,
+        backup: bool = False,
     ) -> Dict[str, Union[bool, str, int, List[str]]]:
         """
         Repair corrupted CKL file by fixing common issues.
 
         Args:
             ckl_path: Path to corrupted checklist
-            out_path: Path for repaired checklist
+            out_path: Path for repaired checklist (auto-generated if None)
+            backup: If True and out_path is None, create a backup of the
+                    original and write the repaired file in-place.
 
         Returns:
             Dictionary with repair statistics
         """
         try:
             ckl_path = San.path(ckl_path, exist=True, file=True)
+            if out_path is None:
+                if backup:
+                    import shutil
+                    backup_path = ckl_path.with_suffix(".ckl.bak")
+                    shutil.copy2(ckl_path, backup_path)
+                    LOG.i(f"Backup created: {backup_path}")
+                out_path = ckl_path  # repair in-place
             out_path = San.path(out_path, mkpar=True)
         except (ValidationError, OSError, ValueError, TypeError) as exc:
             raise ValidationError(f"Path validation failed: {exc}") from exc
@@ -1224,21 +1238,21 @@ class Proc:
                                     repairs.append(
                                         f"Fixed status case: '{status_val}' → '{Status.OPEN}'"
                                     )
-                            elif (
-                                "not" in status_val.lower()
-                                and "applicable" in status_val.lower()
-                            ):
-                                status_node.text = Status.NOT_APPLICABLE
-                                repairs.append(
-                                    f"Fixed status typo: '{status_val}' → '{Status.NOT_APPLICABLE}'"
-                                )
-                            else:
-                                # Can't fix, set to Status.NOT_REVIEWED
-                                old_val = status_val
-                                status_node.text = Status.NOT_REVIEWED
-                                repairs.append(
-                                    f"Reset invalid status: '{old_val}' → '{Status.NOT_REVIEWED}'"
-                                )
+                                elif (
+                                    "not" in status_val.lower()
+                                    and "applicable" in status_val.lower()
+                                ):
+                                    status_node.text = Status.NOT_APPLICABLE
+                                    repairs.append(
+                                        f"Fixed status typo: '{status_val}' → '{Status.NOT_APPLICABLE}'"
+                                    )
+                                else:
+                                    # Can't fix, set to Status.NOT_REVIEWED
+                                    old_val = status_val
+                                    status_node.text = Status.NOT_REVIEWED
+                                    repairs.append(
+                                        f"Reset invalid status: '{old_val}' → '{Status.NOT_REVIEWED}'"
+                                    )
 
         # Repair 2: Add missing required elements
         asset = root.find("ASSET")
@@ -1286,20 +1300,20 @@ class Proc:
                             )
                             repairs.append(f"Truncated oversized COMMENTS for {vid}")
 
-            # Write repaired checklist
-            XmlUtils.indent_xml(root)
-            self._export_xml_to_file(root, out_path)
+        # Write repaired checklist
+        XmlUtils.indent_xml(root)
+        self._export_xml_to_file(root, out_path)
 
-            LOG.i(f"Repaired checklist written to {out_path}")
-            LOG.i(f"Repairs applied: {len(repairs)}")
+        LOG.i(f"Repaired checklist written to {out_path}")
+        LOG.i(f"Repairs applied: {len(repairs)}")
 
-            return {
-                "ok": True,
-                "input": str(ckl_path),
-                "output": str(out_path),
-                "repairs": len(repairs),
-                "details": repairs,
-            }
+        return {
+            "ok": True,
+            "input": str(ckl_path),
+            "output": str(out_path),
+            "repairs": len(repairs),
+            "details": repairs,
+        }
 
     def batch_convert(
         self,
@@ -1769,10 +1783,11 @@ class Proc:
                 )
                 sev_rows += f"<tr><td><span class='badge {bg_class}'>{sev.upper()}</span></td><td>{count}</td><td>{pct:.1f}%</td></tr>"
 
+        from stig_assessor.core.constants import VERSION as _ver
         return html_template.substitute(
             file=stats["file"],
             date=stats["generated"],
-            version="8.0.0",
+            version=_ver,
             total=total,
             reviewed=stats["reviewed"],
             completion_pct=f"{stats['completion_pct']:.1f}",
@@ -1820,7 +1835,6 @@ class Proc:
             if severity in stats["by_severity"]:
                 lines.append(f"{severity},{stats['by_severity'][severity]}")
         return "\n".join(lines)
-        return "\n".join(lines)
 
     def export_html_report(self, ckl_path: Union[str, Path], out_path: Union[str, Path]) -> str:
         """
@@ -1839,53 +1853,105 @@ class Proc:
             tree = self._load_file_as_xml(ckl_path)
             root = tree.getroot()
         except (ParseError, OSError, ValueError) as exc:
-            raise ParseError(f"Failed to parse checklist: {exc}")
+            raise ParseError(f"Failed to parse checklist: {exc}") from exc
 
         vulns = self._extract_vuln_data(root)
         asset_node = root.find(".//HOST_NAME")
         asset_name = asset_node.text if asset_node is not None else "Unknown Asset"
         
-        # Stats
+        # Stats — separate Pass and N/A for accurate reporting
         total = len(vulns)
-        open_count = sum(1 for v in vulns.values() if v.get("status") == "Open")
-        na_count = sum(1 for v in vulns.values() if v.get("status") in ("Not_Applicable", "NotAFinding"))
-        nr_count = sum(1 for v in vulns.values() if v.get("status") == "Not_Reviewed")
+        naf_count = sum(1 for v in vulns.values() if v.get("status") == Status.NOT_A_FINDING)
+        open_count = sum(1 for v in vulns.values() if v.get("status") == Status.OPEN)
+        na_count = sum(1 for v in vulns.values() if v.get("status") == Status.NOT_APPLICABLE)
+        nr_count = sum(1 for v in vulns.values() if v.get("status") == Status.NOT_REVIEWED)
+
+        from stig_assessor.core.constants import VERSION as _ver
 
         html_content = [
             "<!DOCTYPE html>",
-            "<html>",
+            "<html lang='en'>",
             "<head>",
             "<meta charset='utf-8'>",
-            f"<title>STIG Compliance Report - {asset_name}</title>",
+            f"<title>STIG Compliance Report - {_html_module.escape(asset_name)}</title>",
             "<style>",
+            "*,*::before,*::after{box-sizing:border-box}",
             "body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }",
-            ".container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }",
-            "h1 { border-bottom: 2px solid #0056b3; padding-bottom: 10px; color: #0056b3; }",
-            ".stats { display: flex; gap: 20px; margin: 20px 0; }",
-            ".stat-box { flex: 1; padding: 15px; border-radius: 6px; color: #fff; text-align: center; }",
+            ".container { max-width: 1400px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }",
+            "h1 { border-bottom: 2px solid #0056b3; padding-bottom: 10px; color: #0056b3; margin-top:0; }",
+            ".stats { display: flex; gap: 15px; margin: 20px 0; flex-wrap: wrap; }",
+            ".stat-box { flex: 1; min-width: 140px; padding: 15px; border-radius: 6px; color: #fff; text-align: center; }",
+            ".stat-box h3 { margin: 0 0 5px 0; font-size: .85em; opacity: .9; }",
+            ".stat-box h2 { margin: 0; font-size: 1.8em; }",
             ".bg-blue { background: #0056b3; }",
             ".bg-red { background: #dc3545; }",
             ".bg-green { background: #28a745; }",
+            ".bg-teal { background: #6c757d; }",
             ".bg-yellow { background: #ffc107; color: #333; }",
-            "table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }",
-            "th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }",
-            "th { background-color: #f8f9fa; font-weight: bold; }",
+            
+            "/* Toolbar */",
+            ".toolbar { display: flex; gap: 10px; margin: 20px 0 10px; align-items: center; flex-wrap: wrap; }",
+            ".toolbar input[type=text] { flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }",
+            ".toolbar input[type=text]:focus { outline: none; border-color: #0056b3; box-shadow: 0 0 0 2px rgba(0,86,179,.15); }",
+            ".filter-btns { display: flex; gap: 4px; }",
+            ".filter-btns button { padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; background: #f8f9fa; cursor: pointer; font-size: 13px; transition: all .15s; }",
+            ".filter-btns button:hover { background: #e9ecef; }",
+            ".filter-btns button.active { background: #0056b3; color: #fff; border-color: #0056b3; }",
+            ".match-count { font-size: 13px; color: #6c757d; margin-left: 8px; white-space: nowrap; }",
+            
+            "/* Table */",
+            "table { width: 100%; border-collapse: collapse; margin-top: 0; font-size: 14px; }",
+            "th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: left; }",
+            "th { background-color: #f8f9fa; font-weight: bold; cursor: pointer; user-select: none; position: relative; white-space: nowrap; }",
+            "th:hover { background: #e9ecef; }",
+            "th .sort-arrow { margin-left: 4px; font-size: .7em; opacity: .4; }",
+            "th.sorted .sort-arrow { opacity: 1; }",
             ".status-Open { color: #dc3545; font-weight: bold; }",
             ".status-NotAFinding { color: #28a745; font-weight: bold; }",
             ".status-Not_Applicable { color: #6c757d; }",
+            ".status-Not_Reviewed { color: #d89e00; font-weight: bold; }",
+            "tr.hidden { display: none; }",
+            
+            "/* Footer */",
+            ".footer { text-align: center; color: #6c757d; font-size: .8em; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; }",
+            
+            "@media print { .toolbar { display: none; } th { cursor: default; } }",
             "</style>",
             "</head>",
             "<body>",
             "<div class='container'>",
-            f"<h1>STIG Compliance Report: {asset_name}</h1>",
+            f"<h1>STIG Compliance Report: {_html_module.escape(asset_name)}</h1>",
             "<div class='stats'>",
             f"<div class='stat-box bg-blue'><h3>Total</h3><h2>{total}</h2></div>",
-            f"<div class='stat-box bg-red'><h3>Open (Non-Compliant)</h3><h2>{open_count}</h2></div>",
-            f"<div class='stat-box bg-green'><h3>Pass / N/A</h3><h2>{na_count}</h2></div>",
+            f"<div class='stat-box bg-green'><h3>Not a Finding</h3><h2>{naf_count}</h2></div>",
+            f"<div class='stat-box bg-red'><h3>Open</h3><h2>{open_count}</h2></div>",
+            f"<div class='stat-box bg-teal'><h3>Not Applicable</h3><h2>{na_count}</h2></div>",
             f"<div class='stat-box bg-yellow'><h3>Not Reviewed</h3><h2>{nr_count}</h2></div>",
             "</div>",
-            "<table>",
-            "<tr><th>Vuln ID</th><th>Severity</th><th>Status</th><th>Finding Details</th></tr>"
+            
+            "<!-- Search / Filter toolbar -->",
+            "<div class='toolbar'>",
+            "<input type='text' id='searchInput' placeholder='Search by Vuln ID, severity, or details…' />",
+            "<div class='filter-btns'>",
+            "<button class='active' data-filter='all'>All</button>",
+            "<button data-filter='Open'>Open</button>",
+            "<button data-filter='NotAFinding'>Pass</button>",
+            "<button data-filter='Not_Applicable'>N/A</button>",
+            "<button data-filter='Not_Reviewed'>Not Reviewed</button>",
+            "</div>",
+            "<span class='match-count' id='matchCount'></span>",
+            "</div>",
+            
+            "<table id='vulnTable'>",
+            "<thead>",
+            "<tr>",
+            "<th data-col='0'>Vuln ID <span class='sort-arrow'>▲▼</span></th>",
+            "<th data-col='1'>Severity <span class='sort-arrow'>▲▼</span></th>",
+            "<th data-col='2'>Status <span class='sort-arrow'>▲▼</span></th>",
+            "<th data-col='3'>Finding Details <span class='sort-arrow'>▲▼</span></th>",
+            "</tr>",
+            "</thead>",
+            "<tbody id='vulnBody'>",
         ]
 
         for vid, vdata in vulns.items():
@@ -1894,23 +1960,91 @@ class Proc:
             details = vdata.get("finding_details", "")
             if len(details) > 200:
                 details = details[:200] + "..."
-                
-            # HTML escape simple
-            details = details.replace("<", "&lt;").replace(">", "&gt;")
-            
-            html_content.append("<tr>")
-            html_content.append(f"<td><strong>{vid}</strong></td>")
-            html_content.append(f"<td>{severity}</td>")
-            html_content.append(f"<td class='status-{status}'>{status.replace('_', ' ')}</td>")
+            details = _html_module.escape(details)
+
+            html_content.append(f"<tr data-status='{_html_module.escape(status)}'>")
+            html_content.append(f"<td><strong>{_html_module.escape(vid)}</strong></td>")
+            html_content.append(f"<td>{_html_module.escape(severity)}</td>")
+            html_content.append(f"<td class='status-{_html_module.escape(status)}'>{status.replace('_', ' ')}</td>")
             html_content.append(f"<td>{details}</td>")
             html_content.append("</tr>")
 
+        html_content.append("</tbody>")
         html_content.append("</table>")
+
+        # Client-side search, filter, and sort (self-contained, no dependencies)
+        html_content.append("""<script>
+(function(){
+  var table = document.getElementById('vulnTable');
+  var tbody = document.getElementById('vulnBody');
+  var searchInput = document.getElementById('searchInput');
+  var matchCount = document.getElementById('matchCount');
+  var filterBtns = document.querySelectorAll('.filter-btns button');
+  var currentFilter = 'all';
+  var sortCol = -1, sortAsc = true;
+
+  /* ── Filter + Search ── */
+  function applyFilters() {
+    var query = searchInput.value.toLowerCase();
+    var rows = tbody.getElementsByTagName('tr');
+    var shown = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var status = row.getAttribute('data-status') || '';
+      var text = row.textContent.toLowerCase();
+      var matchFilter = (currentFilter === 'all' || status === currentFilter);
+      var matchSearch = (!query || text.indexOf(query) !== -1);
+      if (matchFilter && matchSearch) {
+        row.classList.remove('hidden');
+        shown++;
+      } else {
+        row.classList.add('hidden');
+      }
+    }
+    matchCount.textContent = shown + ' of ' + rows.length + ' shown';
+  }
+
+  searchInput.addEventListener('input', applyFilters);
+
+  filterBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      filterBtns.forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      currentFilter = btn.getAttribute('data-filter');
+      applyFilters();
+    });
+  });
+
+  /* ── Column Sort ── */
+  var headers = table.querySelectorAll('th[data-col]');
+  headers.forEach(function(th) {
+    th.addEventListener('click', function() {
+      var col = parseInt(th.getAttribute('data-col'));
+      if (sortCol === col) { sortAsc = !sortAsc; } else { sortCol = col; sortAsc = true; }
+      headers.forEach(function(h) { h.classList.remove('sorted'); });
+      th.classList.add('sorted');
+      th.querySelector('.sort-arrow').textContent = sortAsc ? '▲' : '▼';
+
+      var rows = Array.prototype.slice.call(tbody.getElementsByTagName('tr'));
+      rows.sort(function(a, b) {
+        var aVal = (a.children[col] || {}).textContent || '';
+        var bVal = (b.children[col] || {}).textContent || '';
+        return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      });
+      rows.forEach(function(row) { tbody.appendChild(row); });
+    });
+  });
+
+  applyFilters();
+})();
+</script>""")
+
+        html_content.append(f"<div class='footer'>Generated by STIG Assessor v{_ver} &middot; Zero-Dependency Offline Reporter</div>")
         html_content.append("</div></body></html>")
 
         with open(out_path, 'w', encoding='utf-8') as f:
             f.write("\n".join(html_content))
-            
+
         LOG.i(f"Exported HTML report to {out_path}")
         return str(out_path)
 
@@ -2115,7 +2249,7 @@ class Proc:
                         status_node = vuln.find("STATUS")
                         if status_node is None:
                             status_node = ET.SubElement(vuln, "STATUS")
-                        status_node.text = Status.NOT_APPLICABLE.value
+                        status_node.text = Status.NOT_APPLICABLE
 
                         comment_node = vuln.find("COMMENTS")
                         if comment_node is None:

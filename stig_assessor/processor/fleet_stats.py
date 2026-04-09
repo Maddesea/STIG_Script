@@ -103,7 +103,7 @@ class FleetStats:
                 # Use generate_stats which gives us top-level info
                 stats = self.proc.generate_stats(str(path), output_format="json")
                 return stats
-            except Exception as e:
+            except (FileNotFoundError, PermissionError, ValueError) as e:
                 LOG.e(f"Failed to process {path.name} in fleet stats: {e}")
                 return {}
 

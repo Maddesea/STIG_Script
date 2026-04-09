@@ -27,7 +27,6 @@ echo.
 %PYTHON% -m stig_assessor.ui.cli --web
 if errorlevel 1 (
     echo.
-    echo If the above failed, try:  %PYTHON% STIG_Script.py --web
-    %PYTHON% STIG_Script.py --web
+    echo ERROR: Failed to launch the Web Interface. Please check errors above.
 )
 pause

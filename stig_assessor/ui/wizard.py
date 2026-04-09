@@ -438,10 +438,131 @@ class InteractiveWizard:
             print(f"    • {cap}")
         self._pause()
 
+
+    def bulk_edit_ckl(self):
+        """Bulk update vulnerabilities."""
+        self._header("Bulk Edit Checklist")
+        ckl = self._prompt("Source CKL file", validate_file=True)
+        out = self._prompt("Output CKL file")
+        sev = self._prompt("Filter by Severity (high/medium/low, Enter for any)", required=False)
+        vid = self._prompt("Filter by V-ID regex (e.g. ^V-123, Enter for any)", required=False)
+        status = self._prompt_choice("New Status", ["NotAFinding", "Open", "Not_Reviewed", "Not_Applicable"])
+        comment = self._prompt("New Comments")
+        append = self._prompt_yn("Append to existing comments?", default=True)
+
+        try:
+            res = self.proc.bulk_edit(ckl, out, severity=sev, regex_vid=vid, new_status=status, new_comment=comment, append_comment=append)
+            self._success(f"Updated {res['updates']} vulnerabilities. Saved to {res['output']}")
+        except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
+            self._error(str(e))
+        self._pause()
+
+    def apply_waiver(self):
+        """Apply waivers to vulnerabilities."""
+        self._header("Apply Waivers")
+        ckl = self._prompt("Source CKL file", validate_file=True)
+        out = self._prompt("Output CKL file")
+        vids_str = self._prompt("Vulnerability IDs (comma separated)")
+        vids = [v.strip() for v in vids_str.split(",") if v.strip()]
+        approver = self._prompt("Approver Name/Title")
+        reason = self._prompt("Waiver Justification")
+        valid = self._prompt("Valid Until (YYYY-MM-DD)")
+
+        print(_c("\n  Applying waivers…", "dim"))
+        try:
+            res = self.proc.apply_waivers(ckl, out, vids, approver, reason, valid)
+            self._success(f"Applied waivers to {res['updates']} vulnerabilities. Saved to {res['output']}")
+        except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
+            self._error(str(e))
+        self._pause()
+
+    def batch_convert(self):
+        """Batch convert multiple XCCDF files."""
+        self._header("Batch Convert Checklists")
+        in_dir = self._prompt("Input Directory (containing XCCDF files)", validate_dir=True)
+        out_dir = self._prompt("Output Directory for CKL files", validate_dir=True)
+        prefix = self._prompt("Asset name prefix", required=False) or "ASSET"
+        apply_bp = self._prompt_yn("Apply boilerplate templates?", default=False)
+
+        print(_c("\n  Converting (this may take a while)…", "dim"))
+        try:
+            res = self.proc.batch_convert(in_dir, out_dir, asset_prefix=prefix, apply_boilerplate=apply_bp)
+            self._success(f"Batch convert complete: {res['converted']} succeeded, {res.get('failed', 0)} failed")
+        except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
+            self._error(str(e))
+        self._pause()
+
+    def advanced_pipeline(self):
+        """Run a guided end-to-end pipeline (Build -> Apply Fixes -> Report)."""
+        self._header("Advanced End-to-End Pipeline")
+        print(_c("  This pipeline will walk you through Building, Remediating, and Reporting.", "cyan"))
+
+        # Step 1: Create
+        print(_c("\n  [Step 1] Build Checklist", "yellow"))
+        xccdf = self._prompt("Input XCCDF/XML format file", validate_file=True)
+        out1 = self._prompt("Output CKL file")
+        asset = self._prompt("Asset Name (optional)", required=False)
+        try:
+            self.proc.xccdf_to_ckl(xccdf, out1, asset=asset or 'ASSET')
+            self._success(f"Built CKL to {out1}")
+        except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
+            self._error(f"Failed Phase 1: {e}")
+            self._pause()
+            return
+
+        # Step 2: Remediate
+        if not self._prompt_yn("\nProceed to Remediate this checklist from Results?", default=True):
+            self._pause()
+            return
+        print(_c("\n  [Step 2] Apply Remediation Results", "yellow"))
+        fix_dir = self._prompt("Directory with JSON/CSV result files", validate_dir=True)
+        out2 = self._prompt("Output CKL file (post-remediation)", default=out1)
+        try:
+            from stig_assessor.remediation.processor import FixResPro
+            fix_proc = FixResPro()
+            fix_proc.load_dir(fix_dir)
+            res2 = fix_proc.update_ckl(out1, out2)
+            self._success(f"Applied fixes: {res2['updated']} updated, {len(res2.get('not_found', []))} missing.")
+        except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
+            self._error(f"Failed Phase 2: {e}")
+            self._pause()
+            return
+
+        # Step 3: Reporting
+        if not self._prompt_yn("\nProceed to Generate Output Report?", default=True):
+            self._pause()
+            return
+        print(_c("\n  [Step 3] Generate HTML Report", "yellow"))
+        html_out = self._prompt("HTML Output path")
+        try:
+            from stig_assessor.processor.html_report import generate_html_report
+            generate_html_report(out2, html_out)
+            self._success(f"Report generated successfully.")
+        except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
+            self._error(f"Failed Phase 3: {e}")
+            self._pause()
+            return
+
+        print(_c("\n  Pipeline successfully finished!", "green", "bold"))
+        if self._prompt_yn(f"Open {html_out} in default browser?", default=True):
+            import os, sys, subprocess
+            try:
+                if os.name == "nt":
+                    os.startfile(html_out)
+                elif sys.platform == "darwin":
+                    subprocess.call(["open", html_out])
+                else:
+                    subprocess.call(["xdg-open", html_out])
+            except Exception as e:
+                self._error(f"Could not open file: {e}")
+        self._pause()
+
+
     # ── Main loop ────────────────────────────────────────────────────────────
 
     def run(self):
         options: List[Tuple[str, Callable]] = [
+            ("⭐ Run Advanced End-to-End Pipeline", self.advanced_pipeline),
             ("Build Checklist from XCCDF", self.build_checklist),
             ("Merge Historical Checklists", self.merge_checklists),
             ("Extract Remediation Playbooks", self.extract_playbooks),
@@ -450,6 +571,9 @@ class InteractiveWizard:
             ("Generate HTML Report", self.generate_html_report),
             ("Fleet Statistics", self.fleet_stats),
             ("Repair Checklist", self.repair_checklist),
+            ("Bulk Edit Checklist", self.bulk_edit_ckl),
+            ("Apply Waivers", self.apply_waiver),
+            ("Batch Convert", self.batch_convert),
             ("Export eMASS POAM", self.export_poam),
             ("Manage Boilerplates →", self.manage_boilerplates),
             ("About", self.show_about),

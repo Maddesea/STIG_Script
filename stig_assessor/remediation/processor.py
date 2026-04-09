@@ -213,6 +213,37 @@ class FixResPro:
 
             return unique_count, skipped
 
+    def load_dir(self, directory: Union[str, Path]) -> Tuple[int, int]:
+        """
+        Load remediation results from all JSON and CSV files in a directory.
+
+        Args:
+            directory: Path to directory containing results files
+
+        Returns:
+            Tuple of (total_unique_count, total_skipped_count)
+            
+        Raises:
+            FileError: If directory cannot be read
+        """
+        directory = Path(directory)
+        if not directory.is_dir():
+            raise FileError(f"Directory not found or not a directory: {directory}")
+            
+        total_unique = 0
+        total_skipped = 0
+        
+        for path in directory.rglob("*"):
+            if path.is_file() and path.suffix.lower() in [".json", ".csv"]:
+                try:
+                    unique, skipped = self.load(path)
+                    total_unique += unique
+                    total_skipped += skipped
+                except ParseError as e:
+                    LOG.w(f"Skipping {path.name}: {e}")
+                    
+        return total_unique, total_skipped
+
     def update_ckl(
         self,
         checklist: Union[str, Path],
@@ -359,7 +390,7 @@ class FixResPro:
                     status_node = vuln.find("STATUS")
                     if status_node is None:
                         status_node = ET.SubElement(vuln, "STATUS")
-                    status_node.text = San.status(Status.NOT_A_FINDING.value)
+                    status_node.text = Status.NOT_A_FINDING
 
             # Hook: Plugins can intercept and manipulate the ElementTree before save
             from stig_assessor.core.plugins import PluginManager

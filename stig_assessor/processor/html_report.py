@@ -240,12 +240,25 @@ def _build_html(data: Dict[str, Any], stats: Dict[str, Any]) -> str:
         st = v.get("status", Status.NOT_REVIEWED)
         st_label, st_bg, st_fg = badge.get(st, (st, "#94a3b8", "#fff"))
         title = e(v.get("rule_title", "")[:120])
+        finding = e(v.get("finding", "")) or "No finding details provided."
+        comment = e(v.get("comment", "")) or "No comments provided."
+        
+        row_cls = f'status-{st_label.lower().replace("_","")}'
+        
         finding_rows.append(
-            f'<tr class="status-{st_label.lower().replace("_","")}">'
-            f'<td class="vid">{vid}</td>'
+            f'<tr class="{row_cls} main-row" onclick="toggleDetails(\'{vid}\')" style="cursor:pointer">'
+            f'<td class="vid"><span class="expander" id="exp-{vid}">&#9654;</span> {vid}</td>'
             f'<td><span class="sev-badge" style="background:{cat_color}">{cat_label}</span></td>'
             f'<td><span class="status-badge" style="background:{st_bg};color:{st_fg}">{st_label}</span></td>'
             f'<td class="title">{title}</td></tr>'
+        )
+        finding_rows.append(
+            f'<tr id="details-{vid}" class="details-row {row_cls}" style="display:none;">'
+            f'<td colspan="4">'
+            f'<div class="details-content">'
+            f'<div class="detail-block"><strong>Finding Details:</strong><pre>{finding}</pre></div>'
+            f'<div class="detail-block"><strong>Comments:</strong><pre>{comment}</pre></div>'
+            f'</div></td></tr>'
         )
 
     return f"""<!DOCTYPE html>
@@ -325,7 +338,12 @@ h1 span {{ color: var(--accent); }}
 .findings-table td {{ padding: 0.5rem; border-bottom: 1px solid var(--border); vertical-align: middle; }}
 .findings-table .vid {{ font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.82rem; white-space: nowrap; }}
 .findings-table .title {{ max-width: 500px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-.findings-table tr:hover {{ background: var(--surface2); }}
+.findings-table tr.main-row:hover {{ background: var(--surface2); }}
+.expander {{ font-size: 0.7rem; color: var(--text2); display: inline-block; width: 12px; transition: transform 0.2s; }}
+.details-row td {{ background: var(--surface2); border-bottom: 2px solid var(--border); padding: 0; }}
+.details-content {{ padding: 1rem 1.5rem; background: var(--bg); border: 1px inset var(--border); border-radius: 4px; margin: 0.5rem; display: flex; flex-direction: column; gap: 1rem; }}
+.detail-block strong {{ color: var(--accent); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.4rem; }}
+.detail-block pre {{ font-family: 'Segoe UI', system-ui, sans-serif; font-size: 0.85rem; white-space: pre-wrap; word-wrap: break-word; color: var(--text); padding-left: 0.5rem; border-left: 2px solid var(--border); margin: 0; }}
 footer {{ text-align: center; padding: 2rem 0; color: var(--text2); font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 3rem; }}
 @media print {{
     body {{ background: #fff; color: #000; }}
@@ -381,10 +399,16 @@ footer {{ text-align: center; padding: 2rem 0; color: var(--text2); font-size: 0
         <button class="filter-btn" onclick="filterRows('notafinding')">Not A Finding</button>
         <button class="filter-btn" onclick="filterRows('not_reviewed')">Not Reviewed</button>
         <button class="filter-btn" onclick="filterRows('not_applicable')">N/A</button>
+        <input type="text" id="searchInput" class="search-input" placeholder="Search VIDs or Rule Titles..." onkeyup="searchTable()">
     </div>
     <div style="overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border);">
-    <table class="findings-table">
-        <thead><tr><th>VID</th><th>Severity</th><th>Status</th><th>Rule Title</th></tr></thead>
+    <table class="findings-table" id="findingsTable">
+        <thead><tr>
+            <th onclick="sortTable(0)">VID &#x21D5;</th>
+            <th onclick="sortTable(1)">Severity &#x21D5;</th>
+            <th onclick="sortTable(2)">Status &#x21D5;</th>
+            <th onclick="sortTable(3)">Rule Title &#x21D5;</th>
+        </tr></thead>
         <tbody>
         {''.join(finding_rows)}
         </tbody>
@@ -404,13 +428,120 @@ function toggleTheme() {{
     const html = document.documentElement;
     html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
 }}
+
+function toggleDetails(vid) {{
+    let detailsRow = document.getElementById('details-' + vid);
+    let expander = document.getElementById('exp-' + vid);
+    if(detailsRow.style.display === 'none') {{
+        detailsRow.style.display = '';
+        expander.innerHTML = '&#9660;';
+    }} else {{
+        detailsRow.style.display = 'none';
+        expander.innerHTML = '&#9654;';
+    }}
+}}
+
 function filterRows(status) {{
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     event.target.classList.add('active');
-    document.querySelectorAll('.findings-table tbody tr').forEach(row => {{
-        if (status === 'all') {{ row.style.display = ''; return; }}
+    
+    document.getElementById('searchInput').value = '';
+    
+    document.querySelectorAll('#findingsTable tbody tr').forEach(row => {{
+        if(row.classList.contains('details-row')) {{
+            row.style.display = 'none'; // Always hide details on filter change
+            return;
+        }}
+        
+        let exp = row.querySelector('.expander');
+        if(exp) exp.innerHTML = '&#9654;';
+        
+        if (status === 'all') {{ 
+            row.style.display = ''; 
+            return; 
+        }}
+        
         row.style.display = row.classList.contains('status-' + status) ? '' : 'none';
     }});
+}}
+
+function searchTable() {{
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.filter-btn').classList.add('active'); // Reset to ALL
+    
+    let input = document.getElementById("searchInput").value.toUpperCase();
+    let mainRows = document.querySelectorAll("#findingsTable .main-row");
+    
+    mainRows.forEach(row => {{
+        let tdVid = row.getElementsByTagName("td")[0];
+        let tdTitle = row.getElementsByTagName("td")[3];
+        
+        let detailsRow = row.nextElementSibling;
+        if(detailsRow && detailsRow.classList.contains('details-row')) {{
+            detailsRow.style.display = 'none';
+        }}
+        
+        let exp = row.querySelector('.expander');
+        if(exp) exp.innerHTML = '&#9654;';
+        
+        let txtVid = tdVid ? (tdVid.textContent || tdVid.innerText) : "";
+        let txtTitle = tdTitle ? (tdTitle.textContent || tdTitle.innerText) : "";
+        
+        if (txtVid.toUpperCase().indexOf(input) > -1 || txtTitle.toUpperCase().indexOf(input) > -1) {{
+            row.style.display = "";
+        }} else {{
+            row.style.display = "none";
+        }}
+    }});
+}}
+
+let sortAsc = false;
+function sortTable(n) {{
+    let table = document.getElementById("findingsTable");
+    let tbody = table.querySelector("tbody");
+    let rows, switching, i, x, y, shouldSwitch;
+    switching = true;
+    sortAsc = !sortAsc;
+    
+    while (switching) {{
+        switching = false;
+        rows = tbody.querySelectorAll(".main-row");
+        for (i = 0; i < (rows.length - 1); i++) {{
+            shouldSwitch = false;
+            x = rows[i].getElementsByTagName("td")[n];
+            y = rows[i + 1].getElementsByTagName("td")[n];
+            
+            if(!x || !y) continue;
+            
+            let cmpX = x.innerHTML.toLowerCase().replace(/<[^>]+>/g, '').trim();
+            let cmpY = y.innerHTML.toLowerCase().replace(/<[^>]+>/g, '').trim();
+            
+            if (sortAsc) {{
+                if (cmpX > cmpY) {{ shouldSwitch = true; break; }}
+            }} else {{
+                if (cmpX < cmpY) {{ shouldSwitch = true; break; }}
+            }}
+        }}
+        if (shouldSwitch) {{
+            let r1 = rows[i];
+            let r1_det = (r1.nextElementSibling && r1.nextElementSibling.classList.contains('details-row')) ? r1.nextElementSibling : null;
+            let r2 = rows[i + 1];
+            let r2_det = (r2.nextElementSibling && r2.nextElementSibling.classList.contains('details-row')) ? r2.nextElementSibling : null;
+            
+            if (r2_det) {{
+                tbody.insertBefore(r1, r2_det.nextSibling);
+            }} else {{
+                tbody.insertBefore(r1, r2.nextSibling);
+            }}
+            
+            if(r1_det) {{
+                tbody.insertBefore(r1_det, r1.nextSibling);
+            }}
+            
+            switching = true;
+        }}
+    }}
+    }}
 }}
 </script>
 </body>

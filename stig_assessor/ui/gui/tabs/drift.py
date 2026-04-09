@@ -1,9 +1,5 @@
-"""Drift Analysis Tab module."""
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-from pathlib import Path
-
 from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_ENTRY_WIDTH, GUI_BUTTON_WIDTH_WIDE, GUI_FONT_NORMAL
+from stig_assessor.ui.helpers import PremiumChart
 
 
 def build_drift_tab(app, frame):
@@ -28,7 +24,7 @@ def build_drift_tab(app, frame):
 
     def _browse_drift_ckl():
         app.drift_track_ckl.set(
-            filedialog.askopenfilename(filetypes=[("CKL", "*.ckl")])
+            filedialog.askopenfilename(initialdir=app._last_dir(), filetypes=[("CKL", "*.ckl")])
         )
 
     ttk.Button(
@@ -48,7 +44,22 @@ def build_drift_tab(app, frame):
         try:
             tree = app.proc._load_file_as_xml(Path(ckl_path))
             root = tree.getroot()
-            vulns = app.proc._extract_vuln_data(root)
+            
+            # Simple manual extraction for tracking
+            vulns = {}
+            for vnode in root.findall(".//VULN"):
+                vid = ""
+                for sd in vnode.findall("STIG_DATA"):
+                    if sd.findtext("VULN_ATTRIBUTE") == "Vuln_Num":
+                        vid = sd.findtext("ATTRIBUTE_DATA")
+                        break
+                if vid:
+                    vulns[vid] = {
+                        "status": vnode.findtext("STATUS", "Not_Reviewed"),
+                        "finding_details": vnode.findtext("FINDING_DETAILS", ""),
+                        "comments": vnode.findtext("COMMENTS", "")
+                    }
+
             asset_elem = root.find(".//HOST_NAME")
             asset_name = asset_elem.text if asset_elem is not None else "Unknown"
 
@@ -58,7 +69,6 @@ def build_drift_tab(app, frame):
                     {
                         "vid": vid,
                         "status": vdata.get("status", "Not_Reviewed"),
-                        "severity": vdata.get("severity", "medium"),
                         "find": vdata.get("finding_details", ""),
                         "comm": vdata.get("comments", ""),
                     }
@@ -71,7 +81,7 @@ def build_drift_tab(app, frame):
                 "Success",
                 f"Successfully ingested {len(results)} findings into database.\nAssessment ID: {db_id}",
             )
-        except Exception as e:
+        except (ValueError, OSError, TypeError) as e:
             messagebox.showerror("Tracking Error", str(e))
 
     btn1 = ttk.Button(
@@ -129,18 +139,14 @@ def build_drift_tab(app, frame):
 
             app.drift_canvas.delete("all")
 
-            width = int(app.drift_canvas.winfo_width())
-            if width <= 10:
-                width = 600
-            height = int(app.drift_canvas.winfo_height())
-            if height <= 10:
-                height = 220
+            width = max(600, int(app.drift_canvas.winfo_width()))
+            height = 220
 
             app.drift_canvas.create_text(
                 width / 2,
                 20,
                 text=f"Compliance Drift Analysis: {asset_name}",
-                fill="#374151",
+                fill=app._colors.get("fg", "#374151"),
                 font=(GUI_FONT_NORMAL[0], 12, "bold"),
             )
 
@@ -148,64 +154,62 @@ def build_drift_tab(app, frame):
                 ("Fixed", len(drift["fixed"]), "#10b981"),
                 ("Regressed", len(drift["regressed"]), "#ef4444"),
                 ("Changed", len(drift["changed"]), "#f59e0b"),
-                ("New Rules", len(drift["new"]), "#3b82f6"),
+                ("New", len(drift["new"]), "#3b82f6"),
                 ("Removed", len(drift["removed"]), "#6b7280"),
             ]
 
-            max_val = max([b[1] for b in bars] + [1]) if any(b[1] for b in bars) else 1
+            max_val = max([b[1] for b in bars] + [1])
             max_h = height - 80
-            bar_w = width / (len(bars) * 2)
-            gap = bar_w
-            current_x = gap / 2
+            bar_w = 70
+            gap = (width - (bar_w * len(bars))) / (len(bars) + 1)
+            x_pos = gap
 
             for label, count, color in bars:
-                h = (count / max_val) * max_h
-                if h < 2 and count > 0:
-                    h = 2
-
-                app.drift_canvas.create_rectangle(
-                    current_x,
-                    height - 30 - h,
-                    current_x + bar_w,
-                    height - 30,
-                    fill=color,
-                    outline=color,
+                h = (count / max_val) * max_h if count > 0 else 2
+                PremiumChart.draw_bar(
+                    app.drift_canvas, x_pos, height - 35, bar_w, h,
+                    color, label, count,
+                    GUI_FONT_NORMAL, GUI_FONT_NORMAL,
+                    app._colors.get("fg", "#1f2937"), app._colors.get("text", "#4b5563")
                 )
-                app.drift_canvas.create_text(
-                    current_x + bar_w / 2,
-                    height - 30 - h - 12,
-                    text=str(count),
-                    fill="#1f2937",
-                    font=(GUI_FONT_NORMAL[0], 10, "bold"),
-                )
-                app.drift_canvas.create_text(
-                    current_x + bar_w / 2,
-                    height - 15,
-                    text=label,
-                    fill="#4b5563",
-                    font=(GUI_FONT_NORMAL[0], 10),
-                )
-
-                current_x += bar_w + gap
+                x_pos += bar_w + gap
 
         except Exception as e:
             messagebox.showerror("Drift Error", str(e))
 
+    def _clear_drift_form():
+        app.drift_track_ckl.set("")
+        app.drift_asset.set("")
+        app.drift_canvas.delete("all")
+        app.drift_canvas.create_text(
+            300,
+            110,
+            text="Analyze an asset to view compliance drift",
+            fill=app._colors.get("text", "#9ca3af"),
+            font=GUI_FONT_NORMAL,
+        )
+
+    btn_row = ttk.Frame(drift_frame)
+    btn_row.grid(row=1, column=1, pady=GUI_PADDING, sticky="e")
+
     btn2 = ttk.Button(
-        drift_frame,
+        btn_row,
         text="🔍 Analyze Drift",
         command=_do_show_drift,
         width=GUI_BUTTON_WIDTH_WIDE,
         style="Accent.TButton",
     )
-    btn2.grid(row=1, column=1, pady=GUI_PADDING, sticky="e")
+    btn2.pack(side="left", padx=GUI_PADDING)
+    
+    ttk.Button(
+        btn_row, text="🗑 Clear Form", command=_clear_drift_form
+    ).pack(side="left")
 
     app.drift_canvas = tk.Canvas(
         frame,
         height=220,
-        bg="#ffffff",
-        highlightthickness=1,
-        highlightbackground="#e5e7eb",
+        bg=app._colors.get("bg", "#ffffff"),
+        highlightthickness=0,
     )
     app.drift_canvas.pack(
         fill="x", padx=GUI_PADDING_LARGE, pady=(0, GUI_PADDING_LARGE)
@@ -217,3 +221,4 @@ def build_drift_tab(app, frame):
         fill="#9ca3af",
         font=GUI_FONT_NORMAL,
     )
+    app.action_drift = _do_show_drift

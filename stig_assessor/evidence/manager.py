@@ -206,6 +206,37 @@ class EvidenceMgr:
             LOG.i(f"Evidence imported to {dest}")
             return dest
 
+    # ----------------------------------------------------------------------- remove
+    def remove_file(self, vid: str, filename: str) -> bool:
+        """Remove a specific evidence file from a vulnerability."""
+        vid = San.vuln(vid)
+        removed = False
+        with self._lock:
+            if vid in self._meta:
+                new_entries = []
+                for entry in self._meta[vid]:
+                    if entry.filename == filename:
+                        removed = True
+                        file_path = self.base / vid / filename
+                        with suppress(OSError):
+                            file_path.unlink()
+                    else:
+                        new_entries.append(entry)
+                
+                if removed:
+                    if new_entries:
+                        self._meta[vid] = new_entries
+                    else:
+                        del self._meta[vid]
+                        # try to delete empty directory
+                        with suppress(OSError):
+                            (self.base / vid).rmdir()
+                        
+        if removed:
+            self._save()
+            
+        return removed
+
     # ----------------------------------------------------------------------- export
     def export_all(self, dest_dir: Union[str, Path]) -> int:
         """Export all evidence to directory.

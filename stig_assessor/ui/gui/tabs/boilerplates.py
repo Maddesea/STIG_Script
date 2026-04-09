@@ -80,7 +80,7 @@ def build_boilerplates_tab(app, frame):
         row=0, column=0, sticky="w"
     )
     app._bp_finding_text = ScrolledText(
-        editors, width=60, height=8, font=app._colors.get("font_mono",GUI_FONT_MONO) if hasattr(app,'GUI_FONT_MONO') else ("Courier New", 10)
+        editors, width=60, height=8, font=GUI_FONT_MONO
     )
     app._bp_finding_text.grid(
         row=1, column=0, sticky="nsew", pady=(0, GUI_PADDING_LARGE)
@@ -88,7 +88,7 @@ def build_boilerplates_tab(app, frame):
 
     ttk.Label(editors, text="Comments:").grid(row=2, column=0, sticky="w")
     app._bp_comment_text = ScrolledText(
-        editors, width=60, height=8, font=app._colors.get("font_mono",GUI_FONT_MONO) if hasattr(app,'GUI_FONT_MONO') else ("Courier New", 10)
+        editors, width=60, height=8, font=GUI_FONT_MONO
     )
     app._bp_comment_text.grid(row=3, column=0, sticky="nsew")
 
@@ -190,6 +190,42 @@ def build_boilerplates_tab(app, frame):
                 app._bp_vids_list.selection_set(app._bp_current_vid)
                 _load_bp_editor()
 
+    def _bp_clear():
+        app._bp_finding_text.delete("1.0", tk.END)
+        app._bp_comment_text.delete("1.0", tk.END)
+        app._bp_status_var.set(Status.NOT_A_FINDING.value)
+        for item in app._bp_vids_list.selection():
+            app._bp_vids_list.selection_remove(item)
+        app._bp_current_vid = None
+
+    def _bp_export_selection():
+        selected = app._bp_vids_list.selection()
+        if not selected:
+            messagebox.showinfo("Selection Required", "Please select one or more VIDs to export.")
+            return
+            
+        path = filedialog.asksaveasfilename(
+            title="Export Selected Boilerplates",
+            defaultextension=".json",
+            filetypes=[("JSON Files", "*.json")]
+        )
+        if not path:
+            return
+            
+        try:
+            subset = {}
+            for item in selected:
+                vid = app._bp_vids_list.item(item)["values"][0]
+                if vid in app.proc.boiler.templates:
+                    subset[vid] = app.proc.boiler.templates[vid]
+            
+            import json
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(subset, f, indent=2, ensure_ascii=False)
+            messagebox.showinfo("Export Successful", f"Exported {len(subset)} boilerplate(s) to:\n{path}")
+        except Exception as e:
+            messagebox.showerror("Export Error", str(e))
+
     actions = ttk.Frame(right_frame)
     actions.grid(row=2, column=0, sticky="ew", pady=(GUI_PADDING_LARGE, 0))
     ttk.Button(
@@ -198,8 +234,15 @@ def build_boilerplates_tab(app, frame):
         command=_bp_save,
         style="Accent.TButton",
     ).pack(side="right", padx=5)
-    ttk.Button(actions, text="🗑 Delete", command=_bp_delete).pack(
+    ttk.Button(actions, text="🗑 Delete Selected", command=_bp_delete).pack(
+        side="left", padx=5
+    )
+    ttk.Button(actions, text="🧹 Clear Form", command=_bp_clear).pack(
+        side="left", padx=5
+    )
+    ttk.Button(actions, text="📤 Export Selected", command=_bp_export_selection).pack(
         side="left", padx=5
     )
 
     _bp_refresh_vids()
+    app.action_boilerplates = _bp_save

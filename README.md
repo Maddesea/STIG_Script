@@ -36,10 +36,10 @@ sudo apt install python3-tk
 ```
 
 **Starting the Application:**
-You can interact with STIG Assessor using the primary entry script `STIG_Script.py`:
+You can interact with STIG Assessor via the `stig_assessor` module:
 ```bash
-python3 STIG_Script.py --gui   # Launch the Graphical Interface
-python3 STIG_Script.py --help  # View CLI help and commands
+python3 -m stig_assessor.ui.cli --gui   # Launch the Graphical Interface
+python3 -m stig_assessor.ui.cli --help  # View CLI help and commands
 ```
 
 ---
@@ -61,7 +61,7 @@ Achieving compliance expertly involves moving through a standard lifecycle:
 The first step is transforming an `.xml` XCCDF Benchmark into a usable STIG `CKL` format. 
 
 ### 🖥️ GUI Method
-1. Launch the GUI: `python3 STIG_Script.py --gui`
+1. Launch the GUI: `python3 -m stig_assessor.ui.cli --gui`
 2. Go to the **Create CKL** tab.
 3. Select your `.xml` XCCDF file and specify where to output the `.ckl`.
 4. Enter your system metadata: Asset Name (Hostname), IP, MAC, and Marking (e.g., CUI).
@@ -70,7 +70,7 @@ The first step is transforming an `.xml` XCCDF Benchmark into a usable STIG `CKL
 
 ### 💻 CLI Method
 ```bash
-python3 STIG_Script.py --create \
+python3 -m stig_assessor.ui.cli --create \
   --xccdf rhel8_stig.xml \
   --asset "SERVER-01" \
   --ip "192.168.1.100" \
@@ -96,12 +96,12 @@ For each finding, you will often need to maintain screenshots, text logs, and ot
 ### 💻 CLI Method
 ```bash
 # Import a file for a specific vulnerability
-python3 STIG_Script.py --import-evidence "V-123456" screenshot.png \
+python3 -m stig_assessor.ui.cli --import-evidence "V-123456" screenshot.png \
   --evidence-desc "Firewall status showing drop rules" \
   --evidence-cat "config"
 
 # Create a zip package for auditors or offline transfer
-python3 STIG_Script.py --package-evidence complete_evidence.zip
+python3 -m stig_assessor.ui.cli --package-evidence complete_evidence.zip
 ```
 
 ---
@@ -119,7 +119,7 @@ STIGs contain embedded remediation logic. You can extract these into ready-to-us
 
 ### 💻 CLI Method
 ```bash
-python3 STIG_Script.py --extract rhel8_stig.xml \
+python3 -m stig_assessor.ui.cli --extract rhel8_stig.xml \
   --outdir ./fixes_dir \
   --no-json \
   --script-dry-run  # Output scripts will contain 'echo' checks rather than executing changes.
@@ -151,7 +151,7 @@ python3 generate_remediation.py --from-csv results.csv --output results.json
 
 ### 💻 CLI Method
 ```bash
-python3 STIG_Script.py --apply-results results.json \
+python3 -m stig_assessor.ui.cli --apply-results results.json \
   --checklist server01_baseline.ckl \
   --results-out server01_updated.ckl \
   --results-dry-run
@@ -171,7 +171,7 @@ When DISA releases a new quarterly STIG update, you must convert your existing c
 
 ### 💻 CLI Method
 ```bash
-python3 STIG_Script.py --merge \
+python3 -m stig_assessor.ui.cli --merge \
   --base q3_blank_baseline.ckl \
   --histories q1_assessment.ckl q2_assessment.ckl \
   --merge-out q3_preserved_assessment.ckl
@@ -189,13 +189,13 @@ Checklists often become organically corrupted by bad parsing tools, special stri
 ### Validation & Repair (CLI)
 ```bash
 # Validate if a Checklist is fully STIG Viewer 2.18 compatible
-python3 STIG_Script.py --validate assessment.ckl
+python3 -m stig_assessor.ui.cli --validate assessment.ckl
 
 # Automatically strip bad XML characters and repair missing nodes
-python3 STIG_Script.py --repair corrupt_assessment.ckl --repair-out fixed.ckl
+python3 -m stig_assessor.ui.cli --repair corrupt_assessment.ckl --repair-out fixed.ckl
 
 # Print compliance statistics text to console (Completion %, Open, NaF)
-python3 STIG_Script.py --stats assessment.ckl --stats-format text 
+python3 -m stig_assessor.ui.cli --stats assessment.ckl --stats-format text 
 ```
 
 ---
@@ -207,7 +207,7 @@ For administrators managing fleet-wide operations, CLI-only advanced features ac
 **Batch XCCDF to CKL Generation:**
 Point it at a folder to rapidly auto-convert dozens of `.xml`s simultaneously.
 ```bash
-python3 STIG_Script.py --batch-convert ./disa_stig_folder \
+python3 -m stig_assessor.ui.cli --batch-convert ./disa_stig_folder \
   --batch-out ./ckl_out \
   --batch-asset-prefix "WIN10-"
 ```
@@ -215,14 +215,14 @@ python3 STIG_Script.py --batch-convert ./disa_stig_folder \
 **Checklist Diffing:**
 Compare two checklist assessments to see exactly what changed regarding status boundaries, fix comments, or severity ratings.
 ```bash
-python3 STIG_Script.py --diff prev_assessment.ckl current_assessment.ckl \
+python3 -m stig_assessor.ui.cli --diff prev_assessment.ckl current_assessment.ckl \
   --diff-format detailed
 ```
 
 **Verify Integrity:**
 ```bash
 # Ensures that checksums are valid and have not been tampered with
-python3 STIG_Script.py --verify-integrity final_assessment.ckl
+python3 -m stig_assessor.ui.cli --verify-integrity final_assessment.ckl
 ```
 
 ---

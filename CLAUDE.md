@@ -30,7 +30,6 @@
 
 ```
 STIG_Script/
-├── STIG_Script.py              # Single comprehensive script (~6,776 lines)
 ├── CLAUDE.md                   # This file - AI assistant documentation
 ├── requirements-dev.txt        # Development/test dependencies
 ├── .github/workflows/          # CI/CD automation
@@ -156,7 +155,7 @@ Runtime directories (created in ~/.stig_assessor/):
 
 ### 1. Create CKL from XCCDF
 ```bash
-python STIG_Script.py --create \
+python -m stig_assessor.ui.cli --create \
   --xccdf /path/to/benchmark.xml \
   --asset "SERVER-01" \
   --out /path/to/output.ckl \
@@ -171,7 +170,7 @@ python STIG_Script.py --create \
 
 ### 2. Merge Checklists
 ```bash
-python STIG_Script.py --merge \
+python -m stig_assessor.ui.cli --merge \
   --base current.ckl \
   --histories old1.ckl old2.ckl old3.ckl \
   --merge-out merged.ckl
@@ -181,7 +180,7 @@ python STIG_Script.py --merge \
 
 ### 3. Extract Fixes
 ```bash
-python STIG_Script.py --extract benchmark.xml \
+python -m stig_assessor.ui.cli --extract benchmark.xml \
   --outdir ./fixes \
   --script-dry-run  # Optional: generates dry-run scripts
 ```
@@ -192,7 +191,7 @@ python STIG_Script.py --extract benchmark.xml \
 
 ### 4. Apply Remediation Results
 ```bash
-python STIG_Script.py --apply-results results.json \
+python -m stig_assessor.ui.cli --apply-results results.json \
   --checklist current.ckl \
   --results-out updated.ckl
 ```
@@ -202,15 +201,15 @@ python STIG_Script.py --apply-results results.json \
 ### 5. Evidence Management
 ```bash
 # Import evidence
-python STIG_Script.py --import-evidence V-123456 /path/to/screenshot.png \
+python -m stig_assessor.ui.cli --import-evidence V-123456 /path/to/screenshot.png \
   --evidence-desc "System configuration screenshot" \
   --evidence-cat "config"
 
 # Export all evidence
-python STIG_Script.py --export-evidence /path/to/output_dir
+python -m stig_assessor.ui.cli --export-evidence /path/to/output_dir
 
 # Package evidence
-python STIG_Script.py --package-evidence evidence_package.zip
+python -m stig_assessor.ui.cli --package-evidence evidence_package.zip
 ```
 
 ---
@@ -390,7 +389,7 @@ pattern = re.compile(r'new_pattern', re.MULTILINE)
 
 ### Enable Verbose Logging
 ```bash
-python STIG_Script.py --verbose [command]
+python -m stig_assessor.ui.cli --verbose [command]
 ```
 Logs written to: `~/.stig_assessor/logs/stig_assessor.log`
 
@@ -556,11 +555,11 @@ python -m pytest tests/test_performance/ -v --benchmark-only
 **100% Backward Compatible** - All existing scripts continue to work:
 
 ```bash
-# Old way (still works)
+# Old way
 python STIG_Script.py --create --xccdf benchmark.xml --out output.ckl
 
 # New way (when modular version is deployed)
-python -m stig_assessor.cli --create --xccdf benchmark.xml --out output.ckl
+python -m stig_assessor.ui.cli --create --xccdf benchmark.xml --out output.ckl
 ```
 
 ### Migration Resources
@@ -604,7 +603,7 @@ Based on repository history:
 
 ### Before Committing
 1. Test basic workflows (create, merge, extract, apply)
-2. Verify no syntax errors: `python STIG_Script.py --version`
+2. Verify no syntax errors: `python -m stig_assessor.ui.cli --version`
 3. Run validation on sample output
 4. Update version/build date if significant changes
 
@@ -632,7 +631,7 @@ Based on repository history:
 ### File Locations
 | Component | Path |
 |-----------|------|
-| Main script | `/home/user/STIG_Script/STIG_Script.py` |
+| Main module | `/home/user/STIG_Script/stig_assessor/ui/cli.py` |
 | Logs | `~/.stig_assessor/logs/` |
 | Backups | `~/.stig_assessor/backups/` |
 | Evidence | `~/.stig_assessor/evidence/` |

@@ -123,6 +123,15 @@ python -m stig_assessor.ui.cli --help
 python STIG_Script.py --verbose --create --xccdf benchmark.xml --asset SRV01
 ```
 
+### 2.1.1 Interactive Wizard Mode (CLI)
+
+The CLI features a fully interactive menu-driven Wizard for guided operations. It includes an **Advanced End-to-End Pipeline** option that chains checklist building, remediation application, and HTML reporting automatically.
+
+```bash
+# Launch the interactive Wizard mode
+python STIG_Script.py --wizard
+```
+
 ### 2.2 Graphical Interface (GUI)
 
 ```bash

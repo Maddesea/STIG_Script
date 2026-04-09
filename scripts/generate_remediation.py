@@ -2,7 +2,7 @@
 """
 Remediation JSON Generator for STIG Assessor Complete
 
-This script generates remediation JSON files that can be fed to STIG_Script.py
+This script generates remediation JSON files that can be fed to the stig_assessor module
 using the --apply-results command.
 
 Usage Examples:
@@ -25,7 +25,7 @@ Usage Examples:
     python generate_remediation.py --multi-system server1.csv server2.csv --output multi.json
 
 Apply results to checklist:
-    python STIG_Script.py --apply-results remediation.json --checklist current.ckl --results-out updated.ckl
+    python -m stig_assessor.ui.cli --apply-results remediation.json --checklist current.ckl --results-out updated.ckl
 
 Version: 1.0.0
 Compatible with: STIG Assessor Complete 7.0.0+
@@ -531,7 +531,7 @@ def cmd_multi_system(args):
 def interactive_mode():
     """Interactive mode for generating remediation files."""
     print("═══ Remediation JSON Generator - Interactive Mode ═══\n")
-    print("This tool generates JSON files for STIG_Script.py --apply-results\n")
+    print("This tool generates JSON files for stig_assessor --apply-results\n")
 
     while True:
         print("\nSelect an option:")
@@ -613,7 +613,7 @@ def interactive_mode():
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate remediation JSON files for STIG_Script.py",
+        description="Generate remediation JSON files for the stig_assessor module",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )

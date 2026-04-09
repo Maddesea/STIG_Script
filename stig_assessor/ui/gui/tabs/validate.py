@@ -119,6 +119,51 @@ def build_validate_tab(app, frame):
         command=_do_validate,
         style="Accent.TButton",
     ).pack(side="left")
+
+    def _clear_validate_form():
+        app.validate_ckl.set("")
+        app.validate_tree.delete(*app.validate_tree.get_children())
+        app.validate_summary_var.set("")
+
+    ttk.Button(
+        input_frame,
+        text="🗑 Clear Form",
+        command=_clear_validate_form,
+    ).pack(side="left", padx=GUI_PADDING)
+    
+    def _export_validate_results():
+        if not app.validate_tree.get_children():
+            from tkinter import messagebox
+            messagebox.showinfo("No Results", "There are no validation results to export.")
+            return
+            
+        path = filedialog.asksaveasfilename(
+            title="Export Validation Results",
+            defaultextension=".csv",
+            filetypes=[("CSV Files", "*.csv")]
+        )
+        if not path:
+            return
+            
+        try:
+            import csv
+            with open(path, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(["Severity", "Type", "Message"])
+                for child in app.validate_tree.get_children():
+                    writer.writerow(app.validate_tree.item(child)["values"])
+            from tkinter import messagebox
+            messagebox.showinfo("Export Successful", f"Validation results exported to:\n{path}")
+        except Exception as e:
+            from tkinter import messagebox
+            messagebox.showerror("Export Failed", str(e))
+
+    ttk.Button(
+        input_frame,
+        text="💾 Export Results",
+        command=_export_validate_results,
+    ).pack(side="left", padx=GUI_PADDING)
+
     app._enable_dnd(ent_vc, app.validate_ckl)
 
     app._validate_ckl_err = ttk.Label(
@@ -190,3 +235,4 @@ def build_validate_tab(app, frame):
         textvariable=app.validate_summary_var,
         font=GUI_FONT_MONO,
     ).pack(anchor="w", pady=2)
+    app.action_validate = _do_validate

@@ -26,6 +26,8 @@ class AssessorTUI:
             ("Merge Checklists", self._run_merge),
             ("Apply Boilerplates", self._run_boilerplate),
             ("Apply Automated Waivers", self._run_waiver),
+            ("Bulk Edit Checklist", self._run_bulk_edit),
+            ("Export eMASS POAM", self._run_export_poam),
             ("Extract Remediation Playbook", self._run_extract),
             ("Generate Compliance Stats", self._run_stats),
             ("Generate HTML Report", self._run_html),
@@ -96,10 +98,20 @@ class AssessorTUI:
 
             if key == curses.KEY_RESIZE:
                 continue
-            elif key == curses.KEY_UP and self.current_idx > 0:
-                self.current_idx -= 1
-            elif key == curses.KEY_DOWN and self.current_idx < len(self.menu_items) - 1:
-                self.current_idx += 1
+            elif key in [curses.KEY_UP, ord('k')] and len(self.menu_items) > 0:
+                if self.current_idx > 0:
+                    self.current_idx -= 1
+                else:
+                    self.current_idx = len(self.menu_items) - 1
+            elif key in [curses.KEY_DOWN, ord('j')] and len(self.menu_items) > 0:
+                if self.current_idx < len(self.menu_items) - 1:
+                    self.current_idx += 1
+                else:
+                    self.current_idx = 0
+            elif key in [curses.KEY_HOME, ord('g')]:
+                self.current_idx = 0
+            elif key in [curses.KEY_END, ord('G')]:
+                self.current_idx = len(self.menu_items) - 1
             elif key in [curses.KEY_ENTER, 10, 13]:
                 action = self.menu_items[self.current_idx][1]
                 action()
@@ -219,6 +231,49 @@ class AssessorTUI:
             res = self.proc.apply_waivers(ckl_path, ckl_path, vids, approver, reason, until)
             self._show_msg("Success", f"Applied waivers to {res['updates']} findings.")
         except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
+            self._show_msg("Error", str(e))
+
+    def _run_bulk_edit(self):
+        ckl_path = self._prompt_path("Source CKL file")
+        out_path = self._prompt_input("Output CKL file")
+        sev = self._prompt_input("Filter by Severity (high/medium/low, blank for any)")
+        vid = self._prompt_input("Filter by V-ID regex (e.g. ^V-123, blank for any)")
+        status = self._prompt_input("New Status (NotAFinding, Open, Not_Reviewed, Not_Applicable)")
+        comment = self._prompt_input("New Comments")
+        append = self._prompt_input("Append to existing comments? (y/n)")
+        append_bool = append.lower() == 'y'
+
+        self.stdscr.clear()
+        self._safe_addstr(2, 2, "Applying bulk edits... Please wait.")
+        self.stdscr.refresh()
+
+        try:
+            res = self.proc.bulk_edit(
+                ckl_path, out_path, 
+                severity=sev or None, 
+                regex_vid=vid or None, 
+                new_status=status or None, 
+                new_comment=comment or None, 
+                append_comment=append_bool
+            )
+            self._show_msg("Success", f"Updated {res['updates']} vulnerabilities. Saved to {res['output']}")
+        except Exception as e:
+            self._show_msg("Error", str(e))
+
+    def _run_export_poam(self):
+        ckl_path = self._prompt_path("Path to CKL file")
+        
+        self.stdscr.clear()
+        self._safe_addstr(2, 2, "Exporting POAM... Please wait.")
+        self.stdscr.refresh()
+        
+        try:
+            poam_str = self.proc.export_poam(ckl_path)
+            out_file = os.path.splitext(ckl_path)[0] + "_poam.csv"
+            with open(out_file, "w", encoding="utf-8") as f:
+                f.write(poam_str)
+            self._show_msg("Success", f"POAM exported to {out_file}")
+        except Exception as e:
             self._show_msg("Error", str(e))
 
     def _run_extract(self):
