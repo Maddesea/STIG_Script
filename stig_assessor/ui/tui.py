@@ -5,11 +5,13 @@ operating in air-gapped terminal environments.
 """
 
 import curses
+import json
 import os
 import sys
 
 from stig_assessor.core.constants import VERSION
 from stig_assessor.core.logging import LOG
+from stig_assessor.exceptions import FileError, ParseError, ValidationError
 from stig_assessor.processor.processor import Proc
 
 
@@ -18,7 +20,7 @@ class AssessorTUI:
         self.stdscr = stdscr
         self.proc = Proc()
         self.current_idx = 0
-        
+
         self.menu_items = [
             ("Convert XCCDF to CKL", self._run_convert),
             ("Merge Checklists", self._run_merge),
@@ -28,6 +30,8 @@ class AssessorTUI:
             ("Generate Compliance Stats", self._run_stats),
             ("Generate HTML Report", self._run_html),
             ("Generate Fleet Stats", self._run_fleet),
+            ("Repair Checklist", self._run_repair),
+            ("Compare Checklists (Diff)", self._run_diff),
             ("Exit", self._exit_app)
         ]
 
@@ -36,12 +40,12 @@ class AssessorTUI:
         h, w = self.stdscr.getmaxyx()
         if y < 0 or y >= h or x < 0 or x >= w:
             return
-        
+
         # Truncate text to fit the remaining width
         max_len = w - x - 1
         if max_len <= 0:
             return
-            
+
         safe_text = text[:max_len]
         try:
             self.stdscr.addstr(y, x, safe_text, attr)
@@ -51,21 +55,21 @@ class AssessorTUI:
     def draw(self):
         self.stdscr.clear()
         h, w = self.stdscr.getmaxyx()
-        
+
         title = "STIG ASSESSOR Headless Control Panel"
         self._safe_addstr(1, max(0, w // 2 - len(title) // 2), title, curses.A_BOLD | curses.A_UNDERLINE)
-        
+
         instruction = "Use UP/DOWN arrows to navigate. Press ENTER to select."
         self._safe_addstr(3, max(0, w // 2 - len(instruction) // 2), instruction, curses.A_DIM)
 
         start_y = 5
         for idx, (label, _) in enumerate(self.menu_items):
-            x = max(0, w // 2 - 15)
-            y = start_y + (idx * 2)
-            
+            x = max(0, w // 2 - 20)
+            y = start_y + idx
+
             if y >= h - 2:
-                break # Avoid bounds
-            
+                break  # Avoid bounds
+
             if idx == self.current_idx:
                 self.stdscr.attron(curses.color_pair(1))
                 self._safe_addstr(y, x, f"► {label}")
@@ -82,6 +86,8 @@ class AssessorTUI:
     def run(self):
         curses.start_color()
         curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_CYAN)
+        curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
+        curses.init_pair(3, curses.COLOR_RED, curses.COLOR_BLACK)
         curses.curs_set(0)  # Hide cursor
 
         while True:
@@ -103,68 +109,87 @@ class AssessorTUI:
         curses.echo()
         curses.curs_set(1)
         self.stdscr.clear()
-        
-        prompt_x = max(0, w//2 - len(prompt)//2 - 10)
-        self._safe_addstr(h//2, prompt_x, f"{prompt}: ")
+
+        prompt_x = max(0, w // 2 - len(prompt) // 2 - 10)
+        self._safe_addstr(h // 2, prompt_x, f"{prompt}: ")
         self.stdscr.refresh()
-        
+
         try:
-            input_val = self.stdscr.getstr(h//2, min(w-2, prompt_x + len(prompt) + 2), 256)
+            input_val = self.stdscr.getstr(h // 2, min(w - 2, prompt_x + len(prompt) + 2), 256)
             res = input_val.decode("utf-8").strip()
         except curses.error:
             res = ""
-        
+
         curses.noecho()
         curses.curs_set(0)
         return res
 
+    def _prompt_path(self, prompt: str) -> str:
+        """Prompt for a path and validate it exists."""
+        while True:
+            val = self._prompt_input(prompt)
+            if not val:
+                self._show_msg("Error", "Path is required.")
+                continue
+            if not os.path.exists(val):
+                self._show_msg("Error", f"Path not found: {val}")
+                continue
+            return val
+
     def _show_msg(self, title: str, msg: str):
         h, w = self.stdscr.getmaxyx()
         self.stdscr.clear()
-        self._safe_addstr(h//2 - 2, max(0, w//2 - len(title)//2), title, curses.A_BOLD)
-        self._safe_addstr(h//2, max(0, w//2 - len(msg)//2), msg)
-        self._safe_addstr(h//2 + 2, max(0, w//2 - 12), "Press ANY KEY to return.", curses.A_DIM)
+
+        # Color the title based on type
+        attr = curses.A_BOLD
+        if title == "Success":
+            attr |= curses.color_pair(2)
+        elif title == "Error":
+            attr |= curses.color_pair(3)
+
+        self._safe_addstr(h // 2 - 2, max(0, w // 2 - len(title) // 2), title, attr)
+        self._safe_addstr(h // 2, max(0, w // 2 - len(msg) // 2), msg)
+        self._safe_addstr(h // 2 + 2, max(0, w // 2 - 12), "Press ANY KEY to return.", curses.A_DIM)
         self.stdscr.refresh()
         self.stdscr.getch()
 
     def _run_convert(self):
-        x_path = self._prompt_input("Path to XCCDF file")
-        if not os.path.exists(x_path):
-            self._show_msg("Error", "File not found.")
-            return
-            
+        x_path = self._prompt_path("Path to XCCDF file")
+
         c_path = self._prompt_input("Output Directory (leave blank for same folder)")
         out_path = c_path if c_path else os.path.dirname(os.path.abspath(x_path))
-        
+
         asset_name = self._prompt_input("Target Asset Name")
         if not asset_name:
             asset_name = "ASSET"
-            
-            
+
         self.stdscr.clear()
         self._safe_addstr(2, 2, "Converting... Please wait.")
         self.stdscr.refresh()
-        
+
         try:
-            res = self.proc.xccdf_to_ckl(xccdf=x_path, out=os.path.join(out_path, f"{asset_name}_output.ckl"), asset=asset_name)
+            res = self.proc.xccdf_to_ckl(
+                xccdf=x_path,
+                out=os.path.join(out_path, f"{asset_name}_output.ckl"),
+                asset=asset_name,
+            )
             self._show_msg("Success", f"Processed {res.get('processed', 0)} rules.")
-        except Exception as e:
+        except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
             self._show_msg("Error", str(e))
 
     def _run_merge(self):
-        base_path = self._prompt_input("Base Checklist Path")
+        base_path = self._prompt_path("Base Checklist Path")
         hist_path = self._prompt_input("History Checklist Path (or comma-separated list)")
-        
-        if not os.path.exists(base_path):
-            self._show_msg("Error", "Base checklist not found.")
-            return
-            
-        histories = [h.strip() for h in hist_path.split(',')]
-        
+        out_path = self._prompt_input("Output Path (default: merged_output.ckl)")
+        if not out_path:
+            out_path = "merged_output.ckl"
+
+        histories = [h.strip() for h in hist_path.split(',') if h.strip()]
+
         try:
-            _ = self.proc.merge(base=base_path, histories=histories, out="merged_output.ckl")
-            self._show_msg("Success", "Merged successfully. Saved to merged_output.ckl")
-        except Exception as e:
+            _ = self.proc.merge(base=base_path, histories=histories, out=out_path)
+            self._show_msg("Success", f"Merged successfully. Saved to {out_path}")
+        except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
             self._show_msg("Error", str(e))
 
     def _run_boilerplate(self):
@@ -174,32 +199,32 @@ class AssessorTUI:
         status = self._prompt_input("Status (NotAFinding, Open, Not_Reviewed, Not_Applicable)")
         finding = self._prompt_input("Finding Details text")
         comment = self._prompt_input("Comments text")
-        
+
         try:
             self.proc.boiler.set(vid, status, finding, comment)
             self._show_msg("Success", f"Stored boilerplate for {vid} -> {status}")
-        except Exception as e:
+        except (ValidationError, OSError, ValueError) as e:
             self._show_msg("Error", str(e))
-        
+
     def _run_waiver(self):
-        ckl_path = self._prompt_input("Path to target CKL file")
+        ckl_path = self._prompt_path("Path to target CKL file")
         vids = self._prompt_input("Comma-separated list of STIG V-IDs (e.g. V-123, V-456)").split(",")
         approver = self._prompt_input("Approver Name / Reference ID")
         reason = self._prompt_input("Reason / Justification")
         until = self._prompt_input("Valid Until (Date)")
-        
+
         vids = [v.strip() for v in vids if v.strip()]
-        
+
         try:
             res = self.proc.apply_waivers(ckl_path, ckl_path, vids, approver, reason, until)
             self._show_msg("Success", f"Applied waivers to {res['updates']} findings.")
-        except Exception as e:
+        except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
             self._show_msg("Error", str(e))
 
     def _run_extract(self):
-        x_path = self._prompt_input("Path to STIG XCCDF XML")
+        x_path = self._prompt_path("Path to STIG XCCDF XML")
         out_dir = self._prompt_input("Output Directory")
-        
+
         try:
             os.makedirs(out_dir, exist_ok=True)
             from stig_assessor.remediation.extractor import FixExt
@@ -208,39 +233,33 @@ class AssessorTUI:
             extractor.to_json(os.path.join(out_dir, "fixes.json"))
             extractor.to_csv(os.path.join(out_dir, "fixes.csv"))
             extractor.to_bash(os.path.join(out_dir, "remediate.sh"))
-            extractor.to_powershell(os.path.join(out_dir, "remediate.ps1"), enable_rollbacks=False)
+            extractor.to_powershell(os.path.join(out_dir, "Remediate.ps1"), enable_rollbacks=False)
             extractor.to_ansible(os.path.join(out_dir, "remediate.yml"))
             self._show_msg("Success", "Playbooks generated successfully.")
-        except Exception as e:
+        except (ParseError, FileError, OSError, ValueError) as e:
             self._show_msg("Error", str(e))
 
     def _run_stats(self):
-        ckl_path = self._prompt_input("Path to CKL file")
-        if not os.path.exists(ckl_path):
-            self._show_msg("Error", "File not found.")
-            return
+        ckl_path = self._prompt_path("Path to CKL file")
 
         try:
             out_file = ckl_path + ".stats.txt"
             stats = self.proc.generate_stats(ckl_path, output_format="text")
-            with open(out_file, "w") as f:
+            with open(out_file, "w", encoding="utf-8") as f:
                 f.write(stats)
             self._show_msg("Success", f"Stats generated to {out_file}")
-        except Exception as e:
+        except (ParseError, FileError, OSError, ValueError) as e:
             self._show_msg("Error", str(e))
 
     def _run_html(self):
-        ckl_path = self._prompt_input("Path to CKL/CKLB file")
-        if not os.path.exists(ckl_path):
-            self._show_msg("Error", "File not found.")
-            return
+        ckl_path = self._prompt_path("Path to CKL/CKLB file")
 
         try:
             from stig_assessor.processor.html_report import generate_html_report
             out_file = os.path.splitext(ckl_path)[0] + ".html"
             generate_html_report(ckl_path, out_file)
             self._show_msg("Success", f"HTML Report generated at {out_file}")
-        except Exception as e:
+        except (ParseError, FileError, OSError, ValueError) as e:
             self._show_msg("Error", str(e))
 
     def _run_fleet(self):
@@ -251,19 +270,51 @@ class AssessorTUI:
 
         try:
             from stig_assessor.processor.fleet_stats import FleetStats
-            import json
             fs = FleetStats()
             if os.path.isfile(target_dir) and target_dir.lower().endswith(".zip"):
                 stats = fs.process_zip(target_dir)
             else:
                 stats = fs.process_directory(target_dir)
-            
+
             out_file = os.path.join(os.path.dirname(os.path.abspath(target_dir)), "fleet_stats.json")
-            with open(out_file, "w") as f:
+            with open(out_file, "w", encoding="utf-8") as f:
                 json.dump(stats, f, indent=2)
-            
-            self._show_msg("Success", f"Fleet stats analyzed {stats['total_assets']} assets. Saved to {out_file}")
-        except Exception as e:
+
+            self._show_msg("Success", f"Fleet stats analyzed {stats.get('total_assets', 0)} assets. Saved to {out_file}")
+        except (ParseError, FileError, OSError, ValueError) as e:
+            self._show_msg("Error", str(e))
+
+    def _run_repair(self):
+        ckl_path = self._prompt_path("Path to CKL to repair")
+        out_path = self._prompt_input("Output repaired file path (Enter for auto)")
+        if not out_path:
+            base, ext = os.path.splitext(ckl_path)
+            out_path = f"{base}_repaired{ext}"
+
+        self.stdscr.clear()
+        self._safe_addstr(2, 2, "Repairing... Please wait.")
+        self.stdscr.refresh()
+
+        try:
+            result = self.proc.repair(ckl_path, out_path)
+            repairs = result.get("repairs", 0)
+            self._show_msg("Success", f"Applied {repairs} repairs -> {out_path}")
+        except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
+            self._show_msg("Error", str(e))
+
+    def _run_diff(self):
+        ckl1 = self._prompt_path("Path to Baseline CKL (Before)")
+        ckl2 = self._prompt_path("Path to Target CKL (After)")
+
+        self.stdscr.clear()
+        self._safe_addstr(2, 2, "Comparing... Please wait.")
+        self.stdscr.refresh()
+
+        try:
+            res = self.proc.diff(ckl1, ckl2)
+            changes = res.get("changed", [])
+            self._show_msg("Success", f"Differences found: {len(changes)}")
+        except (ParseError, FileError, OSError, ValueError) as e:
             self._show_msg("Error", str(e))
 
     def _exit_app(self):
@@ -274,6 +325,8 @@ def start_tui():
     """Bootstrap wrapper for the curses UI."""
     try:
         curses.wrapper(lambda stdscr: AssessorTUI(stdscr).run())
-    except Exception as e:
-        LOG.e(f"Fatal TUI failure: {e}")
+    except curses.error as e:
+        LOG.e(f"Terminal error: {e}")
         sys.exit(1)
+    except KeyboardInterrupt:
+        sys.exit(0)

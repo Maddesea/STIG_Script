@@ -45,9 +45,19 @@ function showToast(msg, type = 'info') {
     const c = document.getElementById('toast-container');
     const t = document.createElement('div');
     t.className = `toast ${type}`;
-    t.textContent = msg;
+    
+    let icon = 'ℹ️';
+    if(type === 'success') icon = '✅';
+    if(type === 'error') icon = '❌';
+    if(type === 'warn') icon = '⚠️';
+    
+    t.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:1.15rem;">${icon}</span>
+        <span style="flex:1;">${msg}</span>
+    </div>`;
+    
     c.appendChild(t);
-    setTimeout(() => { t.style.animation = 'fadeOut .3s ease forwards'; setTimeout(() => t.remove(), 300); }, 4000);
+    setTimeout(() => { t.style.animation = 'fadeOut .4s cubic-bezier(0.16, 1, 0.3, 1) forwards'; setTimeout(() => t.remove(), 400); }, 4500);
 }
 
 function statBox(val, label, color = 'info') {
@@ -208,9 +218,12 @@ function initDZ(zoneId, inputId, labelId, onReady) {
 
     zone.addEventListener('click', () => input.click());
     zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
-    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('dragleave', () => { setTimeout(() => zone.classList.remove('drag-over'), 50); });
     zone.addEventListener('drop', e => {
-        e.preventDefault(); zone.classList.remove('drag-over');
+        e.preventDefault(); 
+        zone.classList.remove('drag-over');
+        zone.style.transform = 'scale(0.97)';
+        setTimeout(() => zone.style.transform = '', 150);
         if (e.dataTransfer.files.length) {
             input.files = e.dataTransfer.files;
             showLabel(labelId, e.dataTransfer.files);
@@ -685,14 +698,15 @@ function drawBarChart(containerId, statusCounts) {
     const w=400, h=200, pad=45, barW=60, gap=20;
     const startX = (w - keys.length*(barW+gap))/2 + gap/2;
     let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">`;
+    svg += `<defs><filter id="glowBar"><feGaussianBlur stdDeviation="2.5" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
     svg += `<line x1="${pad}" y1="${h-pad}" x2="${w-10}" y2="${h-pad}" stroke="rgba(255,255,255,.1)" stroke-width="1"/>`;
     keys.forEach((k,i) => {
         const v = statusCounts[k]||0;
         const bH = Math.max(3, (v/max)*(h-pad*2));
         const x = startX + i*(barW+gap), y = h-pad-bH;
-        svg += `<rect x="${x}" y="${y}" width="${barW}" height="${bH}" rx="5" fill="${colors[k]}" opacity=".85"><title>${labels[k]}: ${v} vulnerability(ies)</title><animate attributeName="height" from="0" to="${bH}" dur=".6s" fill="freeze"/><animate attributeName="y" from="${h-pad}" to="${y}" dur=".6s" fill="freeze"/></rect>`;
-        svg += `<text x="${x+barW/2}" y="${y-6}" text-anchor="middle" fill="white" font-size="13" font-weight="600">${v}</text>`;
-        svg += `<text x="${x+barW/2}" y="${h-pad+16}" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="10">${labels[k]}</text>`;
+        svg += `<rect x="${x}" y="${y}" width="${barW}" height="${bH}" rx="6" fill="${colors[k]}" opacity=".9" filter="url(#glowBar)"><title>${labels[k]}: ${v} vulnerability(ies)</title><animate attributeName="height" from="0" to="${bH}" dur=".8s" calcMode="spline" keySplines="0.16 1 0.3 1" keyTimes="0;1" fill="freeze"/><animate attributeName="y" from="${h-pad}" to="${y}" dur=".8s" calcMode="spline" keySplines="0.16 1 0.3 1" keyTimes="0;1" fill="freeze"/></rect>`;
+        svg += `<text x="${x+barW/2}" y="${y-8}" text-anchor="middle" fill="white" font-size="14" font-weight="700">${v}</text>`;
+        svg += `<text x="${x+barW/2}" y="${h-pad+16}" text-anchor="middle" fill="rgba(255,255,255,.6)" font-size="11" font-weight="500">${labels[k]}</text>`;
     });
     svg += '</svg>';
     c.innerHTML = svg;
@@ -709,6 +723,7 @@ function drawDonut(containerId, bySeverity) {
     const total = data.reduce((s,d) => s+d.value, 0) || 1;
     const cx=100, cy=90, r=70, ir=45;
     let svg = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">`;
+    svg += `<defs><filter id="glowDonut"><feGaussianBlur stdDeviation="1.5" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
     let cum = -Math.PI/2;
     data.forEach(d => {
         if (d.value <= 0) { cum += 0; return; }
@@ -718,15 +733,15 @@ function drawDonut(containerId, bySeverity) {
         const ix1=cx+ir*Math.cos(cum+a), iy1=cy+ir*Math.sin(cum+a);
         const ix2=cx+ir*Math.cos(cum), iy2=cy+ir*Math.sin(cum);
         const la = a>Math.PI?1:0;
-        svg += `<path d="M${x1},${y1} A${r},${r} 0 ${la},1 ${x2},${y2} L${ix1},${iy1} A${ir},${ir} 0 ${la},0 ${ix2},${iy2} Z" fill="${d.color}" opacity=".85"><title>${d.label}: ${d.value} findings</title></path>`;
+        svg += `<path d="M${x1},${y1} A${r},${r} 0 ${la},1 ${x2},${y2} L${ix1},${iy1} A${ir},${ir} 0 ${la},0 ${ix2},${iy2} Z" fill="${d.color}" opacity="0.95" filter="url(#glowDonut)" stroke="var(--bg-surface)" stroke-width="2"><title>${d.label}: ${d.value} findings</title></path>`;
         cum += a;
     });
-    svg += `<text x="${cx}" y="${cy-4}" text-anchor="middle" fill="white" font-size="20" font-weight="700">${total}</text>`;
-    svg += `<text x="${cx}" y="${cy+13}" text-anchor="middle" fill="rgba(255,255,255,.4)" font-size="10">TOTAL</text>`;
+    svg += `<text x="${cx}" y="${cy-4}" text-anchor="middle" fill="white" font-size="22" font-weight="800">${total}</text>`;
+    svg += `<text x="${cx}" y="${cy+14}" text-anchor="middle" fill="rgba(255,255,255,.5)" font-size="10" font-weight="600">TOTAL</text>`;
     data.forEach((d,i) => {
         const lx = 10 + i*68;
-        svg += `<rect x="${lx}" y="185" width="10" height="10" rx="2" fill="${d.color}"/>`;
-        svg += `<text x="${lx+14}" y="194" fill="rgba(255,255,255,.6)" font-size="9">${d.label}: ${d.value}</text>`;
+        svg += `<rect x="${lx}" y="186" width="10" height="10" rx="3" fill="${d.color}"/>`;
+        svg += `<text x="${lx+15}" y="195" fill="rgba(255,255,255,.7)" font-size="10" font-weight="500">${d.label}: ${d.value}</text>`;
     });
     svg += '</svg>';
     c.innerHTML = svg;

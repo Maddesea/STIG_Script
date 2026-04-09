@@ -252,37 +252,36 @@ class FixExt:
         Raises:
             ParseError: If XCCDF cannot be parsed
         """
-        LOG.ctx(op="extract_fix", file=self.xccdf.name)
-        LOG.i("Extracting fix information")
+        with LOG.context(op="extract_fix", file=self.xccdf.name):
+            LOG.i("Extracting fix information")
 
-        try:
-            tree = FO.parse_xml(self.xccdf)
-            root = tree.getroot()
-        except (ParseError, OSError, ValueError) as exc:
-            raise ParseError(f"Unable to parse XCCDF: {exc}") from exc
+            try:
+                tree = FO.parse_xml(self.xccdf)
+                root = tree.getroot()
+            except (ParseError, OSError, ValueError) as exc:
+                raise ParseError(f"Unable to parse XCCDF: {exc}") from exc
 
-        self.ns = self._namespace(root)
-        groups = self._groups(root)
-        if not groups:
-            raise ParseError("No vulnerability groups found in XCCDF")
+            self.ns = self._namespace(root)
+            groups = self._groups(root)
+            if not groups:
+                raise ParseError("No vulnerability groups found in XCCDF")
 
-        self.stats["total_groups"] = len(groups)
-        for idx, group in enumerate(groups, 1):
-            with suppress(ValueError, AttributeError, KeyError):
-                fix = self._parse_group(group)
-                if fix:
-                    self.fixes.append(fix)
-                    self.stats["with_fix"] += 1
-                    if fix.fix_command:
-                        self.stats["with_command"] += 1
-                    self.stats["platforms"][fix.platform] += 1
+            self.stats["total_groups"] = len(groups)
+            for idx, group in enumerate(groups, 1):
+                with suppress(ValueError, AttributeError, KeyError):
+                    fix = self._parse_group(group)
+                    if fix:
+                        self.fixes.append(fix)
+                        self.stats["with_fix"] += 1
+                        if fix.fix_command:
+                            self.stats["with_command"] += 1
+                        self.stats["platforms"][fix.platform] += 1
 
-        LOG.i(
-            f"Extracted {len(self.fixes)} fixes "
-            f"({self.stats['with_command']} with actionable commands)"
-        )
-        LOG.clear()
-        return self.fixes
+            LOG.i(
+                f"Extracted {len(self.fixes)} fixes "
+                f"({self.stats['with_command']} with actionable commands)"
+            )
+            return self.fixes
 
     # ---------------------------------------------------------------- helpers
     def _namespace(self, root: ET.Element) -> Dict[str, str]:

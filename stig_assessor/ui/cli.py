@@ -914,7 +914,7 @@ COMMON USE-CASES (Windows Operations):
                     try:
                         from stig_assessor.remediation.html_playbook import generate_html_playbook
                         generate_html_playbook(extractor, outdir / "remediation_playbook.html")
-                    except Exception as e:
+                    except (ImportError, OSError, ValueError, RuntimeError) as e:
                         LOG.w(f"Could not generate HTML playbook: {e}")
 
             print(
@@ -1126,7 +1126,7 @@ COMMON USE-CASES (Windows Operations):
                         "green",
                     )
                 )
-            except Exception as e:
+            except (ParseError, ValidationError, OSError, ValueError) as e:
                 print(
                     format_color(f"Failed to ingest CKL: {e}", "red"),
                     file=sys.stderr,

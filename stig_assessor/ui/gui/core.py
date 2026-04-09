@@ -29,6 +29,19 @@ from stig_assessor.ui.presets import PresetMgr
 from stig_assessor.xml.sanitizer import San
 from stig_assessor.xml.schema import Sch
 
+from stig_assessor.ui.gui.tabs.create import build_create_tab
+from stig_assessor.ui.gui.tabs.merge import build_merge_tab
+from stig_assessor.ui.gui.tabs.extract import build_extract_tab
+from stig_assessor.ui.gui.tabs.results import build_results_tab
+from stig_assessor.ui.gui.tabs.evidence import build_evidence_tab
+from stig_assessor.ui.gui.tabs.validate import build_validate_tab
+from stig_assessor.ui.gui.tabs.repair import build_repair_tab
+from stig_assessor.ui.gui.tabs.batch import build_batch_tab
+from stig_assessor.ui.gui.tabs.boilerplates import build_boilerplates_tab
+from stig_assessor.ui.gui.tabs.compare import build_compare_tab
+from stig_assessor.ui.gui.tabs.analytics import build_analytics_tab
+from stig_assessor.ui.gui.tabs.drift import build_drift_tab
+
 # ──────────────────────────────────────────────────────────────────────────────
 # GUI CONSTANTS
 # ──────────────────────────────────────────────────────────────────────────────
@@ -157,6 +170,14 @@ if Deps.HAS_TKINTER:
             self._after_id: str | None = None
             widget.bind("<Enter>", self._schedule)
             widget.bind("<Leave>", self._cancel)
+            # Fetch root app via widget master chain to check theme colors
+            self._app = None
+            root = widget.winfo_toplevel()
+            if hasattr(root, "children"):
+                for child in root.winfo_children():
+                    if hasattr(child, "_colors"):
+                        self._app = child
+                        break
 
         def _schedule(self, event=None):
             self._cancel()
@@ -174,18 +195,28 @@ if Deps.HAS_TKINTER:
             self._tip = tw = tk.Toplevel(self.widget)
             tw.wm_overrideredirect(True)
             tw.wm_geometry(f"+{x}+{y}")
+            
+            # Adopt proper theme colors
+            bg_color = "#FFFFDD"
+            fg_color = "#333333"
+            if self._app and self._app.get("_current_theme", "light") == "dark":
+                bg_color = "#2d2d30"
+                fg_color = "#e6edf3"
+            
             label = tk.Label(
                 tw,
                 text=self.text,
                 justify="left",
-                background="#FFFFDD",
-                foreground="#333333",
-                relief="solid",
+                background=bg_color,
+                foreground=fg_color,
+                relief="flat",
                 borderwidth=1,
+                highlightbackground="#58a6ff" if bg_color == "#2d2d30" else "#2563eb",
+                highlightthickness=1,
                 font=("TkDefaultFont", 9),
                 wraplength=350,
-                padx=6,
-                pady=4,
+                padx=10,
+                pady=8,
             )
             label.pack()
 
@@ -200,9 +231,9 @@ if Deps.HAS_TKINTER:
         def __init__(self):
             self.root = tk.Tk()
             self.root.title(f"{APP_NAME} v{VERSION}")
-            # #4 — responsive: set min size, allow free resize
-            self.root.minsize(1000, 700)
-            self.root.geometry("1150x780")
+            # Dynamic min size
+            self.root.minsize(1100, 750)
+            self.root.geometry("1280x800")
             if sys.platform == "win32":
                 with suppress(tk.TclError):
                     self.root.iconbitmap(default="")
@@ -490,18 +521,18 @@ if Deps.HAS_TKINTER:
             notebook.pack(fill="both", expand=True, padx=GUI_PADDING, pady=GUI_PADDING)
 
             tabs = [
-                ("\U0001f4cb Create CKL", self._tab_create),
-                ("\U0001f500 Merge Checklists", self._tab_merge),
-                ("\U0001f527 Extract Fixes", self._tab_extract),
-                ("\U0001f4e5 Import Results", self._tab_results),
-                ("\U0001f4ce Evidence", self._tab_evidence),
-                ("\u2705 Validate", self._tab_validate),
-                ("🔧 Repair CKL", self._tab_repair),
-                ("🏭 Batch Convert", self._tab_batch),
-                ("📝 Boilerplates", self._tab_boilerplates),
-                ("🔍 Compare", self._tab_compare),
-                ("📊 Analytics", self._tab_analytics),
-                ("📈 History/Drift", self._tab_drift),
+                ("\U0001f4cb Create CKL", lambda f: build_create_tab(self, f)),
+                ("\U0001f500 Merge Checklists", lambda f: build_merge_tab(self, f)),
+                ("\U0001f527 Extract Fixes", lambda f: build_extract_tab(self, f)),
+                ("\U0001f4e5 Import Results", lambda f: build_results_tab(self, f)),
+                ("\U0001f4ce Evidence", lambda f: build_evidence_tab(self, f)),
+                ("\u2705 Validate", lambda f: build_validate_tab(self, f)),
+                ("🔧 Repair CKL", lambda f: build_repair_tab(self, f)),
+                ("🏭 Batch Convert", lambda f: build_batch_tab(self, f)),
+                ("📝 Boilerplates", lambda f: build_boilerplates_tab(self, f)),
+                ("🔍 Compare", lambda f: build_compare_tab(self, f)),
+                ("📊 Analytics", lambda f: build_analytics_tab(self, f)),
+                ("📈 History/Drift", lambda f: build_drift_tab(self, f)),
             ]
 
             for title, builder in tabs:
@@ -531,138 +562,6 @@ if Deps.HAS_TKINTER:
             self.status_var.set("Ready")
 
         # --------------------------------------------------------------- tabs
-        def _tab_create(self, frame):
-            # Input/Output Frame
-            files_frame = ttk.LabelFrame(frame, text="Files", padding=GUI_PADDING_LARGE)
-            files_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
-            files_frame.columnconfigure(1, weight=1)
-
-            ttk.Label(files_frame, text="XCCDF File: *").grid(
-                row=0, column=0, sticky="w"
-            )
-            self.create_xccdf = tk.StringVar()
-            ent_xccdf = ttk.Entry(
-                files_frame,
-                textvariable=self.create_xccdf,
-                width=GUI_ENTRY_WIDTH,
-            )
-            ent_xccdf.grid(row=0, column=1, padx=GUI_PADDING, sticky="we")
-            ttk.Button(
-                files_frame,
-                text="📂 Browse…",
-                command=self._browse_create_xccdf,
-            ).grid(row=0, column=2)
-            self._enable_dnd(ent_xccdf, self.create_xccdf)
-
-            self._create_xccdf_err = ttk.Label(
-                files_frame,
-                text="",
-                foreground=self._colors.get("error", "red"),
-            )
-            self._create_xccdf_err.grid(row=0, column=3, sticky="w", padx=GUI_PADDING)
-
-            ttk.Label(files_frame, text="Output CKL:").grid(row=1, column=0, sticky="w")
-            self.create_out = tk.StringVar()
-            ttk.Entry(
-                files_frame,
-                textvariable=self.create_out,
-                width=GUI_ENTRY_WIDTH,
-            ).grid(row=1, column=1, padx=GUI_PADDING, sticky="we")
-            ttk.Button(
-                files_frame, text="📂 Browse…", command=self._browse_create_out
-            ).grid(row=1, column=2)
-
-            # Asset Info Frame
-            asset_frame = ttk.LabelFrame(
-                frame, text="Asset Details", padding=GUI_PADDING_LARGE
-            )
-            asset_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
-            asset_frame.columnconfigure(1, weight=1)
-
-            r = 0
-            ttk.Label(asset_frame, text="Asset Name: *").grid(
-                row=r, column=0, sticky="w"
-            )
-            self.create_asset = tk.StringVar(
-                value=self._settings.get("create_asset", "")
-            )
-            ttk.Entry(
-                asset_frame,
-                textvariable=self.create_asset,
-                width=GUI_ENTRY_WIDTH,
-            ).grid(row=r, column=1, padx=GUI_PADDING, sticky="we")
-            self._create_asset_err = ttk.Label(
-                asset_frame,
-                text="",
-                foreground=self._colors.get("error", "red"),
-            )
-            self._create_asset_err.grid(row=r, column=2, sticky="w", padx=GUI_PADDING)
-
-            def _validate_create_form(*args):
-                x_val = self.create_xccdf.get().strip()
-                a_val = self.create_asset.get().strip()
-                self._create_xccdf_err.config(text="* Required" if not x_val else "")
-                self._create_asset_err.config(text="* Required" if not a_val else "")
-
-            debounced_create = Debouncer(self.root, 300, _validate_create_form)
-            self.create_xccdf.trace_add("write", debounced_create)
-            self.create_asset.trace_add("write", debounced_create)
-            self.root.after(100, debounced_create)
-
-            r += 1
-
-            ttk.Label(asset_frame, text="IP Address:").grid(row=r, column=0, sticky="w")
-            self.create_ip = tk.StringVar(value=self._settings.get("create_ip", ""))
-            ttk.Entry(
-                asset_frame, textvariable=self.create_ip, width=GUI_ENTRY_WIDTH
-            ).grid(row=r, column=1, padx=GUI_PADDING, sticky="we")
-            r += 1
-
-            ttk.Label(asset_frame, text="MAC Address:").grid(
-                row=r, column=0, sticky="w"
-            )
-            self.create_mac = tk.StringVar(value=self._settings.get("create_mac", ""))
-            ttk.Entry(
-                asset_frame,
-                textvariable=self.create_mac,
-                width=GUI_ENTRY_WIDTH,
-            ).grid(row=r, column=1, padx=GUI_PADDING, sticky="we")
-            r += 1
-
-            ttk.Label(asset_frame, text="Marking:").grid(row=r, column=0, sticky="w")
-            self.create_mark = tk.StringVar(
-                value=self._settings.get("create_mark", "CUI")
-            )
-            ttk.Combobox(
-                asset_frame,
-                textvariable=self.create_mark,
-                values=sorted(Sch.MARKS),
-                width=GUI_ENTRY_WIDTH - 3,
-                state="readonly",
-            ).grid(row=r, column=1, padx=GUI_PADDING, sticky="we")
-            r += 1
-
-            self.create_bp = tk.BooleanVar(value=self._settings.get("create_bp", False))
-            cb_bp = ttk.Checkbutton(
-                asset_frame,
-                text="Apply boilerplate templates",
-                variable=self.create_bp,
-            )
-            cb_bp.grid(row=r, column=1, sticky="w", pady=(GUI_PADDING, 0))
-            ToolTip(
-                cb_bp,
-                "Automatically populate finding details and comments\nwith default templates for each status.",
-            )
-
-            btn_create = ttk.Button(
-                frame,
-                text="➕ Create Checklist",
-                command=self._do_create,
-                width=GUI_BUTTON_WIDTH_WIDE,
-                style="Accent.TButton",
-            )
-            btn_create.pack(pady=GUI_PADDING_SECTION)
-            self._action_buttons.append(btn_create)
 
         def _tab_merge(self, frame):
             # Input Frame
@@ -794,113 +693,6 @@ if Deps.HAS_TKINTER:
             btn_merge.pack(pady=GUI_PADDING_SECTION)
             self._action_buttons.append(btn_merge)
 
-        def _tab_extract(self, frame):
-            # Input/Output
-            io_frame = ttk.LabelFrame(
-                frame, text="Input & Output", padding=GUI_PADDING_LARGE
-            )
-            io_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
-            io_frame.columnconfigure(1, weight=1)
-
-            ttk.Label(io_frame, text="XCCDF File: *").grid(row=0, column=0, sticky="w")
-            self.extract_xccdf = tk.StringVar()
-            ent_ex = ttk.Entry(
-                io_frame,
-                textvariable=self.extract_xccdf,
-                width=GUI_ENTRY_WIDTH,
-            )
-            ent_ex.grid(row=0, column=1, padx=GUI_PADDING, sticky="we")
-            ttk.Button(
-                io_frame, text="📂 Browse…", command=self._browse_extract_xccdf
-            ).grid(row=0, column=2)
-            self._enable_dnd(ent_ex, self.extract_xccdf)
-            self._extract_xccdf_err = ttk.Label(
-                io_frame, text="", foreground=self._colors.get("error", "red")
-            )
-            self._extract_xccdf_err.grid(row=0, column=3, sticky="w", padx=GUI_PADDING)
-
-            ttk.Label(io_frame, text="Output Dir: *").grid(row=1, column=0, sticky="w")
-            self.extract_outdir = tk.StringVar()
-            ent_outdir = ttk.Entry(
-                io_frame,
-                textvariable=self.extract_outdir,
-                width=GUI_ENTRY_WIDTH,
-            )
-            ent_outdir.grid(row=1, column=1, padx=GUI_PADDING, sticky="we")
-            ttk.Button(
-                io_frame, text="📂 Browse…", command=self._browse_extract_out
-            ).grid(row=1, column=2)
-            self._extract_outdir_err = ttk.Label(
-                io_frame, text="", foreground=self._colors.get("error", "red")
-            )
-            self._extract_outdir_err.grid(row=1, column=3, sticky="w", padx=GUI_PADDING)
-
-            def _validate_extract_form(*args):
-                self._extract_xccdf_err.config(
-                    text=("* Required" if not self.extract_xccdf.get().strip() else "")
-                )
-                self._extract_outdir_err.config(
-                    text=("* Required" if not self.extract_outdir.get().strip() else "")
-                )
-
-            debounced_extract = Debouncer(self.root, 300, _validate_extract_form)
-            self.extract_xccdf.trace_add("write", debounced_extract)
-            self.extract_outdir.trace_add("write", debounced_extract)
-            self.root.after(100, debounced_extract)
-
-            # Options
-            formats = ttk.LabelFrame(
-                frame, text="Export Formats", padding=GUI_PADDING_LARGE
-            )
-            formats.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
-            self.extract_json = tk.BooleanVar(value=True)
-            self.extract_csv = tk.BooleanVar(value=True)
-            self.extract_bash = tk.BooleanVar(value=True)
-            self.extract_ps = tk.BooleanVar(value=True)
-            self.extract_ansible = tk.BooleanVar(value=True)
-
-            # Grid for checkbuttons
-            ttk.Checkbutton(formats, text="JSON", variable=self.extract_json).grid(
-                row=0, column=0, padx=GUI_PADDING_LARGE
-            )
-            ttk.Checkbutton(formats, text="CSV", variable=self.extract_csv).grid(
-                row=0, column=1, padx=GUI_PADDING_LARGE
-            )
-            ttk.Checkbutton(formats, text="Bash", variable=self.extract_bash).grid(
-                row=0, column=2, padx=GUI_PADDING_LARGE
-            )
-            ttk.Checkbutton(formats, text="PowerShell", variable=self.extract_ps).grid(
-                row=0, column=3, padx=GUI_PADDING_LARGE
-            )
-            ttk.Checkbutton(
-                formats, text="Ansible", variable=self.extract_ansible
-            ).grid(row=0, column=4, padx=GUI_PADDING_LARGE)
-
-            opts_frame = ttk.Frame(frame)
-            opts_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
-            self.extract_dry = tk.BooleanVar(value=False)
-            self.extract_rollbacks = tk.BooleanVar(value=False)
-
-            ttk.Checkbutton(
-                opts_frame,
-                text="Generate scripts in dry-run mode",
-                variable=self.extract_dry,
-            ).pack(anchor="center")
-            ttk.Checkbutton(
-                opts_frame,
-                text="Enable PowerShell Registry Rollbacks (`reg export`)",
-                variable=self.extract_rollbacks,
-            ).pack(anchor="center", pady=(5, 0))
-
-            btn_extract = ttk.Button(
-                frame,
-                text="💾 Extract Fixes",
-                command=self._do_extract,
-                width=GUI_BUTTON_WIDTH_WIDE,
-                style="Accent.TButton",
-            )
-            btn_extract.pack(pady=GUI_PADDING_SECTION)
-            self._action_buttons.append(btn_extract)
 
         def _tab_results(self, frame):
             # Batch Import

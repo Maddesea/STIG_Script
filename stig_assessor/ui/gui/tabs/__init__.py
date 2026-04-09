@@ -1,1 +1,1 @@
-"""GUI tab modules."""
+"""GUI Tabs Package."""

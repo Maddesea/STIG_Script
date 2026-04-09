@@ -92,6 +92,33 @@ COMPRESSION_THRESHOLD = 1024  # Bytes before considering compression
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# GUI CONSTANTS
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Widget sizing
+GUI_ENTRY_WIDTH = 70
+GUI_ENTRY_WIDTH_SMALL = 25
+GUI_ENTRY_WIDTH_MEDIUM = 40
+GUI_BUTTON_WIDTH = 15
+GUI_BUTTON_WIDTH_WIDE = 25
+GUI_LISTBOX_HEIGHT = 6
+GUI_LISTBOX_WIDTH = 60
+GUI_TEXT_WIDTH = 120
+GUI_TEXT_HEIGHT = 25
+GUI_WRAP_LENGTH = 860
+
+# Layout spacing
+GUI_PADDING = 5
+GUI_PADDING_LARGE = 10
+GUI_PADDING_SECTION = 15
+
+# Font settings
+GUI_FONT_MONO = ("Courier New", 10)
+GUI_FONT_NORMAL = ("TkDefaultFont", 10)
+GUI_FONT_HEADING = ("TkDefaultFont", 12, "bold")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # ENUMERATIONS
 # ──────────────────────────────────────────────────────────────────────────────
 

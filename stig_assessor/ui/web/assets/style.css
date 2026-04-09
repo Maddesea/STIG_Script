@@ -5,13 +5,13 @@
 
 :root {
     /* ── Core Palette ── */
-    --bg-main: #080b12;
-    --bg-surface: #0d1117;
-    --bg-glass: rgba(13, 17, 23, 0.7);
-    --bg-glass-strong: rgba(13, 17, 23, 0.88);
-    --bg-elevated: rgba(22, 27, 34, 0.9);
-    --bg-hover: rgba(30, 38, 50, 0.6);
-    --bg-input: rgba(6, 8, 12, 0.6);
+    --bg-main: #06090e;
+    --bg-surface: #0b0f15;
+    --bg-glass: rgba(11, 15, 21, 0.7);
+    --bg-glass-strong: rgba(11, 15, 21, 0.88);
+    --bg-elevated: rgba(18, 23, 30, 0.9);
+    --bg-hover: rgba(28, 36, 48, 0.6);
+    --bg-input: rgba(4, 6, 10, 0.6);
 
     /* ── Typography ── */
     --tx-main: #e6edf3;
@@ -31,32 +31,32 @@
 
     /* ── Status Colors ── */
     --status-pass: #3fb950;
-    --status-pass-bg: rgba(63, 185, 80, 0.12);
+    --status-pass-bg: rgba(63, 185, 80, 0.15);
     --status-fail: #f85149;
-    --status-fail-bg: rgba(248, 81, 73, 0.12);
+    --status-fail-bg: rgba(248, 81, 73, 0.15);
     --status-na: #7d8590;
-    --status-na-bg: rgba(125, 133, 144, 0.12);
+    --status-na-bg: rgba(125, 133, 144, 0.15);
     --status-nr: #d29922;
-    --status-nr-bg: rgba(210, 153, 34, 0.12);
+    --status-nr-bg: rgba(210, 153, 34, 0.15);
 
     /* ── Borders & Shadows ── */
-    --border-default: rgba(240, 246, 252, 0.12);
-    --border-subtle: rgba(240, 246, 252, 0.06);
-    --border-input: rgba(240, 246, 252, 0.18);
-    --border-active: rgba(88, 166, 255, 0.45);
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-    --shadow-md: 0 4px 20px rgba(0,0,0,0.35);
-    --shadow-lg: 0 8px 40px rgba(0,0,0,0.45);
-    --shadow-glow: 0 0 24px rgba(88, 166, 255, 0.15);
+    --border-default: rgba(240, 246, 252, 0.15);
+    --border-subtle: rgba(240, 246, 252, 0.08);
+    --border-input: rgba(240, 246, 252, 0.22);
+    --border-active: rgba(88, 166, 255, 0.55);
+    --shadow-sm: 0 2px 6px rgba(0,0,0,0.4);
+    --shadow-md: 0 6px 20px rgba(0,0,0,0.5);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,0.6);
+    --shadow-glow: 0 0 30px rgba(88, 166, 255, 0.25);
 
     /* ── Layout ── */
-    --sidebar-width: 240px;
-    --sidebar-collapsed: 60px;
-    --header-height: 56px;
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 14px;
-    --radius-xl: 18px;
+    --sidebar-width: 250px;
+    --sidebar-collapsed: 68px;
+    --header-height: 60px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
 
     /* ── Typography ── */
     --font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
@@ -78,10 +78,16 @@ body {
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     background-image:
-        radial-gradient(ellipse at 10% 0%, rgba(88, 166, 255, 0.06), transparent 50%),
-        radial-gradient(ellipse at 90% 100%, rgba(188, 140, 255, 0.04), transparent 50%);
+        radial-gradient(ellipse at 15% 0%, rgba(88, 166, 255, 0.09) 0%, transparent 60%),
+        radial-gradient(ellipse at 85% 100%, rgba(188, 140, 255, 0.07) 0%, transparent 60%);
     background-attachment: fixed;
 }
+
+/* ── Custom Scrollbars ── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
 
 
 .app-layout {
@@ -172,16 +178,17 @@ body {
 .nav-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 9px 12px;
+    gap: 12px;
+    padding: 10px 14px;
     border-radius: var(--radius-sm);
     color: var(--tx-secondary);
     cursor: pointer;
-    font-size: 0.88rem;
+    font-size: 0.90rem;
     font-weight: 500;
-    transition: all 0.15s ease;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     border: 1px solid transparent;
     user-select: none;
+    margin-bottom: 2px;
 }
 
 .nav-item:hover {
@@ -200,6 +207,9 @@ body {
     height: 18px;
     flex-shrink: 0;
     opacity: 0.7;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
     transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
@@ -378,24 +388,26 @@ body {
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
     border-radius: var(--radius-lg);
-    padding: 20px;
+    padding: 24px;
     position: relative;
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     overflow: hidden;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 .card::before {
     content: "";
     position: absolute;
     inset: 0;
-    background: radial-gradient(800px circle at var(--mouse-x, 50%) var(--mouse-y, -100%), rgba(255,255,255,0.03), transparent 40%);
+    background: radial-gradient(800px circle at var(--mouse-x, 50%) var(--mouse-y, -100%), rgba(255,255,255,0.04), transparent 40%);
     opacity: 0;
     transition: opacity 0.4s;
     pointer-events: none;
 }
 .card:hover {
-    border-color: rgba(88, 166, 255, 0.3);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.5), var(--shadow-glow);
-    transform: translateY(-4px) scale(1.005);
+    border-color: rgba(88, 166, 255, 0.4);
+    box-shadow: 0 16px 50px rgba(0,0,0,0.5), var(--shadow-glow);
+    transform: translateY(-5px) scale(1.008);
 }
 .card:hover::before {
     opacity: 1;
@@ -590,6 +602,11 @@ textarea.glass-input {
     margin-bottom: 10px;
     transition: color 0.25s;
 }
+.upload-zone .upload-icon svg {
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
 
 .upload-zone:hover .upload-icon { color: var(--ac-primary); }
 
@@ -638,11 +655,11 @@ textarea.glass-input {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    background: linear-gradient(135deg, #2563eb, #1e40af);
     color: white;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
 }
-.btn-primary:hover { box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4); transform: translateY(-2px) scale(1.02); }
+.btn-primary:hover { box-shadow: 0 6px 24px rgba(37, 99, 235, 0.5); transform: translateY(-3px) scale(1.02); }
 
 .btn-secondary {
     background: linear-gradient(135deg, #7c3aed, #6d28d9);
@@ -864,12 +881,13 @@ textarea.glass-input {
 }
 
 .data-table tbody tr {
-    transition: all 0.15s ease;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .data-table tbody tr:hover {
-    background: rgba(88, 166, 255, 0.08);
-    transform: scale(1.002);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    background: rgba(88, 166, 255, 0.12);
+    transform: scale(1.006);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    border-radius: var(--radius-sm);
 }
 
 .data-table .col-mono {

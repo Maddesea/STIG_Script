@@ -66,153 +66,152 @@ class FixResPro:
             FileError: If file cannot be read
         """
         path = San.path(path, exist=True, file=True)
-        LOG.ctx(op="load_fix_results", file=path.name)
-        LOG.i("Loading remediation results JSON")
+        with LOG.context(op="load_fix_results", file=path.name):
+            LOG.i("Loading remediation results JSON")
 
-        try:
-            content = FO.read(path)
+            try:
+                content = FO.read(path)
 
-            # Auto-detect CSV format via file extension
-            if str(path).lower().endswith(".csv"):
-                import csv
-                import io
+                # Auto-detect CSV format via file extension
+                if str(path).lower().endswith(".csv"):
+                    import csv
+                    import io
 
-                reader = csv.DictReader(io.StringIO(content))
-                entries = []
-                for row in reader:
-                    # Map CSV columns to expected JSON-like dict schema
-                    entry = {
-                        "vid": row.get("vid") or row.get("Vuln_ID", ""),
-                        "ok": row.get("ok", "false").lower()
-                        in ("true", "1", "yes", "success"),
-                        "msg": row.get("msg", ""),
-                        "output": row.get("out", ""),
-                        "error": row.get("err", ""),
-                    }
-                    if "ts" in row or "timestamp" in row:
-                        entry["ts"] = row.get("ts") or row.get("timestamp")
-                    entries.append(entry)
-                payload = entries
-                LOG.i("Detected CSV remediation results format")
-            else:
-                payload = json.loads(content)
-        except json.JSONDecodeError as exc:
-            raise ParseError(f"Invalid JSON in {path.name}: {exc}") from exc
-        except (OSError, RuntimeError) as exc:
-            raise ParseError(f"Cannot parse {path.name}: {exc}") from exc
-
-        imported = 0
-        skipped = 0
-        entries = []
-
-        # ═══ FORMAT DETECTION ═══
-        if isinstance(payload, list):
-            # Format 1: Direct array
-            LOG.d("Detected array format")
-            self.meta = {"format": "array", "source": str(path)}
-            entries = payload
-
-        elif isinstance(payload, dict):
-            self.meta = payload.get("meta", {})
-            self.meta["source"] = str(path)
-
-            # Format 2: Standard "results" key
-            if "results" in payload:
-                LOG.d("Detected standard object format with 'results' key")
-                entries = payload["results"]
-
-            # Format 3: Multi-system grouped format
-            elif "systems" in payload:
-                LOG.i("Detected multi-system format")
-                systems_data = payload["systems"]
-                if isinstance(systems_data, dict):
-                    for system_name, system_results in systems_data.items():
-                        if isinstance(system_results, list):
-                            # Tag each result with source system
-                            for entry in system_results:
-                                if isinstance(entry, dict):
-                                    entry["_source_system"] = system_name
-                            entries.extend(system_results)
-                            LOG.d(
-                                f"  Loaded {len(system_results)} from system '{system_name}'"
-                            )
-
-            # Format 4: Alternative keys
-            elif "vulnerabilities" in payload:
-                LOG.d("Detected 'vulnerabilities' format")
-                entries = payload["vulnerabilities"]
-            elif "entries" in payload:
-                LOG.d("Detected 'entries' format")
-                entries = payload["entries"]
-            elif "res" in payload:
-                LOG.d("Detected 'res' format")
-                entries = payload["res"]
-            elif "findings" in payload:
-                LOG.d("Detected 'findings' format")
-                entries = payload["findings"]
-            else:
-                # Maybe the payload itself is a single result entry?
-                if "vid" in payload:
-                    LOG.d("Detected single result object")
-                    entries = [payload]
+                    reader = csv.DictReader(io.StringIO(content))
+                    entries = []
+                    for row in reader:
+                        # Map CSV columns to expected JSON-like dict schema
+                        entry = {
+                            "vid": row.get("vid") or row.get("Vuln_ID", ""),
+                            "ok": row.get("ok", "false").lower()
+                            in ("true", "1", "yes", "success"),
+                            "msg": row.get("msg", ""),
+                            "output": row.get("out", ""),
+                            "error": row.get("err", ""),
+                        }
+                        if "ts" in row or "timestamp" in row:
+                            entry["ts"] = row.get("ts") or row.get("timestamp")
+                        entries.append(entry)
+                    payload = entries
+                    LOG.i("Detected CSV remediation results format")
                 else:
-                    raise ParseError(
-                        f"Unrecognized JSON format. Expected keys: 'results', 'systems', "
-                        f"'vulnerabilities', 'entries', or direct array. Found: {list(payload.keys())}"
-                    )
-        else:
-            raise ParseError(
-                f"JSON must be object or array, got {type(payload).__name__}"
+                    payload = json.loads(content)
+            except json.JSONDecodeError as exc:
+                raise ParseError(f"Invalid JSON in {path.name}: {exc}") from exc
+            except (OSError, RuntimeError) as exc:
+                raise ParseError(f"Cannot parse {path.name}: {exc}") from exc
+
+            imported = 0
+            skipped = 0
+            entries = []
+
+            # ═══ FORMAT DETECTION ═══
+            if isinstance(payload, list):
+                # Format 1: Direct array
+                LOG.d("Detected array format")
+                self.meta = {"format": "array", "source": str(path)}
+                entries = payload
+
+            elif isinstance(payload, dict):
+                self.meta = payload.get("meta", {})
+                self.meta["source"] = str(path)
+
+                # Format 2: Standard "results" key
+                if "results" in payload:
+                    LOG.d("Detected standard object format with 'results' key")
+                    entries = payload["results"]
+
+                # Format 3: Multi-system grouped format
+                elif "systems" in payload:
+                    LOG.i("Detected multi-system format")
+                    systems_data = payload["systems"]
+                    if isinstance(systems_data, dict):
+                        for system_name, system_results in systems_data.items():
+                            if isinstance(system_results, list):
+                                # Tag each result with source system
+                                for entry in system_results:
+                                    if isinstance(entry, dict):
+                                        entry["_source_system"] = system_name
+                                entries.extend(system_results)
+                                LOG.d(
+                                    f"  Loaded {len(system_results)} from system '{system_name}'"
+                                )
+
+                # Format 4: Alternative keys
+                elif "vulnerabilities" in payload:
+                    LOG.d("Detected 'vulnerabilities' format")
+                    entries = payload["vulnerabilities"]
+                elif "entries" in payload:
+                    LOG.d("Detected 'entries' format")
+                    entries = payload["entries"]
+                elif "res" in payload:
+                    LOG.d("Detected 'res' format")
+                    entries = payload["res"]
+                elif "findings" in payload:
+                    LOG.d("Detected 'findings' format")
+                    entries = payload["findings"]
+                else:
+                    # Maybe the payload itself is a single result entry?
+                    if "vid" in payload:
+                        LOG.d("Detected single result object")
+                        entries = [payload]
+                    else:
+                        raise ParseError(
+                            f"Unrecognized JSON format. Expected keys: 'results', 'systems', "
+                            f"'vulnerabilities', 'entries', or direct array. Found: {list(payload.keys())}"
+                        )
+            else:
+                raise ParseError(
+                    f"JSON must be object or array, got {type(payload).__name__}"
+                )
+
+            if not isinstance(entries, list):
+                raise ParseError(f"Results must be array, got {type(entries).__name__}")
+
+            if not entries:
+                LOG.w("No entries found in results file")
+                return 0, 0
+
+            # ═══ PROCESS ENTRIES WITH DEDUPLICATION ═══
+            dedup: Dict[str, FixResult] = {}
+
+            for idx, entry in enumerate(entries[:1000], 1):
+                try:
+                    result = FixResult.from_dict(entry)
+
+                    # Deduplication: keep most recent for each VID
+                    if result.vid in dedup:
+                        existing = dedup[result.vid]
+                        if result.ts > existing.ts:
+                            LOG.d(f"  {result.vid}: replacing older result")
+                            dedup[result.vid] = result
+                        else:
+                            LOG.d(f"  {result.vid}: keeping existing (newer)")
+                    else:
+                        dedup[result.vid] = result
+
+                    imported += 1
+
+                except (ValueError, TypeError, KeyError) as exc:
+                    skipped += 1
+                    LOG.w(f"Entry {idx}: invalid - {exc}")
+                    continue
+
+            # Merge with existing results (for multi-file batch)
+            for vid, result in dedup.items():
+                if vid in self.results:
+                    # Keep newer result
+                    if result.ts > self.results[vid].ts:
+                        self.results[vid] = result
+                else:
+                    self.results[vid] = result
+
+            unique_count = len(dedup)
+            LOG.i(
+                f"Loaded {unique_count} unique results from {imported} total entries (skipped {skipped})"
             )
 
-        if not isinstance(entries, list):
-            raise ParseError(f"Results must be array, got {type(entries).__name__}")
-
-        if not entries:
-            LOG.w("No entries found in results file")
-            return 0, 0
-
-        # ═══ PROCESS ENTRIES WITH DEDUPLICATION ═══
-        dedup: Dict[str, FixResult] = {}
-
-        for idx, entry in enumerate(entries[:1000], 1):
-            try:
-                result = FixResult.from_dict(entry)
-
-                # Deduplication: keep most recent for each VID
-                if result.vid in dedup:
-                    existing = dedup[result.vid]
-                    if result.ts > existing.ts:
-                        LOG.d(f"  {result.vid}: replacing older result")
-                        dedup[result.vid] = result
-                    else:
-                        LOG.d(f"  {result.vid}: keeping existing (newer)")
-                else:
-                    dedup[result.vid] = result
-
-                imported += 1
-
-            except (ValueError, TypeError, KeyError) as exc:
-                skipped += 1
-                LOG.w(f"Entry {idx}: invalid - {exc}")
-                continue
-
-        # Merge with existing results (for multi-file batch)
-        for vid, result in dedup.items():
-            if vid in self.results:
-                # Keep newer result
-                if result.ts > self.results[vid].ts:
-                    self.results[vid] = result
-            else:
-                self.results[vid] = result
-
-        unique_count = len(dedup)
-        LOG.i(
-            f"Loaded {unique_count} unique results from {imported} total entries (skipped {skipped})"
-        )
-        LOG.clear()
-
-        return unique_count, skipped
+            return unique_count, skipped
 
     def update_ckl(
         self,
@@ -251,149 +250,147 @@ class FixResPro:
         checklist = San.path(checklist, exist=True, file=True)
         out = San.path(out, mkpar=True)
 
-        LOG.ctx(op="apply_results", file=checklist.name)
-        LOG.i(f"Applying remediation results to checklist ({len(self.results)} vulns)")
+        with LOG.context(op="apply_results", file=checklist.name):
+            LOG.i(f"Applying remediation results to checklist ({len(self.results)} vulns)")
 
-        try:
-            tree = FO.parse_xml(checklist)
-            root = tree.getroot()
-        except (ParseError, OSError, ValueError) as exc:
-            raise ParseError(f"Unable to parse checklist: {exc}") from exc
+            try:
+                tree = FO.parse_xml(checklist)
+                root = tree.getroot()
+            except (ParseError, OSError, ValueError) as exc:
+                raise ParseError(f"Unable to parse checklist: {exc}") from exc
 
-        stigs = root.find("STIGS")
-        if stigs is None:
-            raise ParseError("Checklist missing STIGS section")
+            stigs = root.find("STIGS")
+            if stigs is None:
+                raise ParseError("Checklist missing STIGS section")
 
-        # Build VID index once for O(1) lookups (performance optimization)
-        LOG.d("Building VID index for fast lookups")
-        vid_to_vuln = XmlUtils.build_vuln_index(root)
+            # Build VID index once for O(1) lookups (performance optimization)
+            LOG.d("Building VID index for fast lookups")
+            vid_to_vuln = XmlUtils.build_vuln_index(root)
 
-        updated = 0
-        not_found: List[str] = []
+            updated = 0
+            not_found: List[str] = []
 
-        # Use index for O(1) lookups instead of O(n) searches
-        for vid, result in self.results.items():
-            vuln = vid_to_vuln.get(vid)
-            if not vuln:
-                not_found.append(vid)
-                continue
+            # Use index for O(1) lookups instead of O(n) searches
+            for vid, result in self.results.items():
+                vuln = vid_to_vuln.get(vid)
+                if not vuln:
+                    not_found.append(vid)
+                    continue
 
-            updated += 1
+                updated += 1
 
-            finding_node = vuln.find("FINDING_DETAILS")
-            if finding_node is None:
-                finding_node = ET.SubElement(vuln, "FINDING_DETAILS")
+                finding_node = vuln.find("FINDING_DETAILS")
+                if finding_node is None:
+                    finding_node = ET.SubElement(vuln, "FINDING_DETAILS")
 
-            summary = [
-                "┌" + "─" * 78 + "┐",
-                "│ AUTOMATED REMEDIATION".center(80) + "│",
-                "└" + "─" * 78 + "┘",
-                f"Timestamp: {result.ts.strftime('%Y-%m-%d %H:%M:%S UTC')}",
-                f"Result: {'✔ SUCCESS' if result.ok else '✘ FAILED'}",
-                f"Mode: {self.meta.get('mode', 'unknown')}",
-            ]
-            if result.message:
-                summary.append(f"Message: {result.message}")
-            if result.output:
-                summary.append("")
-                summary.append("Output:")
-                summary.append(result.output)
-            if result.error:
-                summary.append("")
-                summary.append("Error:")
-                summary.append(result.error)
+                summary = [
+                    "┌" + "─" * 78 + "┐",
+                    "│ AUTOMATED REMEDIATION".center(80) + "│",
+                    "└" + "─" * 78 + "┘",
+                    f"Timestamp: {result.ts.strftime('%Y-%m-%d %H:%M:%S UTC')}",
+                    f"Result: {'✔ SUCCESS' if result.ok else '✘ FAILED'}",
+                    f"Mode: {self.meta.get('mode', 'unknown')}",
+                ]
+                if result.message:
+                    summary.append(f"Message: {result.message}")
+                if result.output:
+                    summary.append("")
+                    summary.append("Output:")
+                    summary.append(result.output)
+                if result.error:
+                    summary.append("")
+                    summary.append("Error:")
+                    summary.append(result.error)
 
-            existing = finding_node.text or ""
-            summary_text = "\n".join(summary)
-            if existing.strip():
-                if details_mode == "overwrite":
+                existing = finding_node.text or ""
+                summary_text = "\n".join(summary)
+                if existing.strip():
+                    if details_mode == "overwrite":
+                        combined = summary_text
+                    elif details_mode == "append":
+                        combined = (
+                            existing
+                            + "\n\n"
+                            + "═" * 80
+                            + "\n[AUTOMATED REMEDIATION]\n"
+                            + "═" * 80
+                            + "\n\n"
+                            + summary_text
+                        )
+                    else:  # prepend (default)
+                        combined = (
+                            summary_text
+                            + "\n\n"
+                            + "═" * 80
+                            + "\n[PREVIOUS]\n"
+                            + "═" * 80
+                            + "\n\n"
+                            + existing
+                        )
+                else:
                     combined = summary_text
-                elif details_mode == "append":
-                    combined = (
-                        existing
-                        + "\n\n"
-                        + "═" * 80
-                        + "\n[AUTOMATED REMEDIATION]\n"
-                        + "═" * 80
-                        + "\n\n"
-                        + summary_text
-                    )
-                else:  # prepend (default)
-                    combined = (
-                        summary_text
-                        + "\n\n"
-                        + "═" * 80
-                        + "\n[PREVIOUS]\n"
-                        + "═" * 80
-                        + "\n\n"
-                        + existing
-                    )
-            else:
-                combined = summary_text
 
-            if len(combined) > Cfg.MAX_FIND:
-                combined = combined[: Cfg.MAX_FIND - 15] + "\n[TRUNCATED]"
-            finding_node.text = combined
+                if len(combined) > Cfg.MAX_FIND:
+                    combined = combined[: Cfg.MAX_FIND - 15] + "\n[TRUNCATED]"
+                finding_node.text = combined
 
-            comment_node = vuln.find("COMMENTS")
-            if comment_node is None:
-                comment_node = ET.SubElement(vuln, "COMMENTS")
-            comments = comment_node.text or ""
-            entry = f"[Automated Remediation {result.ts.strftime('%Y-%m-%d %H:%M:%S UTC')}] {result.message or 'Refer to details'}"
-            if comments.strip():
-                if comment_mode == "overwrite":
+                comment_node = vuln.find("COMMENTS")
+                if comment_node is None:
+                    comment_node = ET.SubElement(vuln, "COMMENTS")
+                comments = comment_node.text or ""
+                entry = f"[Automated Remediation {result.ts.strftime('%Y-%m-%d %H:%M:%S UTC')}] {result.message or 'Refer to details'}"
+                if comments.strip():
+                    if comment_mode == "overwrite":
+                        combined_comments = entry
+                    elif comment_mode == "append":
+                        combined_comments = comments + "\n" + entry
+                    else:  # prepend (default)
+                        combined_comments = entry + "\n" + comments
+                else:
                     combined_comments = entry
-                elif comment_mode == "append":
-                    combined_comments = comments + "\n" + entry
-                else:  # prepend (default)
-                    combined_comments = entry + "\n" + comments
-            else:
-                combined_comments = entry
 
-            if len(combined_comments) > Cfg.MAX_COMM:
-                combined_comments = (
-                    combined_comments[: Cfg.MAX_COMM - 15] + "\n[TRUNCATED]"
-                )
-            comment_node.text = combined_comments
+                if len(combined_comments) > Cfg.MAX_COMM:
+                    combined_comments = (
+                        combined_comments[: Cfg.MAX_COMM - 15] + "\n[TRUNCATED]"
+                    )
+                comment_node.text = combined_comments
 
-            if auto_status and result.ok:
-                status_node = vuln.find("STATUS")
-                if status_node is None:
-                    status_node = ET.SubElement(vuln, "STATUS")
-                status_node.text = San.status(Status.NOT_A_FINDING.value)
+                if auto_status and result.ok:
+                    status_node = vuln.find("STATUS")
+                    if status_node is None:
+                        status_node = ET.SubElement(vuln, "STATUS")
+                    status_node.text = San.status(Status.NOT_A_FINDING.value)
 
-        # Hook: Plugins can intercept and manipulate the ElementTree before save
-        from stig_assessor.core.plugins import PluginManager
+            # Hook: Plugins can intercept and manipulate the ElementTree before save
+            from stig_assessor.core.plugins import PluginManager
 
-        plugins = PluginManager()
-        root = plugins.run_hooks(
-            "pre_apply_results",
-            payload=root,
-            results=self.results,
-            checklist_path=checklist,
-        )
+            plugins = PluginManager()
+            root = plugins.run_hooks(
+                "pre_apply_results",
+                payload=root,
+                results=self.results,
+                checklist_path=checklist,
+            )
 
-        XmlUtils.indent_xml(root)
+            XmlUtils.indent_xml(root)
 
-        if dry:
-            LOG.i("Dry-run requested, checklist not written")
-            LOG.clear()
+            if dry:
+                LOG.i("Dry-run requested, checklist not written")
+                return {
+                    "updated": updated,
+                    "not_found": not_found,
+                    "dry_run": True,
+                }
+
+            self._write_ckl(root, out)
+            LOG.i(f"Checklist updated and saved to {out}")
+
             return {
                 "updated": updated,
                 "not_found": not_found,
-                "dry_run": True,
+                "dry_run": False,
+                "output": str(out),
             }
-
-        self._write_ckl(root, out)
-        LOG.i(f"Checklist updated and saved to {out}")
-        LOG.clear()
-
-        return {
-            "updated": updated,
-            "not_found": not_found,
-            "dry_run": False,
-            "output": str(out),
-        }
 
     def generate_report(self, format: str = "text") -> str:
         """

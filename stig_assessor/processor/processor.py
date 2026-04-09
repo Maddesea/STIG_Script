@@ -761,62 +761,60 @@ class Proc:
         if len(history_paths) > Cfg.MAX_MERGE:
             raise ValidationError(f"Too many historical files (limit {Cfg.MAX_MERGE})")
 
-        LOG.ctx(op="merge", base=base.name, histories=len(history_paths))
-        LOG.i(f"Merging {len(history_paths)} checklist(s) into base {base.name}")
+        with LOG.context(op="merge", base=base.name, histories=len(history_paths)):
+            LOG.i(f"Merging {len(history_paths)} checklist(s) into base {base.name}")
 
-        if preserve_history:
-            for idx, hist_file in enumerate(history_paths, 1):
-                LOG.d(f"Loading history {idx}/{len(history_paths)}: {hist_file}")
-                self._ingest_history(hist_file)
+            if preserve_history:
+                for idx, hist_file in enumerate(history_paths, 1):
+                    LOG.d(f"Loading history {idx}/{len(history_paths)}: {hist_file}")
+                    self._ingest_history(hist_file)
 
-        try:
-            tree = self._load_file_as_xml(base)
-            root = tree.getroot()
-        except (ParseError, OSError, ValueError, KeyError) as exc:
-            raise ParseError(f"Unable to parse base checklist: {exc}") from exc
+            try:
+                tree = self._load_file_as_xml(base)
+                root = tree.getroot()
+            except (ParseError, OSError, ValueError, KeyError) as exc:
+                raise ParseError(f"Unable to parse base checklist: {exc}") from exc
 
-        if root.tag != Sch.ROOT:
-            raise ParseError("Base checklist has incorrect root element")
+            if root.tag != Sch.ROOT:
+                raise ParseError("Base checklist has incorrect root element")
 
-        stigs = root.find("STIGS")
-        if stigs is None:
-            raise ParseError("Base checklist missing STIGS")
+            stigs = root.find("STIGS")
+            if stigs is None:
+                raise ParseError("Base checklist missing STIGS")
 
-        total_vulns = sum(
-            len(istig.findall("VULN")) for istig in stigs.findall("iSTIG")
-        )
-        if total_vulns == 0:
-            raise ParseError("Base checklist contains no vulnerabilities")
+            total_vulns = sum(
+                len(istig.findall("VULN")) for istig in stigs.findall("iSTIG")
+            )
+            if total_vulns == 0:
+                raise ParseError("Base checklist contains no vulnerabilities")
 
-        updated = 0
-        skipped = 0
+            updated = 0
+            skipped = 0
 
-        for istig in stigs.findall("iSTIG"):
-            for vuln in istig.findall("VULN"):
-                result = self._merge_vuln(vuln, preserve_history, apply_boilerplate)
-                if result is True:
-                    updated += 1
-                else:
-                    skipped += 1
+            for istig in stigs.findall("iSTIG"):
+                for vuln in istig.findall("VULN"):
+                    result = self._merge_vuln(vuln, preserve_history, apply_boilerplate)
+                    if result is True:
+                        updated += 1
+                    else:
+                        skipped += 1
 
-        LOG.i(f"Merge summary: {updated} updated, {skipped} unchanged")
+            LOG.i(f"Merge summary: {updated} updated, {skipped} unchanged")
 
-        XmlUtils.indent_xml(root)
+            XmlUtils.indent_xml(root)
 
-        if dry:
-            LOG.i("Dry-run requested, merged checklist not written")
-            LOG.clear()
-            return {"updated": updated, "skipped": skipped, "dry_run": True}
+            if dry:
+                LOG.i("Dry-run requested, merged checklist not written")
+                return {"updated": updated, "skipped": skipped, "dry_run": True}
 
-        self._export_xml_to_file(root, out)
-        LOG.i(f"Merged checklist saved to {out}")
-        LOG.clear()
-        return {
-            "updated": updated,
-            "skipped": skipped,
-            "dry_run": False,
-            "output": str(out),
-        }
+            self._export_xml_to_file(root, out)
+            LOG.i(f"Merged checklist saved to {out}")
+            return {
+                "updated": updated,
+                "skipped": skipped,
+                "dry_run": False,
+                "output": str(out),
+            }
 
     # ------------------------------------------------------------------ diff
     def diff(
@@ -843,110 +841,109 @@ class Proc:
         except (ValidationError, OSError, ValueError, TypeError) as exc:
             raise ValidationError(f"Path validation failed: {exc}") from exc
 
-        LOG.ctx(op="diff", ckl1=ckl1.name, ckl2=ckl2.name)
-        LOG.i(f"Comparing {ckl1.name} vs {ckl2.name}")
+        with LOG.context(op="diff", ckl1=ckl1.name, ckl2=ckl2.name):
+            LOG.i(f"Comparing {ckl1.name} vs {ckl2.name}")
 
-        # Parse both checklists
-        try:
-            tree1 = self._load_file_as_xml(ckl1)
-            root1 = tree1.getroot()
-            tree2 = self._load_file_as_xml(ckl2)
-            root2 = tree2.getroot()
-        except (ParseError, OSError, ValueError) as exc:
-            raise ParseError(f"Failed to parse checklists: {exc}") from exc
+            # Parse both checklists
+            try:
+                tree1 = self._load_file_as_xml(ckl1)
+                root1 = tree1.getroot()
+                tree2 = self._load_file_as_xml(ckl2)
+                root2 = tree2.getroot()
+            except (ParseError, OSError, ValueError) as exc:
+                raise ParseError(f"Failed to parse checklists: {exc}") from exc
 
-        # Extract vulnerability data from both checklists
-        vulns1 = self._extract_vuln_data(root1)
-        vulns2 = self._extract_vuln_data(root2)
+            # Extract vulnerability data from both checklists
+            vulns1 = self._extract_vuln_data(root1)
+            vulns2 = self._extract_vuln_data(root2)
 
-        # Compare
-        vids1 = set(vulns1.keys())
-        vids2 = set(vulns2.keys())
+            # Compare
+            vids1 = set(vulns1.keys())
+            vids2 = set(vulns2.keys())
 
-        only_in_1 = vids1 - vids2
-        only_in_2 = vids2 - vids1
-        common = vids1 & vids2
+            only_in_1 = vids1 - vids2
+            only_in_2 = vids2 - vids1
+            common = vids1 & vids2
 
-        changed = []
-        unchanged = []
+            changed = []
+            unchanged = []
 
-        for vid in sorted(common):
-            v1 = vulns1[vid]
-            v2 = vulns2[vid]
+            for vid in sorted(common):
+                v1 = vulns1[vid]
+                v2 = vulns2[vid]
 
-            differences = []
-            if v1["status"] != v2["status"]:
-                differences.append(
-                    {
-                        "field": "status",
-                        "from": v1["status"],
-                        "to": v2["status"],
-                    }
+                differences = []
+                if v1["status"] != v2["status"]:
+                    differences.append(
+                        {
+                            "field": "status",
+                            "from": v1["status"],
+                            "to": v2["status"],
+                        }
+                    )
+                if v1["severity"] != v2["severity"]:
+                    differences.append(
+                        {
+                            "field": "severity",
+                            "from": v1["severity"],
+                            "to": v2["severity"],
+                        }
+                    )
+                if v1["finding_details"] != v2["finding_details"]:
+                    differences.append(
+                        {
+                            "field": "finding_details",
+                            "from_length": len(v1["finding_details"]),
+                            "to_length": len(v2["finding_details"]),
+                        }
+                    )
+                if v1["comments"] != v2["comments"]:
+                    differences.append(
+                        {
+                            "field": "comments",
+                            "from_length": len(v1["comments"]),
+                            "to_length": len(v2["comments"]),
+                        }
+                    )
+
+                if differences:
+                    changed.append(
+                        {
+                            "vid": vid,
+                            "rule_title": v1.get("rule_title", "Unknown"),
+                            "differences": differences,
+                        }
+                    )
+                else:
+                    unchanged.append(vid)
+
+            # Build results
+            results = {
+                "summary": {
+                    "total_in_baseline": len(vids1),
+                    "total_in_comparison": len(vids2),
+                    "only_in_baseline": len(only_in_1),
+                    "only_in_comparison": len(only_in_2),
+                    "common": len(common),
+                    "changed": len(changed),
+                    "unchanged": len(unchanged),
+                },
+                "only_in_baseline": sorted(only_in_1),
+                "only_in_comparison": sorted(only_in_2),
+                "changed": changed,
+            }
+
+            # Format output based on requested format
+            if output_format == "summary":
+                results["formatted_text"] = self._format_diff_summary(
+                    results, ckl1.name, ckl2.name
                 )
-            if v1["severity"] != v2["severity"]:
-                differences.append(
-                    {
-                        "field": "severity",
-                        "from": v1["severity"],
-                        "to": v2["severity"],
-                    }
-                )
-            if v1["finding_details"] != v2["finding_details"]:
-                differences.append(
-                    {
-                        "field": "finding_details",
-                        "from_length": len(v1["finding_details"]),
-                        "to_length": len(v2["finding_details"]),
-                    }
-                )
-            if v1["comments"] != v2["comments"]:
-                differences.append(
-                    {
-                        "field": "comments",
-                        "from_length": len(v1["comments"]),
-                        "to_length": len(v2["comments"]),
-                    }
+            elif output_format == "detailed":
+                results["formatted_text"] = self._format_diff_detailed(
+                    results, ckl1.name, ckl2.name
                 )
 
-            if differences:
-                changed.append(
-                    {
-                        "vid": vid,
-                        "rule_title": v1.get("rule_title", "Unknown"),
-                        "differences": differences,
-                    }
-                )
-            else:
-                unchanged.append(vid)
-
-        # Build results
-        results = {
-            "summary": {
-                "total_in_baseline": len(vids1),
-                "total_in_comparison": len(vids2),
-                "only_in_baseline": len(only_in_1),
-                "only_in_comparison": len(only_in_2),
-                "common": len(common),
-                "changed": len(changed),
-                "unchanged": len(unchanged),
-            },
-            "only_in_baseline": sorted(only_in_1),
-            "only_in_comparison": sorted(only_in_2),
-            "changed": changed,
-        }
-
-        # Format output based on requested format
-        if output_format == "summary":
-            results["formatted_text"] = self._format_diff_summary(
-                results, ckl1.name, ckl2.name
-            )
-        elif output_format == "detailed":
-            results["formatted_text"] = self._format_diff_detailed(
-                results, ckl1.name, ckl2.name
-            )
-
-        LOG.clear()
-        return results
+            return results
 
     def _extract_vuln_data(self, root: ET.Element) -> Dict[str, Dict[str, str]]:
         """Extract vulnerability data from a checklist for comparison."""
@@ -1196,37 +1193,37 @@ class Proc:
         except (ValidationError, OSError, ValueError, TypeError) as exc:
             raise ValidationError(f"Path validation failed: {exc}") from exc
 
-        LOG.ctx(op="repair", file=ckl_path.name)
-        LOG.i(f"Repairing checklist: {ckl_path}")
+        with LOG.context(op="repair", file=ckl_path.name):
+            LOG.i(f"Repairing checklist: {ckl_path}")
 
-        repairs = []
+            repairs = []
 
-        try:
-            tree = self._load_file_as_xml(ckl_path)
-            root = tree.getroot()
-        except (ParseError, OSError, ValueError) as exc:
-            raise ParseError(f"Failed to parse CKL (too corrupted): {exc}") from exc
+            try:
+                tree = self._load_file_as_xml(ckl_path)
+                root = tree.getroot()
+            except (ParseError, OSError, ValueError) as exc:
+                raise ParseError(f"Failed to parse CKL (too corrupted): {exc}") from exc
 
-        # Repair 1: Fix invalid status values
-        stigs = root.find("STIGS")
-        if stigs is not None:
-            for istig in stigs.findall("iSTIG"):
-                for vuln in istig.findall("VULN"):
-                    status_node = vuln.find("STATUS")
-                    if status_node is not None and status_node.text:
-                        status_val = status_node.text.strip()
-                        if not Status.is_valid(status_val):
-                            # Try to fix common typos
-                            if status_val.lower().replace(" ", "_") == "not_a_finding":
-                                status_node.text = Status.NOT_A_FINDING
-                                repairs.append(
-                                    f"Fixed status typo: '{status_val}' → '{Status.NOT_A_FINDING}'"
-                                )
-                            elif status_val.lower() == "open":
-                                status_node.text = Status.OPEN
-                                repairs.append(
-                                    f"Fixed status case: '{status_val}' → '{Status.OPEN}'"
-                                )
+            # Repair 1: Fix invalid status values
+            stigs = root.find("STIGS")
+            if stigs is not None:
+                for istig in stigs.findall("iSTIG"):
+                    for vuln in istig.findall("VULN"):
+                        status_node = vuln.find("STATUS")
+                        if status_node is not None and status_node.text:
+                            status_val = status_node.text.strip()
+                            if not Status.is_valid(status_val):
+                                # Try to fix common typos
+                                if status_val.lower().replace(" ", "_") == "not_a_finding":
+                                    status_node.text = Status.NOT_A_FINDING
+                                    repairs.append(
+                                        f"Fixed status typo: '{status_val}' → '{Status.NOT_A_FINDING}'"
+                                    )
+                                elif status_val.lower() == "open":
+                                    status_node.text = Status.OPEN
+                                    repairs.append(
+                                        f"Fixed status case: '{status_val}' → '{Status.OPEN}'"
+                                    )
                             elif (
                                 "not" in status_val.lower()
                                 and "applicable" in status_val.lower()
@@ -1289,21 +1286,20 @@ class Proc:
                             )
                             repairs.append(f"Truncated oversized COMMENTS for {vid}")
 
-        # Write repaired checklist
-        XmlUtils.indent_xml(root)
-        self._export_xml_to_file(root, out_path)
+            # Write repaired checklist
+            XmlUtils.indent_xml(root)
+            self._export_xml_to_file(root, out_path)
 
-        LOG.i(f"Repaired checklist written to {out_path}")
-        LOG.i(f"Repairs applied: {len(repairs)}")
-        LOG.clear()
+            LOG.i(f"Repaired checklist written to {out_path}")
+            LOG.i(f"Repairs applied: {len(repairs)}")
 
-        return {
-            "ok": True,
-            "input": str(ckl_path),
-            "output": str(out_path),
-            "repairs": len(repairs),
-            "details": repairs,
-        }
+            return {
+                "ok": True,
+                "input": str(ckl_path),
+                "output": str(out_path),
+                "repairs": len(repairs),
+                "details": repairs,
+            }
 
     def batch_convert(
         self,
@@ -1331,72 +1327,71 @@ class Proc:
         except (ValidationError, OSError, ValueError, TypeError) as exc:
             raise ValidationError(f"Path validation failed: {exc}") from exc
 
-        LOG.ctx(op="batch_convert", dir=xccdf_dir.name)
-        LOG.i(f"Batch converting XCCDF files from {xccdf_dir}")
+        with LOG.context(op="batch_convert", dir=xccdf_dir.name):
+            LOG.i(f"Batch converting XCCDF files from {xccdf_dir}")
 
-        # Find all XML files in directory
-        xccdf_files = list(xccdf_dir.glob("*.xml"))
-        if not xccdf_files:
-            raise FileError(f"No XML files found in {xccdf_dir}")
+            # Find all XML files in directory
+            xccdf_files = list(xccdf_dir.glob("*.xml"))
+            if not xccdf_files:
+                raise FileError(f"No XML files found in {xccdf_dir}")
 
-        LOG.i(f"Found {len(xccdf_files)} XML files to convert")
+            LOG.i(f"Found {len(xccdf_files)} XML files to convert")
 
-        successes = []
-        failures = []
+            successes = []
+            failures = []
 
-        for idx, xccdf_file in enumerate(xccdf_files, 1):
-            try:
-                # Generate asset name from filename
-                asset_name = f"{asset_prefix}_{xccdf_file.stem.replace(' ', '_').replace('-', '_')}"
-                out_file = out_dir / f"{xccdf_file.stem}.ckl"
+            for idx, xccdf_file in enumerate(xccdf_files, 1):
+                try:
+                    # Generate asset name from filename
+                    asset_name = f"{asset_prefix}_{xccdf_file.stem.replace(' ', '_').replace('-', '_')}"
+                    out_file = out_dir / f"{xccdf_file.stem}.ckl"
 
-                LOG.i(
-                    f"[{idx}/{len(xccdf_files)}] Converting {xccdf_file.name} → {out_file.name}"
-                )
+                    LOG.i(
+                        f"[{idx}/{len(xccdf_files)}] Converting {xccdf_file.name} → {out_file.name}"
+                    )
 
-                result = self.xccdf_to_ckl(
-                    xccdf_file,
-                    out_file,
-                    asset_name,
-                    apply_boilerplate=apply_boilerplate,
-                )
+                    result = self.xccdf_to_ckl(
+                        xccdf_file,
+                        out_file,
+                        asset_name,
+                        apply_boilerplate=apply_boilerplate,
+                    )
 
-                successes.append(
-                    {
-                        "file": xccdf_file.name,
-                        "output": out_file.name,
-                        "processed": result.get("processed", 0),
-                    }
-                )
+                    successes.append(
+                        {
+                            "file": xccdf_file.name,
+                            "output": out_file.name,
+                            "processed": result.get("processed", 0),
+                        }
+                    )
 
-            except (
-                ParseError,
-                ValidationError,
-                FileError,
-                OSError,
-                ValueError,
-            ) as exc:
-                LOG.e(f"Failed to convert {xccdf_file.name}: {exc}")
-                failures.append(
-                    {
-                        "file": xccdf_file.name,
-                        "error": str(exc),
-                    }
-                )
+                except (
+                    ParseError,
+                    ValidationError,
+                    FileError,
+                    OSError,
+                    ValueError,
+                ) as exc:
+                    LOG.e(f"Failed to convert {xccdf_file.name}: {exc}")
+                    failures.append(
+                        {
+                            "file": xccdf_file.name,
+                            "error": str(exc),
+                        }
+                    )
 
-        LOG.i(
-            f"Batch conversion complete: {len(successes)} successes, {len(failures)} failures"
-        )
-        LOG.clear()
+            LOG.i(
+                f"Batch conversion complete: {len(successes)} successes, {len(failures)} failures"
+            )
 
-        return {
-            "ok": len(failures) == 0,
-            "total": len(xccdf_files),
-            "successes": len(successes),
-            "failures": len(failures),
-            "details": successes,
-            "errors": failures,
-        }
+            return {
+                "ok": len(failures) == 0,
+                "total": len(xccdf_files),
+                "successes": len(successes),
+                "failures": len(failures),
+                "details": successes,
+                "errors": failures,
+            }
 
     def verify_integrity(
         self, ckl_path: Union[str, Path]
@@ -1415,36 +1410,34 @@ class Proc:
         except (ValidationError, OSError, ValueError, TypeError) as exc:
             raise ValidationError(f"Path validation failed: {exc}") from exc
 
-        LOG.ctx(op="verify_integrity", file=ckl_path.name)
-        LOG.i(f"Verifying integrity of {ckl_path}")
+        with LOG.context(op="verify_integrity", file=ckl_path.name):
+            LOG.i(f"Verifying integrity of {ckl_path}")
 
-        # Compute checksum
-        checksum = hashlib.sha256()
-        with open(ckl_path, "rb") as f:
-            for chunk in iter(lambda: f.read(CHUNK_SIZE), b""):
-                checksum.update(chunk)
-        checksum_value = checksum.hexdigest()
+            # Compute checksum
+            checksum = hashlib.sha256()
+            with open(ckl_path, "rb") as f:
+                for chunk in iter(lambda: f.read(CHUNK_SIZE), b""):
+                    checksum.update(chunk)
+            checksum_value = checksum.hexdigest()
 
-        # Run validation
-        ok, errors, warnings, info = self.validator.validate(ckl_path)
+            # Run validation
+            ok, errors, warnings, info = self.validator.validate(ckl_path)
 
-        # Check file size
-        file_size = ckl_path.stat().st_size
+            # Check file size
+            file_size = ckl_path.stat().st_size
 
-        LOG.clear()
-
-        return {
-            "valid": ok,
-            "file": str(ckl_path),
-            "size": file_size,
-            "checksum": checksum_value,
-            "checksum_type": "SHA256",
-            "validation_errors": len(errors),
-            "validation_warnings": len(warnings),
-            "errors": errors if errors else None,
-            "warnings": warnings if warnings else None,
-            "info": info if info else None,
-        }
+            return {
+                "valid": ok,
+                "file": str(ckl_path),
+                "size": file_size,
+                "checksum": checksum_value,
+                "checksum_type": "SHA256",
+                "validation_errors": len(errors),
+                "validation_warnings": len(warnings),
+                "errors": errors if errors else None,
+                "warnings": warnings if warnings else None,
+                "info": info if info else None,
+            }
 
     def compute_checksum(self, file_path: Union[str, Path]) -> str:
         """
@@ -1486,70 +1479,68 @@ class Proc:
         except (ValidationError, OSError, ValueError, TypeError) as exc:
             raise ValidationError(f"Path validation failed: {exc}") from exc
 
-        LOG.ctx(op="generate_stats", file=ckl_path.name)
-        LOG.i(f"Generating statistics for {ckl_path}")
+        with LOG.context(op="generate_stats", file=ckl_path.name):
+            LOG.i(f"Generating statistics for {ckl_path}")
 
-        try:
-            tree = self._load_file_as_xml(ckl_path)
-            root = tree.getroot()
-        except (ParseError, OSError, ValueError) as exc:
-            raise ParseError(f"Failed to parse checklist: {exc}") from exc
+            try:
+                tree = self._load_file_as_xml(ckl_path)
+                root = tree.getroot()
+            except (ParseError, OSError, ValueError) as exc:
+                raise ParseError(f"Failed to parse checklist: {exc}") from exc
 
-        # Extract statistics
-        stats = {
-            "file": str(ckl_path),
-            "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
-            "total_vulns": 0,
-            "by_status": defaultdict(int),
-            "by_severity": defaultdict(int),
-            "by_status_and_severity": defaultdict(lambda: defaultdict(int)),
-        }
+            # Extract statistics
+            stats = {
+                "file": str(ckl_path),
+                "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                "total_vulns": 0,
+                "by_status": defaultdict(int),
+                "by_severity": defaultdict(int),
+                "by_status_and_severity": defaultdict(lambda: defaultdict(int)),
+            }
 
-        stigs = root.find("STIGS")
-        if stigs is not None:
-            for istig in stigs.findall("iSTIG"):
-                for vuln in istig.findall("VULN"):
-                    stats["total_vulns"] += 1
+            stigs = root.find("STIGS")
+            if stigs is not None:
+                for istig in stigs.findall("iSTIG"):
+                    for vuln in istig.findall("VULN"):
+                        stats["total_vulns"] += 1
 
-                    # Get status
-                    status_node = vuln.find("STATUS")
-                    status = (
-                        status_node.text.strip()
-                        if status_node is not None and status_node.text
-                        else Status.NOT_REVIEWED
-                    )
-                    stats["by_status"][status] += 1
+                        # Get status
+                        status_node = vuln.find("STATUS")
+                        status = (
+                            status_node.text.strip()
+                            if status_node is not None and status_node.text
+                            else Status.NOT_REVIEWED
+                        )
+                        stats["by_status"][status] += 1
 
-                    # Get severity
-                    severity = "medium"  # default
-                    for sd in vuln.findall("STIG_DATA"):
-                        attr = sd.findtext("VULN_ATTRIBUTE")
-                        if attr == "Severity":
-                            severity = sd.findtext("ATTRIBUTE_DATA", default="medium")
-                            break
+                        # Get severity
+                        severity = "medium"  # default
+                        for sd in vuln.findall("STIG_DATA"):
+                            attr = sd.findtext("VULN_ATTRIBUTE")
+                            if attr == "Severity":
+                                severity = sd.findtext("ATTRIBUTE_DATA", default="medium")
+                                break
 
-                    stats["by_severity"][severity] += 1
-                    stats["by_status_and_severity"][severity][status] += 1
+                        stats["by_severity"][severity] += 1
+                        stats["by_status_and_severity"][severity][status] += 1
 
-        # Calculate completion percentage
-        reviewed = sum(
-            stats["by_status"][s]
-            for s in stats["by_status"]
-            if s != Status.NOT_REVIEWED
-        )
-        stats["reviewed"] = reviewed
-        stats["completion_pct"] = (
-            (reviewed / stats["total_vulns"] * 100) if stats["total_vulns"] > 0 else 0
-        )
+            # Calculate completion percentage
+            reviewed = sum(
+                stats["by_status"][s]
+                for s in stats["by_status"]
+                if s != Status.NOT_REVIEWED
+            )
+            stats["reviewed"] = reviewed
+            stats["completion_pct"] = (
+                (reviewed / stats["total_vulns"] * 100) if stats["total_vulns"] > 0 else 0
+            )
 
-        # Calculate compliance percentage (NotAFinding / total reviewed)
-        not_a_finding = stats["by_status"].get(Status.NOT_A_FINDING, 0)
-        stats["compliant"] = not_a_finding
-        stats["compliance_pct"] = (
-            (not_a_finding / reviewed * 100) if reviewed > 0 else 0
-        )
-
-        LOG.clear()
+            # Calculate compliance percentage (NotAFinding / total reviewed)
+            not_a_finding = stats["by_status"].get(Status.NOT_A_FINDING, 0)
+            stats["compliant"] = not_a_finding
+            stats["compliance_pct"] = (
+                (not_a_finding / reviewed * 100) if reviewed > 0 else 0
+            )
 
         # Hook: Plugins can modify or inject custom computed stats metrics
         stats = self.plugins.run_hooks(
