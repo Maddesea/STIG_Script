@@ -9,8 +9,8 @@ This manual details the five deployment options for STIG Assessor, each designed
 | Option | Entry Point | Target OS | Host Requirements | Best For |
 | :--- | :--- | :--- | :--- | :--- |
 | **1. EXE** | `STIG_Assessor.exe` | Windows | **None** | Simple, single-file distribution. |
-| **2. Lean** | `launch.ps1` / `.sh` | Win/Linux | **Python 3.9+** | Using system Python + bundled offline libraries. |
-| **3. Windows Full** | `launch.ps1` | Windows | **None** | Auditable source code with bundled interpreter. |
+| **2. Lean** | `launch.ps1` / `.sh` | Win/Linux | **Python 3.9+** | Using system Python + bundled offline libraries (.whl). |
+| **3. Windows Full** | `launch.ps1` | Windows | **None** | Auditable source code with bundled Python 3.12 interpreter. |
 | **4. Linux Full** | `launch.sh` | Linux | **None** | Zero-dependency Linux (x86_64) deployment. |
 
 ---
@@ -35,7 +35,7 @@ Navigate to your `dist/` directory to find your ready-to-use packages:
 ### 3. Option 3: Windows Full Portable
 **Location:** `dist/STIG_Assessor_Windows_Portable/`
 - **What's Inside**: Bundled Python 3.12 interpreter, source, `lib/` (pre-installed), and `wheels/` (backup).
-- **How to Use**: Run `.\launch.ps1`. It will prioritize the bundled `python/` folder.
+- **How to Use**: Run `.\launch.ps1`. It will prioritize the bundled `python/` or `python312/` folder.
 
 ### 4. Option 4: Linux Full Portable
 **Location:** `dist/STIG_Assessor_Linux_Portable/`
@@ -56,7 +56,7 @@ All options support the same arguments:
 ### Hybrid Setup (Zero-Internet)
 The script-based options (`Lean` and `Full`) are designed to be hybrid:
 1. They search for a local `venv/`.
-2. They search for a bundled `python/` interpreter.
+2. They search for a bundled `python/` or `python312/` interpreter.
 3. They search for a system Python.
 4. If a system Python is found but libraries are missing, they use the bundled `wheels/` to configure the environment offline.
 

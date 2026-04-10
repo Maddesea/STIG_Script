@@ -4,13 +4,11 @@ This guide details how to build and deploy STIG Assessor for entirely air-gapped
 
 ## Comparison of Portability Options
 
-| Feature | Option 1: Compiled Binary (.exe) | Option 2: Portable Script Package |
-| :--- | :--- | :--- |
-| **Target OS** | Windows Only | **Windows & Linux** |
-| **Dependencies** | **Zero.** Python included in EXE. | Requires Python 3.9+ on target. |
-| **Auditability** | Low (Compiled code) | **High (Source code visible)** |
-| **Startup Speed** | Moderate (Unpacks to %TEMP%) | **Instant** |
-| **File Format** | Single `.exe` file | Folder with `.py`, `.ps1`, `.sh` files |
+| **Option** | **Target OS** | **Dependencies** | **Auditability** | **Best For** |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. EXE** | Windows | **Zero.** Python included. | Low (Compiled) | Simple distribution |
+| **2. Lean** | Win/Linux | Python 3.9+ (System) | **High (Source)** | Auditable system Python |
+| **3. Full** | Win/Linux | **Zero.** (Bundled 3.12) | **High (Source)** | Zero-dependency source |
 
 ---
 
@@ -54,9 +52,10 @@ To ensure the script package is "completely portable" and works without an inter
 
 3. This creates a folder at `.\dist\STIG_Assessor_Scripts\` containing:
    - The `stig_assessor` source code.
-   - `launch.ps1` (Windows/Linux PowerShell launcher).
+   - `launch.ps1` (Universal Windows/Linux PowerShell launcher).
    - `launch.sh` (Linux Bash launcher).
-   - `lib/` (Vendored premium dependencies like `sv-ttk` for the premium UI).
+   - `lib/` (Vendored premium dependencies for immediate use).
+   - `wheels/` (Offline installers for `venv` creation).
 
 ### 2. Usage on Target (Air-Gapped)
 
@@ -93,10 +92,12 @@ python3 -m stig_assessor.ui.cli --gui
 
 If your organization blocks executables from `%TEMP%`, **Option 2 (Scripts)** is the recommended solution as it runs directly from the source folder without unpacking.
 
-### No Python on Target Windows Host
+### No Python/Dependencies on Target Host
 
-If you choose **Option 2** but the target machine lacks Python:
+If the target machine lacks Python or required libraries:
 
-1. Download a "Windows embeddable package (64-bit)" from Python.org.
-2. Extract it into a folder named `python` inside your script package.
-3. `launch.ps1` will automatically detect and use this local Python interpreter instead of searching the system path.
+#### **Method A: The "Full" Bundle**
+Download a "Windows embeddable package (64-bit)" (Python 3.12 recommended) and extract it into a folder named `python` or `python312` inside the script package. `launch.ps1` will prioritize this local interpreter.
+
+#### **Method B: The "Lean" Venv (Automatic)**
+If a system Python is found but libraries are missing, the launcher will detect the `wheels/` directory and offer to create a local `venv` and install all dependencies offline—no internet required.

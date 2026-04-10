@@ -44,7 +44,7 @@
 
 | Requirement | Minimum | Recommended |
 |------------|---------|-------------|
-| **Python** | 3.9 | 3.10+ |
+| **Python** | 3.9 | 3.12+ |
 | **OS** | Windows 10, macOS 11+, Linux | Windows 11, any recent Linux |
 | **RAM** | 512 MB | 2 GB (for large checklists) |
 | **Disk** | 50 MB | 200 MB (with evidence store) |
@@ -170,9 +170,10 @@ The web server starts on `http://127.0.0.1:8080` (it tries ports 8080–8089 if 
 | `launch.ps1` | PowerShell launcher with `-Mode gui/web/cli` parameter |
 
 All launchers auto-detect Python from:
-1. `./python/python.exe` (portable)
-2. `./python312/python.exe` (portable, version-specific)
-3. System-installed `python` on PATH
+1. `./venv/` (Local virtual environment)
+2. `./python/python.exe` (Portable)
+3. `./python312/python.exe` (Portable, version-specific)
+4. System-installed `python` on PATH (offers to create venv from `wheels/` if deps are missing)
 
 ---
 
