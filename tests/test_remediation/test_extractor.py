@@ -153,7 +153,7 @@ class TestFixExtExport(unittest.TestCase):
         out_sh = Path(self.test_dir) / "out.sh"
         self.extractor.to_bash(out_sh)
         self.assertTrue(out_sh.exists())
-        self.assertIn("#!/usr/bin/env bash", out_sh.read_text())
+        self.assertIn("#!/usr/bin/env bash", out_sh.read_text(encoding="utf-8"))
 
     def test_export_to_powershell(self):
         """Test PowerShell script generation."""
@@ -175,7 +175,7 @@ class TestFixExtExport(unittest.TestCase):
         out_ps1 = Path(self.test_dir) / "out.ps1"
         self.extractor.to_powershell(out_ps1)
         self.assertTrue(out_ps1.exists())
-        self.assertIn("#requires -RunAsAdministrator", out_ps1.read_text())
+        self.assertIn("#requires -RunAsAdministrator", out_ps1.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

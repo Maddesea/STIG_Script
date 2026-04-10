@@ -1,4 +1,5 @@
 """Evidence Manager Tab module."""
+import sys
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import re

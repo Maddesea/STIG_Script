@@ -560,7 +560,7 @@ class FixExt:
             severity=severity,
             title=title,
             group_title=group_title,
-            fix_text=fix_text_raw,
+            fix_text=fix_text,
             fix_command=fix_command,
             check_command=check_command,
             platform=platform,

@@ -7,6 +7,7 @@ step-by-step prompts over memorizing argument flags.
 
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
@@ -55,11 +56,11 @@ class InteractiveWizard:
 
     def _header(self, subtitle: str = ""):
         self._clear()
-        print(_c("═" * 64, "blue"))
-        print(_c(f"  {APP_NAME} — INTERACTIVE WIZARD  v{VERSION}", "cyan"))
+        print(_c("=" * 64, "blue"))
+        print(_c(f"  {APP_NAME} - INTERACTIVE WIZARD  v{VERSION}", "cyan"))
         if subtitle:
             print(_c(f"  {subtitle}", "dim"))
-        print(_c("═" * 64, "blue"))
+        print(_c("=" * 64, "blue"))
         print()
 
     def _pause(self):
@@ -67,10 +68,10 @@ class InteractiveWizard:
         input(_c("  Press Enter to return to menu…", "dim"))
 
     def _success(self, msg: str):
-        print(_c(f"\n  ✔ {msg}", "green"))
+        print(_c(f"\n  [v] {msg}", "green"))
 
     def _error(self, msg: str):
-        print(_c(f"\n  ✘ {msg}", "red"))
+        print(_c(f"\n  [x] {msg}", "red"))
 
     # ── Prompts ──────────────────────────────────────────────────────────────
 
@@ -118,7 +119,7 @@ class InteractiveWizard:
             print(f"  {num}. {label}")
 
         print(f"  {_c(' 0', 'cyan')}. {'Exit' if title == 'Main Menu' else 'Back'}")
-        print(_c("  " + "─" * 60, "dim"))
+        print(_c("  " + "-" * 60, "dim"))
 
         while True:
             choice = input(_c("  Select: ", "yellow")).strip()
@@ -566,7 +567,6 @@ class InteractiveWizard:
 
         print(_c("\n  Pipeline successfully finished!", "green", "bold"))
         if self._prompt_yn(f"Open {html_out} in default browser?", default=True):
-            import os, sys, subprocess
             try:
                 if os.name == "nt":
                     os.startfile(html_out)
@@ -583,7 +583,7 @@ class InteractiveWizard:
 
     def run(self):
         options: List[Tuple[str, Callable]] = [
-            ("⭐ Run Advanced End-to-End Pipeline", self.advanced_pipeline),
+            ("Run Advanced End-to-End Pipeline", self.advanced_pipeline),
             ("Build Checklist from XCCDF", self.build_checklist),
             ("Merge Historical Checklists", self.merge_checklists),
             ("Extract Remediation Playbooks", self.extract_playbooks),
@@ -596,7 +596,7 @@ class InteractiveWizard:
             ("Apply Waivers", self.apply_waiver),
             ("Batch Convert", self.batch_convert),
             ("Export eMASS POAM", self.export_poam),
-            ("Manage Boilerplates →", self.manage_boilerplates),
+            ("Manage Boilerplates ->", self.manage_boilerplates),
             ("About", self.show_about),
         ]
 

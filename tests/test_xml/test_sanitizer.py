@@ -52,6 +52,7 @@ class TestPathValidation(unittest.TestCase):
     def test_exist_check(self):
         """Test exist parameter validation."""
         with tempfile.NamedTemporaryFile(delete=False) as tf:
+            tf.close()  # Close immediately on Windows to allow unlinking
             try:
                 # Should not raise for existing file
                 San.path(tf.name, exist=True)
@@ -65,6 +66,7 @@ class TestPathValidation(unittest.TestCase):
     def test_file_check(self):
         """Test file parameter validation."""
         with tempfile.NamedTemporaryFile(delete=False) as tf:
+            tf.close()
             try:
                 # Should not raise for file
                 San.path(tf.name, file=True)
@@ -83,6 +85,7 @@ class TestPathValidation(unittest.TestCase):
             San.path(tmpdir, dir=True)
 
         with tempfile.NamedTemporaryFile(delete=False) as tf:
+            tf.close()
             try:
                 # Should raise for file
                 with self.assertRaises(ValidationError):

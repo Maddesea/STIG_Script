@@ -88,7 +88,7 @@ class TestWebAPI(unittest.TestCase):
         mock_Extractor.assert_called_once()
         mock_ext.extract.assert_called_once()
         mock_ext.to_powershell.assert_called_once_with(
-            mock_ext.to_powershell.call_args[0][0], enable_rollbacks=True
+            mock_ext.to_powershell.call_args[0][0], dry_run=False, enable_rollbacks=True
         )
 
     @patch("stig_assessor.ui.web.api.Proc")

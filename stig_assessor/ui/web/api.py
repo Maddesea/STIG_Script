@@ -4,7 +4,7 @@ import base64
 import shutil
 import tempfile
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 import xml.etree.ElementTree as ET
 from stig_assessor.core.state import GLOBAL_STATE

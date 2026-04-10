@@ -143,7 +143,7 @@ class TestE2EWorkflows(unittest.TestCase):
         gui = GUI()
 
         # 1. Test inline validation failure (#9)
-        gui._do_create()
+        gui.action_create()
         # Should have appended an error label, blocking execution
         self.assertTrue(
             any(lbl for lbl, _ in gui._inline_labels if "Missing input" in lbl.cget("text"))
@@ -156,7 +156,7 @@ class TestE2EWorkflows(unittest.TestCase):
         gui.create_out.set(str(out_gui))
 
         # Process events synchronously
-        gui._do_create()
+        gui.action_create()
 
         start = time.time()
         while not out_gui.exists() and time.time() - start < 5.0:
@@ -170,7 +170,7 @@ class TestE2EWorkflows(unittest.TestCase):
 
         # 3. Validation tab functionality (#12 TreeView)
         gui.validate_ckl.set(str(out_gui))
-        gui._do_validate()
+        gui.action_validate()
 
         start = time.time()
         # validate doesn't create a file, it just populates validate_tree. Look for rows.

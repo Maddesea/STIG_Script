@@ -4,6 +4,7 @@ from tkinter import ttk, simpledialog, messagebox, filedialog
 from tkinter.scrolledtext import ScrolledText
 from datetime import datetime
 
+from stig_assessor.ui.helpers import ToolTip
 from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_FONT_MONO, Status
 from stig_assessor.io.file_ops import FO
 from stig_assessor.processor.html_report import _parse_checklist
@@ -33,10 +34,10 @@ def build_boilerplates_tab(app, frame):
     ).pack(side="left")
 
     # ═══ LEFT PANEL: VID LIST ═══
-    app._bp_left_frame_lbl = tk.StringVar(value="Vulnerability IDs")
-    left_frame = ttk.LabelFrame(
-        frame, textvariable=app._bp_left_frame_lbl, padding=GUI_PADDING_LARGE
+    app._bp_left_frame = ttk.LabelFrame(
+        frame, text="Vulnerability IDs", padding=GUI_PADDING_LARGE
     )
+    left_frame = app._bp_left_frame
     left_frame.grid(row=1, column=0, sticky="nsew", padx=(0, GUI_PADDING_LARGE))
 
     columns = ("vid", "flags")
@@ -292,13 +293,15 @@ def build_boilerplates_tab(app, frame):
     # Filters for Apply
     ttk.Label(apply_ctrls, text="Severity Filter:").pack(side="left")
     app._bp_apply_sev_var = tk.StringVar(value="")
-    ttk.Entry(apply_ctrls, textvariable=app._bp_apply_sev_var, width=12).pack(side="left", padx=(5, 15))
-    ToolTip(app._bp_apply_sev_var, "Comma separated severities (e.g. high, medium). Leave blank for all.")
+    sev_ent = ttk.Entry(apply_ctrls, textvariable=app._bp_apply_sev_var, width=12)
+    sev_ent.pack(side="left", padx=(5, 15))
+    ToolTip(sev_ent, "Comma separated severities (e.g. high, medium). Leave blank for all.")
 
     ttk.Label(apply_ctrls, text="Status Filter:").pack(side="left")
     app._bp_apply_status_var = tk.StringVar(value="")
-    ttk.Entry(apply_ctrls, textvariable=app._bp_apply_status_var, width=15).pack(side="left", padx=(5, 15))
-    ToolTip(app._bp_apply_status_var, "Comma separated statuses (e.g. Open, NotAFinding). Leave blank for all.")
+    stat_ent = ttk.Entry(apply_ctrls, textvariable=app._bp_apply_status_var, width=15)
+    stat_ent.pack(side="left", padx=(5, 15))
+    ToolTip(stat_ent, "Comma separated statuses (e.g. Open, NotAFinding). Leave blank for all.")
 
     # Second Row of Filters
     apply_ctrls_2 = ttk.Frame(apply_frame)
@@ -306,8 +309,9 @@ def build_boilerplates_tab(app, frame):
 
     ttk.Label(apply_ctrls_2, text="Target VIDs:").pack(side="left")
     app._bp_apply_vids_var = tk.StringVar(value="")
-    ttk.Entry(apply_ctrls_2, textvariable=app._bp_apply_vids_var, width=15).pack(side="left", padx=(5, 2))
-    ToolTip(app._bp_apply_vids_var, "Comma separated VIDs (e.g. V-12345, V-67890). Leave blank for all.")
+    vids_ent = ttk.Entry(apply_ctrls_2, textvariable=app._bp_apply_vids_var, width=15)
+    vids_ent.pack(side="left", padx=(5, 2))
+    ToolTip(vids_ent, "Comma separated VIDs (e.g. V-12345, V-67890). Leave blank for all.")
 
     def _pull_selected_vids():
         sel = app._bp_vids_list.selection()
@@ -591,7 +595,7 @@ def build_boilerplates_tab(app, frame):
             )
             display_count += 1
             
-        app._bp_left_frame_lbl.set(f"Vulnerability IDs ({display_count} configured)")
+        app._bp_left_frame.configure(text=f"Vulnerability IDs ({display_count} configured)")
 
     # Wire up search/filter to refresh
     bp_search_var.trace_add("write", lambda *a: _bp_refresh_vids())

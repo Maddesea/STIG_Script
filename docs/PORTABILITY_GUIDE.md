@@ -12,20 +12,25 @@ This guide details how to build and deploy STIG Assessor for entirely air-gapped
 
 ---
 
-## Option 1: The Compiled Binary (.exe)
-
-By leveraging PyInstaller, the entirety of the STIG Assessor project—including the Python 3 interpreter, graphics libraries, and all internal web assets—is compiled into a single `STIG_Assessor.exe` binary.
-
-### 1. How to Build
-
-1. Open PowerShell in the `STIG_Script` directory.
-2. Run the automated build script:
-
-   ```powershell
-   .\build_portable.ps1
-   ```
-
 3. Your portable executable will be created at: `.\dist\STIG_Assessor.exe`
+
+---
+
+## Automated Release Packaging (Recommended)
+
+To ensure the highest level of stability and zero-dependency readiness, we provide a unified packaging script that generates all distribution formats automatically.
+
+1. Open PowerShell in the root directory.
+2. Run the release packager:
+   ```powershell
+   .\scripts\package_release.ps1
+   ```
+3. This creates a `dist/` directory containing:
+   - `STIG_Assessor.exe`: Single standalone binary (Option 1).
+   - `STIG_Assessor_Lean_Portable/`: Source code + offline wheels for host-resident Python (Option 2).
+   - `STIG_Assessor_Full_Portable/`: Source code + internal pre-configured Python 3.12 (Option 3).
+
+---
 
 ### 2. Usage
 
@@ -35,37 +40,16 @@ By leveraging PyInstaller, the entirety of the STIG Assessor project—including
 
 ---
 
-## Option 2: The Portable Script Package
+## 2. Usage on Target (Air-Gapped)
 
-This option keeps the project entirely in Python and PowerShell/Bash scripts. This is ideal for cross-platform (Linux) support and environments where security policies require source-code auditing.
-
-### 1. How to Prepare the Package (with Dependencies)
-
-To ensure the script package is "completely portable" and works without an internet connection, use the bundling script on a machine with internet access:
-
-1. Open PowerShell in the `STIG_Script` directory.
-2. Run the script bundler:
-
-   ```powershell
-   .\scripts\bundle_scripts.ps1
-   ```
-
-3. This creates a folder at `.\dist\STIG_Assessor_Scripts\` containing:
-   - The `stig_assessor` source code.
-   - `launch.ps1` (Universal Windows/Linux PowerShell launcher).
-   - `launch.sh` (Linux Bash launcher).
-   - `lib/` (Vendored premium dependencies for immediate use).
-   - `wheels/` (Offline installers for `venv` creation).
-
-### 2. Usage on Target (Air-Gapped)
-
-Copy the `STIG_Assessor_Scripts` folder to your target machine.
+Copy your preferred bundle from `dist/` to your target machine.
 
 #### **On Windows (PowerShell)**
 
 ```powershell
 .\launch.ps1          # Launches GUI
 .\launch.ps1 -Mode web # Launches Web
+.\launch.ps1 -Mode cli -Arguments "--help"
 ```
 
 #### **On Linux (Bash)**
@@ -73,15 +57,7 @@ Copy the `STIG_Assessor_Scripts` folder to your target machine.
 ```bash
 ./launch.sh           # Launches GUI
 ./launch.sh web       # Launches Web
-```
-
-#### **Direct Python Execution**
-
-If you prefer to bypass the launchers:
-
-```bash
-export PYTHONPATH="./lib:$PYTHONPATH"  # Add vendored deps
-python3 -m stig_assessor.ui.cli --gui
+./launch.sh cli --help
 ```
 
 ---
@@ -90,14 +66,12 @@ python3 -m stig_assessor.ui.cli --gui
 
 ### AppLocker blocks EXE extraction to %TEMP%
 
-If your organization blocks executables from `%TEMP%`, **Option 2 (Scripts)** is the recommended solution as it runs directly from the source folder without unpacking.
+If your organization blocks executables from `%TEMP%`, **Option 2 or 3 (Portable Folders)** is the recommended solution as they run directly from the source folder without unpacking to temporary directories.
 
-### No Python/Dependencies on Target Host
+### No Python on Target Host
 
-If the target machine lacks Python or required libraries:
+If the target machine lacks a Python installation entirely, use **Option 3 (Full Portable)**. The internal `python312` folder is pre-configured with all required dependencies and is prioritized by the launchers.
 
-#### **Method A: The "Full" Bundle**
-Download a "Windows embeddable package (64-bit)" (Python 3.12 recommended) and extract it into a folder named `python` or `python312` inside the script package. `launch.ps1` will prioritize this local interpreter.
+### Python Present but Dependencies Missing
 
-#### **Method B: The "Lean" Venv (Automatic)**
-If a system Python is found but libraries are missing, the launcher will detect the `wheels/` directory and offer to create a local `venv` and install all dependencies offline—no internet required.
+If a system Python is found but libraries (`defusedxml`, `sv-ttk`) are missing, the **Lean Portable** launcher will detect the `wheels/` directory and offer to create a local `venv` and install all dependencies offline—no internet required.

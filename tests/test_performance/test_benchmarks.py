@@ -127,7 +127,7 @@ class TestLargeFileProcessing(PerformanceBenchmark):
         ckl_path = self.temp_dir / "large_15000.ckl"
         self.start_timer()
         from stig_assessor.io.file_ops import FO
-        content = FO.read_with_fallback(ckl_path)
+        content = FO.read(ckl_path)
         tree = ET.fromstring(content)
         duration = self.end_timer()
 
