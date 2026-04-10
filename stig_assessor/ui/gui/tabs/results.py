@@ -363,8 +363,8 @@ def build_results_tab(app, frame):
         "Preview what would change without writing the output file.\nUseful for verifying results before committing.",
     )
 
-    def _do_results():
-        if not app.results_ckl.get() or not app.results_out.get():
+    def _do_results(force_dry=False):
+        if not app.results_ckl.get() or (not app.results_out.get() and not force_dry):
             app._show_inline_error(
                 btn_results,
                 "Missing input: Please provide checklist and output path.",
@@ -384,7 +384,7 @@ def build_results_tab(app, frame):
             )
             return
 
-        dry = app.results_dry.get()
+        dry = True if force_dry else app.results_dry.get()
         auto = app.results_auto.get()
         in_ckl = app.results_ckl.get()
         out_ckl = app.results_out.get()
@@ -442,15 +442,25 @@ def build_results_tab(app, frame):
             result["total_skipped"] = total_skipped
             result["files_processed"] = len(files_to_process)
             result["failed_files"] = failed_files
+            result["processor_results"] = combined_processor.results
             return result
 
         def done(result):
+            # Update Preview Tree
+            for row in app._res_preview_tree.get_children():
+                app._res_preview_tree.delete(row)
+
             if isinstance(result, Exception):
                 app.status_var.set(f"✘ Error: {result}")
                 messagebox.showerror("Import Failed", str(result))
             else:
                 nf = result.get("not_found", [])
                 nf_display = f"{len(nf)} VIDs" if nf else "None"
+
+                proc_results = result.get("processor_results", {})
+                for vid, r in proc_results.items():
+                    status_text = "Pass" if r.ok else "Fail"
+                    app._res_preview_tree.insert("", tk.END, values=(vid, status_text, r.message))
 
                 summary = (
                     f"✔ Batch import complete!\n"
@@ -485,13 +495,39 @@ def build_results_tab(app, frame):
         app.results_auto.set(True)
         app.results_dry.set(False)
 
+    app._res_preview_frame = ttk.LabelFrame(frame, text="Results Preview", padding=GUI_PADDING)
+    app._res_preview_frame.pack(fill="both", expand=True, pady=(0, GUI_PADDING))
+
+    res_cols = ("vid", "status", "msg")
+    app._res_preview_tree = ttk.Treeview(app._res_preview_frame, columns=res_cols, show="headings", height=5)
+    app._res_preview_tree.heading("vid", text="VID")
+    app._res_preview_tree.heading("status", text="Pass / Fail")
+    app._res_preview_tree.heading("msg", text="Message")
+    
+    app._res_preview_tree.column("vid", width=120)
+    app._res_preview_tree.column("status", width=100)
+    app._res_preview_tree.column("msg", width=400)
+    app._res_preview_tree.pack(side="left", fill="both", expand=True)
+
+    res_scroll = ttk.Scrollbar(app._res_preview_frame, orient="vertical", command=app._res_preview_tree.yview)
+    res_scroll.pack(side="right", fill="y")
+    app._res_preview_tree.config(yscrollcommand=res_scroll.set)
+
     btn_row = ttk.Frame(frame)
     btn_row.pack(pady=GUI_PADDING_SECTION)
+
+    btn_preview = ttk.Button(
+        btn_row,
+        text="👁 Preview Import",
+        command=lambda: _do_results(force_dry=True),
+        width=18,
+    )
+    btn_preview.pack(side="left", padx=(0, GUI_PADDING_LARGE))
 
     btn_results = ttk.Button(
         btn_row,
         text="📥 Apply Remediation Results",
-        command=_do_results,
+        command=lambda: _do_results(force_dry=False),
         width=GUI_BUTTON_WIDTH_WIDE,
         style="Accent.TButton",
     )

@@ -148,9 +148,7 @@ def format_color(text: str, color: str) -> str:
     return f"{code}{text}{_ANSI_CODES['reset']}"
 
 
-# Import GUI conditionally
-if Deps.HAS_TKINTER:
-    from stig_assessor.ui.gui.core import GUI
+# GUI is imported conditionally right before use in main() for faster headless load.
 
 
 def ensure_default_boilerplates() -> None:
@@ -314,15 +312,8 @@ COMMON USE-CASES (Windows Operations):
         default=".ckl",
         help="Output format for batch conversion (default: .ckl)",
     )
-    batch_group.add_argument(
-        "--fleet-stats",
-        metavar="DIR_OR_ZIP",
-        help="Calculate fleet statistics from a folder or ZIP of CKLs",
-    )
-    batch_group.add_argument(
-        "--export-html",
-        help="Generate a beautiful offline HTML report from a Checklist",
-    )
+
+
 
     merge_group = parser.add_argument_group("Merge Checklists")
     merge_group.add_argument(
@@ -349,6 +340,55 @@ COMMON USE-CASES (Windows Operations):
         "--merge-dry-run",
         action="store_true",
         help="Dry run (no output written)",
+    )
+    merge_group.add_argument(
+        "--merge-conflict",
+        choices=["prefer_history", "prefer_base", "prefer_most_assessed"],
+        default="prefer_history",
+        help="Conflict resolution strategy",
+    )
+    merge_group.add_argument(
+        "--merge-details-mode",
+        choices=["overwrite", "prepend", "append", "keep_base", "keep_history"],
+        default="keep_history",
+        help="Mode for merging Finding Details",
+    )
+    merge_group.add_argument(
+        "--merge-comments-mode",
+        choices=["overwrite", "prepend", "append", "keep_base", "keep_history"],
+        default="keep_history",
+        help="Mode for merging Comments",
+    )
+    merge_group.add_argument(
+        "--merge-status-mode",
+        choices=["overwrite", "keep_base", "keep_history"],
+        default="keep_history",
+        help="Mode for merging Status",
+    )
+    merge_group.add_argument(
+        "--merge-status-filter",
+        nargs="+",
+        help="Merge only specific statuses (e.g. Open NotAFinding)",
+    )
+    merge_group.add_argument(
+        "--merge-severity-filter",
+        nargs="+",
+        help="Merge only specific severities (e.g. high medium)",
+    )
+    merge_group.add_argument(
+        "--merge-vid-list",
+        nargs="+",
+        help="Merge only specific Vulnerability IDs (space separated)",
+    )
+    merge_group.add_argument(
+        "--merge-vid-include",
+        metavar="REGEX",
+        help="Regex pattern: only merge matching VIDs",
+    )
+    merge_group.add_argument(
+        "--merge-vid-exclude",
+        metavar="REGEX",
+        help="Regex pattern: skip matching VIDs",
     )
 
     waiver_group = parser.add_argument_group("Waiver Operations")
@@ -379,7 +419,7 @@ COMMON USE-CASES (Windows Operations):
     extract_group = parser.add_argument_group("Extract Fixes")
     extract_group.add_argument("--extract", help="XCCDF file to extract fixes from")
     extract_group.add_argument(
-        "--checklist", "--ckl", 
+        "--extract-ckl", 
         help="Optional checklist file (.ckl/.cklb) to filter fixes by assessment status"
     )
     extract_group.add_argument(
@@ -388,6 +428,27 @@ COMMON USE-CASES (Windows Operations):
         choices=["Open", "Not_Reviewed", "Not_Applicable", "NotAFinding", "All"],
         default=["Open", "Not_Reviewed"],
         help="Filter fixes by status found in --checklist (default: Open Not_Reviewed)",
+    )
+    extract_group.add_argument(
+        "--extract-severity",
+        nargs="+",
+        choices=["high", "medium", "low"],
+        help="Filter fixes by severity",
+    )
+    extract_group.add_argument(
+        "--extract-vid-list",
+        nargs="+",
+        help="Extract fixes for only specific VIDs (space separated)",
+    )
+    extract_group.add_argument(
+        "--extract-vid-include",
+        metavar="REGEX",
+        help="Regex pattern: only extract matching VIDs",
+    )
+    extract_group.add_argument(
+        "--extract-vid-exclude",
+        metavar="REGEX",
+        help="Regex pattern: skip matching VIDs",
     )
     extract_group.add_argument("--outdir", help="Output directory for fixes")
     extract_group.add_argument(
@@ -518,6 +579,47 @@ COMMON USE-CASES (Windows Operations):
         "--bp-clone", nargs=2, metavar=("FROM_VID", "TO_VID"),
         help="Clone boilerplate templates from one VID to another",
     )
+    bp_group.add_argument(
+        "--bp-import-ckl", metavar="PATH",
+        help="Import boilerplates directly from a CKL file",
+    )
+    bp_group.add_argument(
+        "--bp-reset-vid", metavar="VID",
+        help="Reset boilerplate for a specific VID to wildcard defaults",
+    )
+    bp_group.add_argument(
+        "--bp-apply-ckl", metavar="PATH",
+        help="Apply boilerplate templates to an existing checklist",
+    )
+    bp_group.add_argument(
+        "--bp-apply-mode", choices=["overwrite_empty", "prepend", "append", "merge", "overwrite_all"],
+        default="overwrite_empty",
+        help="How to apply boilerplates (default: overwrite_empty)",
+    )
+    bp_group.add_argument(
+        "--bp-out", metavar="PATH",
+        help="Output path for boilerplate application (optional)",
+    )
+    bp_group.add_argument(
+        "--bp-status-filter", nargs="+",
+        help="Filter boilerplate application by finding status",
+    )
+    bp_group.add_argument(
+        "--bp-severity-filter", nargs="+",
+        help="Filter boilerplate application by finding severity",
+    )
+    bp_group.add_argument(
+        "--bp-vid-list", nargs="+",
+        help="Filter boilerplate application by specific VIDs (space separated)",
+    )
+    bp_group.add_argument(
+        "--bp-date-override", metavar="YYYY-MM-DD",
+        help="Override {date} variable in boilerplates",
+    )
+    bp_group.add_argument(
+        "--bp-duplicates", action="store_true",
+        help="Analyze templates to find duplicate findings across VIDs",
+    )
     bp_group.add_argument("--vid", help="Vulnerability ID (e.g. V-12345)")
     bp_group.add_argument("--status", help="Finding Status (e.g. NotAFinding, Open)")
     bp_group.add_argument("--finding", help="Finding Details text for boilerplate")
@@ -585,10 +687,14 @@ COMMON USE-CASES (Windows Operations):
     prod_group.add_argument("--bulk-edit", help="Bulk edit vulnerabilities in checklist")
     prod_group.add_argument("--bulk-out", help="Output path for bulk edited checklist")
     prod_group.add_argument("--filter-severity", choices=["high", "medium", "low"], help="Filter bulk operations by severity")
+    prod_group.add_argument("--filter-status", nargs="+", choices=["Open", "Not_Reviewed", "Not_Applicable", "NotAFinding"], help="Filter bulk operations by current status")
     prod_group.add_argument("--filter-vid", help="Filter bulk operations by VID Regex")
     prod_group.add_argument("--apply-status", help="Status to apply to matching items")
     prod_group.add_argument("--apply-comment", help="Comment to apply to matching items")
+    prod_group.add_argument("--apply-finding", help="Finding Details to apply to matching items")
     prod_group.add_argument("--append-comment", action="store_true", help="Append comment instead of overwrite")
+    prod_group.add_argument("--append-finding", action="store_true", help="Append finding instead of overwrite")
+    prod_group.add_argument("--preview", action="store_true", help="Preview changes without executing them")
     prod_group.add_argument("--export-poam", help="Export Open/Not Reviewed findings to an eMASS POAM (CSV)")
 
     args = parser.parse_args(argv)
@@ -678,6 +784,7 @@ COMMON USE-CASES (Windows Operations):
                     file=sys.stderr,
                 )
                 return 1
+            from stig_assessor.ui.gui.core import GUI
             gui = GUI()
             gui.run()
             return 0
@@ -865,13 +972,22 @@ COMMON USE-CASES (Windows Operations):
                 LOG.i(f"Auto-resolved merge output path: {merge_out}")
 
             with Spinner("Merging checklists..."):
-                result = proc.merge(
+                result = proc.merge_advanced(
                     args.base,
                     args.histories,
                     merge_out,
                     preserve_history=not args.no_preserve_history,
                     apply_boilerplate=not args.no_boilerplate,
                     dry=args.merge_dry_run,
+                    conflict_resolution=args.merge_conflict,
+                    details_mode=args.merge_details_mode,
+                    comments_mode=args.merge_comments_mode,
+                    status_mode=args.merge_status_mode,
+                    status_filter=args.merge_status_filter,
+                    severity_filter=args.merge_severity_filter,
+                    vid_list=args.merge_vid_list,
+                    vid_include=args.merge_vid_include,
+                    vid_exclude=args.merge_vid_exclude,
                 )
             print(
                 format_color(json.dumps(result, indent=2, ensure_ascii=False), "green")
@@ -902,14 +1018,27 @@ COMMON USE-CASES (Windows Operations):
                 LOG.i(f"Auto-resolved output directory: {extract_outdir}")
 
             with Spinner("Extracting fixes..."):
-                extractor = FixExt(args.extract, checklist=args.checklist)
+                extractor = FixExt(args.extract, checklist=args.extract_ckl)
                 
                 # Handle 'All' status filter
                 status_filter = args.status_filter
                 if status_filter and "All" in status_filter:
                     status_filter = None
                 
-                extractor.extract(status_filter=status_filter)
+                extractor.extract(
+                    status_filter=status_filter,
+                    severity_filter=args.extract_severity,
+                    vid_list=args.extract_vid_list,
+                    vid_include=args.extract_vid_include,
+                    vid_exclude=args.extract_vid_exclude,
+                )
+                
+                if args.extract_severity:
+                    extractor.fixes = [
+                        f for f in extractor.fixes 
+                        if f.severity.lower() in args.extract_severity
+                    ]
+
                 outdir = Path(extract_outdir)
                 outdir.mkdir(parents=True, exist_ok=True, mode=0o700)
 
@@ -1261,6 +1390,55 @@ COMMON USE-CASES (Windows Operations):
             print(format_color("Boilerplates reset to factory defaults", "green"))
             return 0
 
+        if args.bp_reset_vid:
+            if proc.boiler.reset_vid(args.bp_reset_vid):
+                print(format_color(f"Reset {args.bp_reset_vid} to wildcard defaults", "green"))
+            else:
+                print(format_color(f"No custom templates found for {args.bp_reset_vid}", "yellow"))
+            return 0
+
+        if args.bp_import_ckl:
+            result = proc.boiler.import_from_checklist(args.bp_import_ckl)
+            print(
+                format_color(
+                    f"Imported {result['imported']} boilerplates from {args.bp_import_ckl} (Skipped: {result['skipped']})", 
+                    "green"
+                )
+            )
+            return 0
+            
+        if args.bp_apply_ckl:
+            out_path = args.bp_out if getattr(args, "bp_out", None) else Path(args.bp_apply_ckl).with_name(f"{Path(args.bp_apply_ckl).stem}_bp.ckl")
+            result = proc.apply_boilerplates(
+                args.bp_apply_ckl, 
+                str(out_path), 
+                apply_mode=args.bp_apply_mode,
+                status_filter=getattr(args, "bp_status_filter", None),
+                severity_filter=getattr(args, "bp_severity_filter", None),
+                vid_list=getattr(args, "bp_vid_list", None),
+                date_override=getattr(args, "bp_date_override", None),
+            )
+            print(
+                format_color(
+                    f"Applied boilerplates to {result['updated']} findings. Saved to {out_path}", 
+                    "green"
+                )
+            )
+            return 0
+            
+        if getattr(args, "bp_duplicates", False):
+            dups = proc.boiler.find_duplicates()
+            if not dups:
+                print(format_color("No duplicate templates found.", "green"))
+                return 0
+            
+            print(format_color(f"Found {len(dups)} duplicate text entries:", "yellow"))
+            for duplicate in dups:
+                print(f"[{duplicate['status']}] {duplicate['field']} (used in {duplicate['count']} VIDs):")
+                print(f"   Sample VIDs: {', '.join(duplicate['vids'][:5])}{'...' if duplicate['count'] > 5 else ''}")
+                print(f"   Text: {duplicate['text_preview']}\n")
+            return 0
+
         if args.bp_clone:
             vid_from, vid_to = args.bp_clone
             ok = proc.boiler.clone(vid_from, vid_to)
@@ -1371,18 +1549,22 @@ COMMON USE-CASES (Windows Operations):
             return 0
 
         # Productivity Features
-        if args.bulk_edit:
-            if not args.apply_status or not args.apply_comment:
-                parser.error("--bulk-edit requires --apply-status and --apply-comment")
+        if getattr(args, "bulk_edit", None):
+            if not getattr(args, "apply_status", None) and not args.preview:
+                parser.error("--bulk-edit requires --apply-status unless --preview is used")
             out = args.bulk_out or str(Path(args.bulk_edit).with_name(f"{Path(args.bulk_edit).stem}_updated.ckl"))
             result = proc.bulk_edit(
                 args.bulk_edit, 
                 out, 
-                severity=args.filter_severity,
-                regex_vid=args.filter_vid,
-                new_status=args.apply_status,
-                new_comment=args.apply_comment,
-                append_comment=args.append_comment
+                severity=getattr(args, "filter_severity", None),
+                regex_vid=getattr(args, "filter_vid", None),
+                status_filter=getattr(args, "filter_status", None),
+                new_status=getattr(args, "apply_status", "") or "",
+                new_comment=getattr(args, "apply_comment", "") or "",
+                new_finding=getattr(args, "apply_finding", "") or "",
+                append_comment=getattr(args, "append_comment", False),
+                append_finding=getattr(args, "append_finding", False),
+                preview=args.preview
             )
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0

@@ -1,0 +1,28 @@
+[2026-04-10 11:00:12] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-10 11:00:12] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-10 11:00:12] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] STIG version: 1
+[2026-04-10 11:00:12] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-10 11:00:12] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Processed: 1 | Skipped: 0 | Error rate: 0.0%
+[2026-04-10 11:00:12] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Checklist created: C:\Users\Madden\AppData\Local\Temp\stig_e2e_test_mkvc_4xd\out_create.ckl
+[2026-04-10 11:00:12] [INFO    ] [op=merge_advanced, base=out_create.ckl, histories=1] Advanced merge: 1 checklist(s) into out_create.ckl
+[2026-04-10 11:00:12] [INFO    ] [op=merge_advanced, base=out_create.ckl, histories=1] Advanced merge: 1 updated, 0 unchanged, 0 filtered out
+[2026-04-10 11:00:12] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-10 11:00:12] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-10 11:00:12] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] STIG version: 1
+[2026-04-10 11:00:12] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-10 11:00:12] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Processed: 1 | Skipped: 0 | Error rate: 0.0%
+[2026-04-10 11:00:12] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Checklist created: C:\Users\Madden\AppData\Local\Temp\stig_e2e_test_mkvc_4xd\SMART_TEST_test_benchmark.ckl
+[2026-04-10 11:00:15] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merging 99 checklist(s) into base large_100.ckl
+[2026-04-10 11:00:15] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Strategy: newest_wins | Protect: none
+[2026-04-10 11:00:15] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merge summary: 100 updated, 0 unchanged, 0 protected
+[2026-04-10 11:00:15] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merged checklist saved to C:\Users\Madden\AppData\Local\Temp\bench_4fw6w3qb\merge_100_out.ckl
+[2026-04-10 11:00:15] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merging 9 checklist(s) into base large_100.ckl
+[2026-04-10 11:00:15] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Strategy: newest_wins | Protect: none
+[2026-04-10 11:00:15] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merge summary: 100 updated, 0 unchanged, 0 protected
+[2026-04-10 11:00:15] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merged checklist saved to C:\Users\Madden\AppData\Local\Temp\bench_s5si_dj1\merge_10_out.ckl
+[2026-04-10 12:22:04] [INFO    ] [op=xccdf_to_ckl, asset=Switch1, file=U_Cisco_IOS-XE_Switch_L2S_STIG_V3R2_Manual-xccdf.xml] Converting XCCDF to CKL
+[2026-04-10 12:22:04] [INFO    ] [op=xccdf_to_ckl, asset=Switch1, file=U_Cisco_IOS-XE_Switch_L2S_STIG_V3R2_Manual-xccdf.xml] STIG title: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+[2026-04-10 12:22:04] [INFO    ] [op=xccdf_to_ckl, asset=Switch1, file=U_Cisco_IOS-XE_Switch_L2S_STIG_V3R2_Manual-xccdf.xml] STIG version: 3
+[2026-04-10 12:22:04] [INFO    ] [op=xccdf_to_ckl, asset=Switch1, file=U_Cisco_IOS-XE_Switch_L2S_STIG_V3R2_Manual-xccdf.xml] Processing 22 vulnerabilities
+[2026-04-10 12:22:04] [INFO    ] [op=xccdf_to_ckl, asset=Switch1, file=U_Cisco_IOS-XE_Switch_L2S_STIG_V3R2_Manual-xccdf.xml] Processed: 22 | Skipped: 0 | Error rate: 0.0%
+[2026-04-10 12:22:04] [INFO    ] [op=xccdf_to_ckl, asset=Switch1, file=U_Cisco_IOS-XE_Switch_L2S_STIG_V3R2_Manual-xccdf.xml] Checklist created: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\cisco_test.ckl

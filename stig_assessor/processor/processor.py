@@ -36,6 +36,10 @@ from stig_assessor.xml.utils import XmlUtils
 
 LOG = Log("Processor")
 
+# Constants for avoiding literal duplication
+EXT_CKLB = ".cklb"
+DIV_CLOSE = "</div>"
+
 
 class Proc:
     """
@@ -167,73 +171,115 @@ class Proc:
                     skipped += 1
                     LOG.e(f"Group {idx} failed unexpectedly: {exc}")
 
-            if processed == 0:
-                raise ParseError("No vulnerabilities could be processed")
-
-            # Check error threshold - fail if too many vulnerabilities failed to process
-            total = processed + skipped
-            error_rate = (skipped / total) * 100 if total > 0 else 0
-            if error_rate > Cfg.ERROR_RATE_WARN_THRESHOLD:
-                LOG.w(
-                    f"High error rate: {error_rate:.1f}% of vulnerabilities failed to process"
-                )
-                LOG.w(f"First 5 errors: {errors[:5]}")
-                if error_rate > Cfg.ERROR_RATE_FAIL_THRESHOLD:
-                    raise ParseError(
-                        f"Critical: {error_rate:.1f}% of vulnerabilities failed to process "
-                        f"(threshold: {Cfg.ERROR_RATE_FAIL_THRESHOLD}%). "
-                        f"This likely indicates a structural XCCDF parsing issue. "
-                        f"Sample errors: {'; '.join(errors[:3])}"
-                    )
+            self._check_conversion_errors(processed, skipped, errors)
 
             LOG.i(
-                f"Processed: {processed} | Skipped: {skipped} | Error rate: {error_rate:.1f}%"
+                f"Processed: {processed} | Skipped: {skipped}"
             )
 
             XmlUtils.indent_xml(checklist)
 
-            # Hook: Plugins can modify the final xml ElementTree of the checklist
-            checklist = self.plugins.run_hooks(
-                "post_ckl_create",
-                payload=checklist,
-                xccdf_path=xccdf,
-                out_path=out,
-            )
+            return self._finalize_ckl_output(checklist, xccdf, out, dry, processed, skipped, errors)
 
-            if dry:
-                LOG.i("Dry-run requested, checklist not written")
-                return {
-                    "ok": True,
-                    "processed": processed,
-                    "skipped": skipped,
-                    "errors": errors,
-                }
+    def _check_conversion_errors(self, processed: int, skipped: int, errors: List[str]) -> None:
+        """Helper to validate error rates during XCCDF conversion."""
+        total = processed + skipped
+        error_rate = (skipped / total) * 100 if total > 0 else 0
+        if error_rate > Cfg.ERROR_RATE_WARN_THRESHOLD:
+            LOG.w(f"High error rate: {error_rate:.1f}%")
+            if error_rate > Cfg.ERROR_RATE_FAIL_THRESHOLD:
+                raise ParseError(f"Critical error rate: {error_rate:.1f}%")
 
-            if out.suffix.lower() == ".cklb":
-                cklb_data = self._checklist_to_json(checklist)
-                FO.write_cklb(cklb_data, out, backup=False)
-            else:
-                self._export_xml_to_file(checklist, out)
+    def _finalize_ckl_output(
+        self, checklist: ET.Element, xccdf: Path, out: Path, dry: bool, 
+        processed: int, skipped: int, errors: List[str]
+    ) -> Dict[str, Any]:
+        """Helper to handle plugin hooks, dry-runs, and file writing."""
+        checklist = self.plugins.run_hooks(
+            "post_ckl_create", payload=checklist, xccdf_path=xccdf, out_path=out
+        )
 
+        if dry:
+            return {"ok": True, "processed": processed, "skipped": skipped, "errors": errors}
+
+        if out.suffix.lower() == EXT_CKLB:
+            FO.write_cklb(self._checklist_to_json(checklist), out, backup=False)
+        else:
+            self._export_xml_to_file(checklist, out)
+
+        self._validate_output(out)
+        return {"ok": True, "output": str(out), "processed": processed, "skipped": skipped, "errors": errors}
+
+    def _validate_output(self, out: Path) -> None:
+        """Helper to validate generated output."""
+        try:
+            ok, errs, _, _ = self.validator.validate(out)
+            if not ok:
+                raise ValidationError(f"Validation failed: {errs[0] if errs else 'Unknown'}")
+        except (ValidationError, OSError, ParseError, ValueError) as exc:
+            LOG.w(f"Validator issue: {exc}")
+
+    def apply_boilerplates(
+        self,
+        ckl_path: Union[str, Path],
+        out_path: Union[str, Path],
+        *,
+        apply_mode: str = "overwrite_empty",
+        status_filter: Optional[List[str]] = None,
+        severity_filter: Optional[List[str]] = None,
+        vid_list: Optional[List[str]] = None,
+        date_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Apply boilerplates directly to a checklist file and save.
+        
+        Args:
+            ckl_path: Target CKL file to apply templates to.
+            out_path: Output CKL file to save.
+            apply_mode: Conflict resolution strategy.
+            status_filter: Only modify vulnerabilities matching these statuses (e.g. Open, NotAFinding).
+            severity_filter: Only modify vulnerabilities matching these severities (e.g. high, medium).
+            vid_list: Only modify these specific VIDs.
+        
+        Returns:
+            Dict containing stats about the applied templates (updated, skipped, affected_vids).
+        """
+        try:
+            in_file = San.path(ckl_path, exist=True, file=True)
+            out_file = San.path(out_path, mkpar=True)
+        except (ValidationError, OSError, ValueError, TypeError) as exc:
+            raise ValidationError(f"Path validation failed: {exc}") from exc
+            
+        with LOG.context(op="apply_boilerplates", file=in_file.name):
+            LOG.i(f"Applying boilerplates with mode: {apply_mode}")
+            
             try:
-                ok, errs, _, _ = self.validator.validate(out)
-                if not ok:
-                    raise ValidationError(
-                        f"Generated CKL failed validation: {errs[0] if errs else 'Unknown error'}"
-                    )
-            except ValidationError:
-                raise
-            except (OSError, ParseError, ValueError) as exc:
-                LOG.w(f"Validator encountered an error (output may still be valid): {exc}")
+                tree = self._load_file_as_xml(in_file)
+                root = tree.getroot()
+            except (ParseError, OSError, ValueError) as exc:
+                raise ParseError(f"Failed to parse target checklist: {exc}") from exc
 
-            LOG.i(f"Checklist created: {out}")
-            return {
-                "ok": True,
-                "output": str(out),
-                "processed": processed,
-                "skipped": skipped,
-                "errors": errors,
+            result = self.boiler.apply_to_checklist(
+                root,
+                apply_mode=apply_mode,
+                status_filter=status_filter,
+                severity_filter=severity_filter,
+                vid_list=vid_list,
+                date_override=date_override
+            )
+            
+            # Map 'applied' and 'total' from underlying method since the caller expects 'updated' and 'total_scanned'
+            mapped_result = {
+                "updated": result.get("applied", 0),
+                "skipped": result.get("skipped", 0),
+                "total_scanned": result.get("applied", 0) + result.get("skipped", 0),
+                "affected_vids": result.get("affected_vids", [])
             }
+            
+            self._export_xml_to_file(root, out_file)
+            
+            LOG.i(f"Applied boilerplates to {mapped_result['updated']} items. Saved to {out_file}")
+            
+            return mapped_result
 
     # ------------------------------------------------------------------- helpers
     def _namespace(self, root: ET.Element) -> Dict[str, str]:
@@ -456,7 +502,10 @@ class Proc:
 
         rule_title = text(find("title"))[:TITLE_MAX_LONG]
         rule_ver = text(find("version"))
-        discussion = text(find("description"))
+        
+        discussion_raw = text(find("description"))
+        parsed_desc = XmlUtils.parse_description(discussion_raw)
+        
         fix_elem = find("fixtext")
 
         fix_text = self._collect_fix_text(fix_elem) if fix_elem is not None else ""
@@ -521,19 +570,19 @@ class Proc:
                 ("Rule_ID", rule_id),
                 ("Rule_Ver", rule_ver),
                 ("Rule_Title", rule_title),
-                ("Vuln_Discuss", discussion),
-                ("IA_Controls", ""),
+                ("Vuln_Discuss", parsed_desc.get("VulnDiscussion", "")),
+                ("IA_Controls", parsed_desc.get("IAControls", "")),
                 ("Check_Content", check_text),
                 ("Fix_Text", fix_text),
-                ("False_Positives", ""),
-                ("False_Negatives", ""),
-                ("Documentable", "false"),
-                ("Mitigations", ""),
-                ("Potential_Impact", ""),
-                ("Third_Party_Tools", ""),
-                ("Mitigation_Control", ""),
-                ("Responsibility", ""),
-                ("Security_Override_Guidance", ""),
+                ("False_Positives", parsed_desc.get("FalsePositives", "")),
+                ("False_Negatives", parsed_desc.get("FalseNegatives", "")),
+                ("Documentable", parsed_desc.get("Documentable", "false")),
+                ("Mitigations", parsed_desc.get("Mitigations", "")),
+                ("Potential_Impact", parsed_desc.get("PotentialImpacts", "")),
+                ("Third_Party_Tools", parsed_desc.get("ThirdPartyTools", "")),
+                ("Mitigation_Control", parsed_desc.get("MitigationControl", "")),
+                ("Responsibility", parsed_desc.get("Responsibility", "")),
+                ("Security_Override_Guidance", parsed_desc.get("SeverityOverrideGuidance", "")),
                 ("Check_Content_Ref", check_ref),
                 ("Weight", weight),
                 ("Class", "Unclass"),
@@ -711,6 +760,9 @@ class Proc:
         if path.suffix.lower() == ".cklb":
             data = FO.parse_cklb(path)
             return self._json_to_checklist(data)
+        
+        # Explicitly use the safe parser for internal loads
+        _ = Deps.get_xml()
         return FO.parse_xml(path)
 
     def _export_xml_to_file(self, root: ET.Element, out: Path) -> None:
@@ -729,8 +781,12 @@ class Proc:
         *,
         preserve_history: bool = True,
         apply_boilerplate: bool = True,
-        auto_status: bool = True,
         dry: bool = False,
+        merge_strategy: str = "newest_wins",
+        protect_statuses: Optional[List[str]] = None,
+        content_mode_finding: str = "overwrite",
+        content_mode_comment: str = "overwrite",
+        severity_filter: Optional[List[str]] = None,
     ) -> Dict[str, Union[bool, int, List[str], str]]:
         """
         Merge multiple checklists into a single output with history preservation.
@@ -745,9 +801,21 @@ class Proc:
             preserve_history: If True, include formatted history in output
             apply_boilerplate: If True, apply boilerplate templates
             auto_status: If True, automatically update status based on history
+            dry: If True, don't write output file
+            merge_strategy: Conflict resolution strategy:
+                "newest_wins" — most recent data takes priority
+                "base_wins" — base checklist data is preserved
+                "history_wins" — history data always wins
+            protect_statuses: List of status values that should not be overwritten
+                (e.g. ["NotAFinding", "Not_Applicable"])
+            content_mode_finding: How to combine finding details:
+                "overwrite", "prepend", "append", "skip"
+            content_mode_comment: How to combine comments:
+                "overwrite", "prepend", "append", "skip"
+            severity_filter: Only merge VULNs matching these severities
 
         Returns:
-            Dict with keys: updated, skipped, dry_run, output (if not dry)
+            Dict with keys: updated, skipped, protected, dry_run, output (if not dry)
 
         Raises:
             ValidationError: If path validation or limits exceeded
@@ -763,8 +831,33 @@ class Proc:
         if len(history_paths) > Cfg.MAX_MERGE:
             raise ValidationError(f"Too many historical files (limit {Cfg.MAX_MERGE})")
 
+        sev_set = {s.lower() for s in severity_filter} if severity_filter else None
+        protect_set = set(protect_statuses) if protect_statuses else set()
+
         with LOG.context(op="merge", base=base.name, histories=len(history_paths)):
             LOG.i(f"Merging {len(history_paths)} checklist(s) into base {base.name}")
+            LOG.i(f"Strategy: {merge_strategy} | Protect: {protect_set or 'none'}")
+
+            # Build history data from all history files
+            history_data: Dict[str, Dict[str, str]] = {}
+            for hist_file in history_paths:
+                try:
+                    htree = self._load_file_as_xml(hist_file)
+                    hroot = htree.getroot()
+                    hvulns = self._extract_vuln_data(hroot)
+                    for vid, vdata in hvulns.items():
+                        if vid not in history_data:
+                            history_data[vid] = vdata
+                        elif merge_strategy == "newest_wins":
+                            # Keep whichever has more content
+                            existing = history_data[vid]
+                            new_len = len(vdata.get("finding_details", "")) + len(vdata.get("comments", ""))
+                            old_len = len(existing.get("finding_details", "")) + len(existing.get("comments", ""))
+                            if new_len > old_len:
+                                history_data[vid] = vdata
+                except (ParseError, OSError) as exc:
+                    LOG.w(f"Could not parse history file {hist_file}: {exc}")
+                    continue
 
             if preserve_history:
                 for idx, hist_file in enumerate(history_paths, 1):
@@ -792,31 +885,582 @@ class Proc:
 
             updated = 0
             skipped = 0
+            protected = 0
 
             for istig in stigs.findall("iSTIG"):
                 for vuln in istig.findall("VULN"):
-                    result = self._merge_vuln(vuln, preserve_history, apply_boilerplate)
-                    if result is True:
+                    vid = XmlUtils.get_vid(vuln)
+                    if not vid:
+                        skipped += 1
+                        continue
+
+                    base_status = (vuln.findtext("STATUS") or Status.NOT_REVIEWED).strip()
+                    base_finding = vuln.findtext("FINDING_DETAILS") or ""
+                    base_comment = vuln.findtext("COMMENTS") or ""
+
+                    # Severity filter
+                    if sev_set:
+                        base_sev = "medium"
+                        for sd in vuln.findall("STIG_DATA"):
+                            if sd.findtext("VULN_ATTRIBUTE") == "Severity":
+                                base_sev = sd.findtext("ATTRIBUTE_DATA", default="medium")
+                        if base_sev.lower() not in sev_set:
+                            skipped += 1
+                            continue
+
+                    # Status protection
+                    if base_status in protect_set:
+                        protected += 1
+                        continue
+
+                    # Check if history has data for this VID
+                    hist = history_data.get(vid)
+
+                    if merge_strategy == "base_wins" and not hist:
+                        skipped += 1
+                        continue
+                    if merge_strategy == "base_wins" and hist:
+                        # Only fill empty fields from history
+                        changed = False
+                        if not base_finding.strip() and (hist.get("finding_details", "").strip()):
+                            fn = vuln.find("FINDING_DETAILS")
+                            if fn is None:
+                                fn = ET.SubElement(vuln, "FINDING_DETAILS")
+                            fn.text = hist["finding_details"]
+                            changed = True
+                        if not base_comment.strip() and (hist.get("comments", "").strip()):
+                            cn = vuln.find("COMMENTS")
+                            if cn is None:
+                                cn = ET.SubElement(vuln, "COMMENTS")
+                            cn.text = hist["comments"]
+                            changed = True
+                        if changed:
+                            updated += 1
+                        else:
+                            skipped += 1
+                        continue
+
+                    if not hist:
+                        # No history data — apply boilerplate if enabled
+                        if apply_boilerplate:
+                            result = self._merge_vuln(vuln, preserve_history, apply_boilerplate)
+                            if result is True:
+                                updated += 1
+                            else:
+                                skipped += 1
+                        else:
+                            skipped += 1
+                        continue
+
+                    # Apply content merge modes
+                    hist_finding = hist.get("finding_details", "")
+                    hist_comment = hist.get("comments", "")
+                    hist_status = hist.get("status", "")
+
+                    conflict = "prefer_history" if merge_strategy == "history_wins" else "prefer_base"
+
+                    if content_mode_finding != "skip":
+                        new_finding = self._apply_merge_mode(
+                            base_finding, hist_finding, content_mode_finding, conflict
+                        )
+                    else:
+                        new_finding = base_finding
+
+                    if content_mode_comment != "skip":
+                        new_comment = self._apply_merge_mode(
+                            base_comment, hist_comment, content_mode_comment, conflict
+                        )
+                    else:
+                        new_comment = base_comment
+
+                    # Apply status based on strategy
+                    new_status = base_status
+                    if merge_strategy == "history_wins" and hist_status and Status.is_valid(hist_status):
+                        new_status = hist_status
+                    elif merge_strategy == "newest_wins" and hist_status and Status.is_valid(hist_status):
+                        # Newest wins: prefer history if it has assessed content
+                        if hist_finding.strip() or hist_comment.strip():
+                            new_status = hist_status
+
+                    changed = False
+                    fn = vuln.find("FINDING_DETAILS")
+                    if fn is None:
+                        fn = ET.SubElement(vuln, "FINDING_DETAILS")
+                    if fn.text != new_finding:
+                        fn.text = new_finding
+                        changed = True
+
+                    cn = vuln.find("COMMENTS")
+                    if cn is None:
+                        cn = ET.SubElement(vuln, "COMMENTS")
+                    if cn.text != new_comment:
+                        cn.text = new_comment
+                        changed = True
+
+                    sn = vuln.find("STATUS")
+                    if sn is None:
+                        sn = ET.SubElement(vuln, "STATUS")
+                    if sn.text != new_status:
+                        sn.text = new_status
+                        changed = True
+
+                    if changed:
                         updated += 1
                     else:
                         skipped += 1
 
-            LOG.i(f"Merge summary: {updated} updated, {skipped} unchanged")
+            LOG.i(f"Merge summary: {updated} updated, {skipped} unchanged, {protected} protected")
 
             XmlUtils.indent_xml(root)
 
             if dry:
                 LOG.i("Dry-run requested, merged checklist not written")
-                return {"updated": updated, "skipped": skipped, "dry_run": True}
+                return {"updated": updated, "skipped": skipped, "protected": protected, "dry_run": True}
 
             self._export_xml_to_file(root, out)
             LOG.i(f"Merged checklist saved to {out}")
             return {
                 "updated": updated,
                 "skipped": skipped,
+                "protected": protected,
                 "dry_run": False,
                 "output": str(out),
             }
+
+    # ------------------------------------------------------------ merge_advanced
+    def merge_advanced(
+        self,
+        base: Union[str, Path],
+        histories: Iterable[Union[str, Path]],
+        out: Union[str, Path],
+        *,
+        preserve_history: bool = True,
+        apply_boilerplate: bool = True,
+        dry: bool = False,
+        status_filter: Optional[List[str]] = None,
+        severity_filter: Optional[List[str]] = None,
+        vid_include: Optional[str] = None,
+        vid_exclude: Optional[str] = None,
+        vid_list: Optional[List[str]] = None,
+        details_mode: str = "keep_history",
+        comments_mode: str = "keep_history",
+        status_mode: str = "keep_history",
+        conflict_resolution: str = "prefer_history",
+    ) -> Dict[str, Union[bool, int, List[str], str]]:
+        """
+        Advanced merge with granular per-VID control.
+
+        Extends the base merge with fine-grained filtering and per-field
+        merge modes for finding_details, comments, and status.
+
+        Args:
+            base: Base checklist to merge into
+            histories: Iterable of historical checklist paths
+            out: Output path for merged checklist
+            preserve_history: Whether to include formatted history
+            apply_boilerplate: Whether to apply boilerplate templates
+            dry: Dry-run mode — don't write output
+            status_filter: Only merge VULNs matching these statuses
+            severity_filter: Only merge VULNs matching these severities (high/medium/low)
+            vid_include: Regex pattern — only merge matching VIDs
+            vid_exclude: Regex pattern — skip matching VIDs
+            details_mode: How to merge finding_details:
+                overwrite, prepend, append, keep_base, keep_history
+            comments_mode: How to merge comments (same options)
+            status_mode: How to merge status (same options)
+            conflict_resolution: When both have content: prefer_base,
+                prefer_history, prefer_most_assessed
+
+        Returns:
+            Dict with keys: updated, skipped, filtered, dry_run, output,
+            affected_vids
+        """
+        import re as _re
+
+        try:
+            base = San.path(base, exist=True, file=True)
+            out = San.path(out, mkpar=True)
+            history_paths = [San.path(p, exist=True, file=True) for p in histories]
+        except (ValidationError, OSError, ValueError, TypeError) as exc:
+            raise ValidationError(f"Path validation failed: {exc}") from exc
+
+        if len(history_paths) > Cfg.MAX_MERGE:
+            raise ValidationError(f"Too many historical files (limit {Cfg.MAX_MERGE})")
+
+        vid_inc_re = _re.compile(vid_include) if vid_include else None
+        vid_exc_re = _re.compile(vid_exclude) if vid_exclude else None
+        status_set = {s.lower() for s in status_filter} if status_filter else None
+        sev_set = {s.lower() for s in severity_filter} if severity_filter else None
+
+        with LOG.context(op="merge_advanced", base=base.name, histories=len(history_paths)):
+            LOG.i(f"Advanced merge: {len(history_paths)} checklist(s) into {base.name}")
+
+            # Build history data from all history files
+            history_data: Dict[str, Dict[str, str]] = {}
+            for hist_file in history_paths:
+                try:
+                    tree = self._load_file_as_xml(hist_file)
+                    root = tree.getroot()
+                    vulns = self._extract_vuln_data(root)
+                    for vid, vdata in vulns.items():
+                        if vid not in history_data:
+                            history_data[vid] = vdata
+                        else:
+                            # Merge by keeping whichever has more content
+                            existing = history_data[vid]
+                            new_content = len(vdata.get("finding_details", "")) + len(vdata.get("comments", ""))
+                            old_content = len(existing.get("finding_details", "")) + len(existing.get("comments", ""))
+                            if new_content > old_content:
+                                history_data[vid] = vdata
+                except (ParseError, OSError) as exc:
+                    LOG.w(f"Could not parse history file {hist_file}: {exc}")
+                    continue
+
+            # Parse base checklist
+            try:
+                tree = self._load_file_as_xml(base)
+                root = tree.getroot()
+            except (ParseError, OSError, ValueError, KeyError) as exc:
+                raise ParseError(f"Unable to parse base checklist: {exc}") from exc
+
+            stigs = root.find("STIGS")
+            if stigs is None:
+                raise ParseError("Base checklist missing STIGS")
+
+            updated = 0
+            skipped = 0
+            filtered = 0
+            affected_vids: List[str] = []
+
+            for istig in stigs.findall("iSTIG"):
+                for vuln in istig.findall("VULN"):
+                    vid = XmlUtils.get_vid(vuln)
+                    if not vid:
+                        skipped += 1
+                        continue
+
+                    # --- Filter: VID list ---
+                    if vid_list and vid not in vid_list:
+                        filtered += 1
+                        continue
+
+                    # --- Filter: VID include/exclude ---
+                    if vid_inc_re and not vid_inc_re.search(vid):
+                        filtered += 1
+                        continue
+                    if vid_exc_re and vid_exc_re.search(vid):
+                        filtered += 1
+                        continue
+
+                    # --- Get base data ---
+                    base_status = (vuln.findtext("STATUS") or Status.NOT_REVIEWED).strip()
+                    base_finding = vuln.findtext("FINDING_DETAILS") or ""
+                    base_comment = vuln.findtext("COMMENTS") or ""
+                    base_severity = "medium"
+                    for sd in vuln.findall("STIG_DATA"):
+                        if sd.findtext("VULN_ATTRIBUTE") == "Severity":
+                            base_severity = sd.findtext("ATTRIBUTE_DATA", default="medium")
+
+                    # --- Filter: status ---
+                    if status_set and base_status.lower() not in status_set:
+                        filtered += 1
+                        continue
+                    # --- Filter: severity ---
+                    if sev_set and base_severity.lower() not in sev_set:
+                        filtered += 1
+                        continue
+
+                    # --- Check if history has data for this VID ---
+                    hist = history_data.get(vid)
+                    if not hist:
+                        # No history data — optionally apply boilerplate
+                        if apply_boilerplate:
+                            from stig_assessor.xml.schema import Sch as _Sch
+                            if base_status in _Sch.STAT_VALS:
+                                bp_finding = self.boiler.get_finding(vid, base_status)
+                                bp_comment = self.boiler.get_comment(vid, base_status)
+                                mod = False
+                                if bp_finding and not base_finding.strip():
+                                    fn = vuln.find("FINDING_DETAILS")
+                                    if fn is None:
+                                        fn = ET.SubElement(vuln, "FINDING_DETAILS")
+                                    fn.text = bp_finding
+                                    mod = True
+                                if bp_comment and not base_comment.strip():
+                                    cn = vuln.find("COMMENTS")
+                                    if cn is None:
+                                        cn = ET.SubElement(vuln, "COMMENTS")
+                                    cn.text = bp_comment
+                                    mod = True
+                                if mod:
+                                    updated += 1
+                                    affected_vids.append(vid)
+                                else:
+                                    skipped += 1
+                            else:
+                                skipped += 1
+                        else:
+                            skipped += 1
+                        continue
+
+                    # --- Apply per-field merge modes ---
+                    hist_finding = hist.get("finding_details", "")
+                    hist_comment = hist.get("comments", "")
+                    hist_status = hist.get("status", "")
+
+                    new_finding = self._apply_merge_mode(
+                        base_finding, hist_finding, details_mode, conflict_resolution
+                    )
+                    new_comment = self._apply_merge_mode(
+                        base_comment, hist_comment, comments_mode, conflict_resolution
+                    )
+                    new_status = self._apply_merge_mode_status(
+                        base_status, hist_status, status_mode, conflict_resolution,
+                        base_finding, base_comment, hist_finding, hist_comment
+                    )
+
+                    changed = False
+                    fn = vuln.find("FINDING_DETAILS")
+                    if fn is None:
+                        fn = ET.SubElement(vuln, "FINDING_DETAILS")
+                    if fn.text != new_finding:
+                        fn.text = new_finding
+                        changed = True
+
+                    cn = vuln.find("COMMENTS")
+                    if cn is None:
+                        cn = ET.SubElement(vuln, "COMMENTS")
+                    if cn.text != new_comment:
+                        cn.text = new_comment
+                        changed = True
+
+                    sn = vuln.find("STATUS")
+                    if sn is None:
+                        sn = ET.SubElement(vuln, "STATUS")
+                    if new_status and Status.is_valid(new_status) and sn.text != new_status:
+                        sn.text = new_status
+                        changed = True
+
+                    if changed:
+                        updated += 1
+                        affected_vids.append(vid)
+                    else:
+                        skipped += 1
+
+            LOG.i(f"Advanced merge: {updated} updated, {skipped} unchanged, {filtered} filtered out")
+
+            XmlUtils.indent_xml(root)
+
+            if dry:
+                return {
+                    "updated": updated,
+                    "skipped": skipped,
+                    "filtered": filtered,
+                    "dry_run": True,
+                    "affected_vids": affected_vids,
+                }
+
+            self._export_xml_to_file(root, out)
+            return {
+                "updated": updated,
+                "skipped": skipped,
+                "filtered": filtered,
+                "dry_run": False,
+                "output": str(out),
+                "affected_vids": affected_vids,
+            }
+
+    def _apply_merge_mode(
+        self, base_text: str, hist_text: str, mode: str, conflict: str
+    ) -> str:
+        """Apply merge mode for text fields (finding_details, comments)."""
+        base_text = base_text or ""
+        hist_text = hist_text or ""
+
+        if mode == "keep_base":
+            return base_text
+        if mode == "keep_history":
+            return hist_text if hist_text.strip() else base_text
+        if mode == "overwrite":
+            return hist_text
+        if mode == "prepend":
+            if hist_text.strip() and base_text.strip():
+                return f"{hist_text}\n\n{'═' * 40}\n[BASE]\n{'═' * 40}\n\n{base_text}"
+            return hist_text if hist_text.strip() else base_text
+        if mode == "append":
+            if base_text.strip() and hist_text.strip():
+                return f"{base_text}\n\n{'═' * 40}\n[HISTORY]\n{'═' * 40}\n\n{hist_text}"
+            return hist_text if hist_text.strip() else base_text
+
+        # Default: prefer_history / keep_history
+        if conflict == "prefer_base":
+            return base_text if base_text.strip() else hist_text
+        if conflict == "prefer_most_assessed":
+            return hist_text if len(hist_text) >= len(base_text) else base_text
+        # prefer_history (default)
+        return hist_text if hist_text.strip() else base_text
+
+    def _apply_merge_mode_status(
+        self,
+        base_status: str,
+        hist_status: str,
+        mode: str,
+        conflict: str,
+        base_find: str,
+        base_comm: str,
+        hist_find: str,
+        hist_comm: str,
+    ) -> str:
+        """Apply merge mode for the status field."""
+        if mode == "keep_base":
+            return base_status
+        if mode == "keep_history":
+            return hist_status if hist_status.strip() else base_status
+        if mode == "overwrite":
+            return hist_status
+
+        # Conflict resolution
+        if base_status == hist_status:
+            return base_status
+        if conflict == "prefer_base":
+            return base_status
+        if conflict == "prefer_most_assessed":
+            base_content = len(base_find) + len(base_comm)
+            hist_content = len(hist_find) + len(hist_comm)
+            return hist_status if hist_content >= base_content else base_status
+        # prefer_history
+        return hist_status if hist_status.strip() else base_status
+
+    def merge_preview(
+        self,
+        base: Union[str, Path],
+        histories: Iterable[Union[str, Path]],
+        *,
+        status_filter: Optional[List[str]] = None,
+        severity_filter: Optional[List[str]] = None,
+        vid_include: Optional[str] = None,
+        vid_exclude: Optional[str] = None,
+        vid_list: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Preview what a merge would change without writing anything.
+
+        Returns a diff-like preview showing which VIDs would be affected
+        and what the changes would look like.
+
+        Returns:
+            Dict with: total_affected, preview list of change dicts,
+            filter_summary
+        """
+        import re as _re
+
+        try:
+            base = San.path(base, exist=True, file=True)
+            history_paths = [San.path(p, exist=True, file=True) for p in histories]
+        except (ValidationError, OSError, ValueError, TypeError) as exc:
+            raise ValidationError(f"Path validation failed: {exc}") from exc
+
+        vid_inc_re = _re.compile(vid_include) if vid_include else None
+        vid_exc_re = _re.compile(vid_exclude) if vid_exclude else None
+        status_set = {s.lower() for s in status_filter} if status_filter else None
+        sev_set = {s.lower() for s in severity_filter} if severity_filter else None
+
+        # Build history data
+        history_data: Dict[str, Dict[str, str]] = {}
+        for hist_file in history_paths:
+            try:
+                tree = self._load_file_as_xml(hist_file)
+                root = tree.getroot()
+                vulns = self._extract_vuln_data(root)
+                for vid, vdata in vulns.items():
+                    if vid not in history_data or (
+                        len(vdata.get("finding_details", "")) + len(vdata.get("comments", ""))
+                        > len(history_data[vid].get("finding_details", "")) + len(history_data[vid].get("comments", ""))
+                    ):
+                        history_data[vid] = vdata
+            except (ParseError, OSError):
+                continue
+
+        # Parse base
+        tree = self._load_file_as_xml(base)
+        root = tree.getroot()
+
+        preview: List[Dict[str, Any]] = []
+        filtered = 0
+
+        stigs = root.find("STIGS")
+        if stigs is None:
+            return {"total_affected": 0, "filtered": 0, "preview": []}
+
+        for istig in stigs.findall("iSTIG"):
+            for vuln in istig.findall("VULN"):
+                vid = XmlUtils.get_vid(vuln)
+                if not vid:
+                    continue
+                if vid_list and vid not in vid_list:
+                    continue
+
+                if vid_inc_re and not vid_inc_re.search(vid):
+                    filtered += 1
+                    continue
+                if vid_exc_re and vid_exc_re.search(vid):
+                    filtered += 1
+                    continue
+
+                base_status = (vuln.findtext("STATUS") or Status.NOT_REVIEWED).strip()
+                base_finding = vuln.findtext("FINDING_DETAILS") or ""
+                base_comment = vuln.findtext("COMMENTS") or ""
+
+                base_severity = "medium"
+                for sd in vuln.findall("STIG_DATA"):
+                    if sd.findtext("VULN_ATTRIBUTE") == "Severity":
+                        base_severity = sd.findtext("ATTRIBUTE_DATA", default="medium")
+
+                if status_set and base_status.lower() not in status_set:
+                    filtered += 1
+                    continue
+                if sev_set and base_severity.lower() not in sev_set:
+                    filtered += 1
+                    continue
+
+                hist = history_data.get(vid)
+                if not hist:
+                    continue
+
+                changes: List[Dict[str, str]] = []
+                if hist.get("status", "") != base_status:
+                    changes.append({
+                        "field": "status",
+                        "from": base_status,
+                        "to": hist.get("status", ""),
+                    })
+                if hist.get("finding_details", "") != base_finding:
+                    changes.append({
+                        "field": "finding_details",
+                        "from_length": str(len(base_finding)),
+                        "to_length": str(len(hist.get("finding_details", ""))),
+                    })
+                if hist.get("comments", "") != base_comment:
+                    changes.append({
+                        "field": "comments",
+                        "from_length": str(len(base_comment)),
+                        "to_length": str(len(hist.get("comments", ""))),
+                    })
+
+                if changes:
+                    rule_title = hist.get("rule_title", "")
+                    preview.append({
+                        "vid": vid,
+                        "severity": base_severity,
+                        "rule_title": rule_title[:80],
+                        "changes": changes,
+                    })
+
+        return {
+            "total_affected": len(preview),
+            "filtered": filtered,
+            "preview": preview[:200],  # Cap at 200 for UI performance
+        }
 
     # ------------------------------------------------------------------ diff
     def diff(
@@ -2143,9 +2787,13 @@ class Proc:
         *,
         severity: Optional[str] = None,
         regex_vid: Optional[str] = None,
+        status_filter: Optional[List[str]] = None,
         new_status: str,
-        new_comment: str,
-        append_comment: bool = False
+        new_comment: str = "",
+        new_finding: str = "",
+        append_comment: bool = False,
+        append_finding: bool = False,
+        preview: bool = False,
     ) -> Dict[str, Any]:
         """
         Bulk update vulnerabilities matching specific selectors.
@@ -2155,12 +2803,16 @@ class Proc:
             out_path: Where to save the updated checklist.
             severity: Filter string (high/medium/low).
             regex_vid: Regex pattern to match VIDs.
+            status_filter: Only edit VULNs matching these statuses.
             new_status: The status to enforce (e.g. 'Not_Applicable').
             new_comment: The comment to apply.
+            new_finding: Finding details text to apply.
             append_comment: If True, appends to existing comments instead of replacing.
+            append_finding: If True, appends to existing finding details instead of replacing.
+            preview: If True, return list of affected VIDs without making changes.
 
         Returns:
-            Dictionary with batch update result statistics.
+            Dictionary with batch update result statistics and affected_vids.
         """
         try:
             ckl_path = San.path(ckl_path, exist=True, file=True)
@@ -2175,8 +2827,10 @@ class Proc:
 
         import re
         vid_pattern = re.compile(regex_vid) if regex_vid else None
+        status_set = {s.lower() for s in status_filter} if status_filter else None
 
         count = 0
+        affected_vids: List[str] = []
         stigs = root.find("STIGS")
         if stigs is not None:
             for istig in stigs.findall("iSTIG"):
@@ -2197,23 +2851,56 @@ class Proc:
                         if sev_val.lower() != severity.lower():
                             match = False
 
+                    if status_set:
+                        current_status = (vuln.findtext("STATUS") or Status.NOT_REVIEWED).strip()
+                        if current_status.lower() not in status_set:
+                            match = False
+
                     # Apply if passed selectors
                     if match:
+                        if preview:
+                            affected_vids.append(vid)
+                            count += 1
+                            continue
+
                         status_node = vuln.find("STATUS")
                         if status_node is None:
                             status_node = ET.SubElement(vuln, "STATUS")
                         status_node.text = new_status
 
-                        comment_node = vuln.find("COMMENTS")
-                        if comment_node is None:
-                            comment_node = ET.SubElement(vuln, "COMMENTS")
+                        # Handle comments
+                        if new_comment:
+                            comment_node = vuln.find("COMMENTS")
+                            if comment_node is None:
+                                comment_node = ET.SubElement(vuln, "COMMENTS")
 
-                        if append_comment and comment_node.text and comment_node.text.strip():
-                            comment_node.text = f"{comment_node.text.strip()}\n{new_comment}"
-                        else:
-                            comment_node.text = new_comment
+                            if append_comment and comment_node.text and comment_node.text.strip():
+                                comment_node.text = f"{comment_node.text.strip()}\n{new_comment}"
+                            else:
+                                comment_node.text = new_comment
 
+                        # Handle finding details
+                        if new_finding:
+                            finding_node = vuln.find("FINDING_DETAILS")
+                            if finding_node is None:
+                                finding_node = ET.SubElement(vuln, "FINDING_DETAILS")
+
+                            if append_finding and finding_node.text and finding_node.text.strip():
+                                finding_node.text = f"{finding_node.text.strip()}\n\n{new_finding}"
+                            else:
+                                finding_node.text = new_finding
+
+                        affected_vids.append(vid)
                         count += 1
+
+        if preview:
+            LOG.i(f"Bulk edit preview: {count} vulnerabilities would be affected")
+            return {
+                "ok": True,
+                "preview": True,
+                "updates": count,
+                "affected_vids": affected_vids,
+            }
 
         XmlUtils.indent_xml(root)
         self._export_xml_to_file(root, out_path)
@@ -2221,8 +2908,10 @@ class Proc:
         LOG.i(f"Bulk edited {count} vulnerabilities")
         return {
             "ok": True,
+            "preview": False,
             "updates": count,
-            "output": str(out_path)
+            "output": str(out_path),
+            "affected_vids": affected_vids,
         }
 
     def apply_waivers(

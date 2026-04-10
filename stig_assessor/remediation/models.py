@@ -43,6 +43,14 @@ class Fix:
     """List of mapped CCIs."""
     legacy: List[str] = field(default_factory=list)
     """List of legacy IDs."""
+    discussion: str = ""
+    """Detailed discussion/background for the rule."""
+    mitigation: str = ""
+    """Specific mitigation strategy if not remediated."""
+    check_text: str = ""
+    """Full check text from the benchmark."""
+    false_positives: str = ""
+    """Known false positive scenarios."""
 
     def as_dict(self) -> Dict[str, Union[str, List[str], None]]:
         """
@@ -64,6 +72,10 @@ class Fix:
             "rule_version": self.rule_version,
             "cci": self.cci[:10],
             "legacy": self.legacy[:10],
+            "discussion": self.discussion,
+            "mitigation": self.mitigation,
+            "check_text": self.check_text,
+            "false_positives": self.false_positives,
         }
 
 

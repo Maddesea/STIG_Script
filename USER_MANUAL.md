@@ -2,21 +2,42 @@
 
 Welcome to **STIG Assessor**, a comprehensive, air-gapped utility designed to streamline the assessment, remediation, and management of DISA STIG compliance protocols. The tool offers both a native Tkinter desktop interface and a modern, feature-rich Web application.
 
-## Table of Contents
-1. [Getting Started](#getting-started)
-2. [Using the Web Interface](#using-the-web-interface)
-3. [Interactive Assessment Editor](#interactive-assessment-editor)
-4. [Using the Desktop UI (Tkinter)](#using-the-desktop-ui-tkinter)
-5. [Key Workflows](#key-workflows)
+---
+
+## 🚀 Key Advanced Features (Phase 8+)
+
+### 🔍 Advanced Filtering & Regex
+
+Across the **Merge**, **Extraction**, and **Boilerplate** modules, you can now use powerful filtering logic to target specific vulnerabilities:
+
+*   **VID Include/Exclude (Regex):** Use standard regular expressions (e.g., `V-25\d+` to match all V-25000 series rules) to dynamically include or exclude items.
+*   **Explicit VID Lists:** Provide a comma or space-separated list of exact Vulnerability IDs to perform surgical operations on just those items.
+*   **Status & Severity Multi-Select:** Filter operations by any combination of checklist statuses (Open, Not_Reviewed, etc.) and CAT I/II/III severities.
+
+### 📅 Date-Aware Boilerplate Management
+
+When applying boilerplate templates to a checklist, you can now specify a **Date Override**. 
+
+*   This ensures all finding details and comments are timestamped with the actual assessment date rather than just the template creation date.
+*   The UI includes a quick "📅 Today" button to instantly sync to the current system date.
+
+### 🛠️ Rich Metadata Fix Extraction
+
+The **Extract Fixes** engine now pulls deep technical context from XCCDF benchmarks:
+
+*   **Rich Data:** Now extracts "Discussion," "Mitigation," "Check Text," and "False Positives."
+*   **Interactive HTML Playbooks:** Generating an HTML report now creates a premium, accordion-style remediation guide. Each finding can be expanded to view check logic, fix scripts, and technical discussion in a clean, readable format.
 
 ---
 
 ## Getting Started
 
 ### Prerequisites
+
 STIG Assessor is designed with zero internal dependencies and relies entirely on standard Python 3.9+ libraries.
 
 ### Launching the Application
+
 You can easily launch the tool using the CLI execution wrappers provided:
 
 *   **Launch GUI Desktop App:** `python -m stig_assessor.main --gui`
@@ -27,30 +48,26 @@ You can easily launch the tool using the CLI execution wrappers provided:
 
 ## Using the Web Interface
 
-The Web UI provides a fast, polished, and dynamic environment for managing checklists. Upon launching the web app (`--web`), open your browser to the URL displayed in the console (usually `http://127.0.0.1:5000`).
+The Web UI provides a fast, polished, and dynamic environment for managing checklists. Upon launching the web app (`--web`), open your browser to `http://127.0.0.1:5000`.
 
-### Navigating the Sidebar
-*   **Create CKL:** Upload any DISA XCCDF Benchmark to automatically generate a prefilled `.ckl` file for asset management.
-*   **Remediate:** Use SCAP or local scanner JSON outputs to automatically pre-fill checklist statuses based on scan results.
-*   **Assessment Editor:** Engage directly with `.ckl` files to modify statuses, findings, and comments inside your browser. No Java viewer is required.
-*   **Analytics & Dashboard:** Generate visual charts, compliance percentages, and severity breakdowns for a single checklist or an entire fleet.
-*   **Bulk Operations:** Perform fast, wide-ranging edits over a checklist using regex combinations.
+### Core Workflows
+
+*   **Generate CKL:** Upload any DISA XCCDF Benchmark to automatically generate a prefilled `.ckl` file. Enable "Apply boilerplates" to pre-populate finding details.
+*   **Extract Fixes:** Pull Bash, PowerShell, or Ansible scripts from benchmarks. Use the **Preview** grid to surgically select exactly which fixes to export.
+*   **Apply Results:** Import SCAP or results JSON outputs to automatically fill checklist statuses.
+*   **Merge Checklists:** Combine historical checklists with granular control over which fields (Status, Details, Comments) are preserved or overwritten.
 
 ---
 
 ## Interactive Assessment Editor
 
-A highly requested feature, the **Assessment Editor** lets you interact entirely with your checklist natively.
+The **Assessment Editor** lets you review and update your checklist natively in the browser—no Java STIG Viewer required.
 
-### Step-by-Step Interactive Editing:
-1.  Navigate to **Assessment Editor** in the side navigation panel.
-2.  Click **Upload Checklist to Edit** and supply your existing `.ckl` file.
-3.  The system will analyze and cache all vulnerability findings, displaying them neatly sorted on the left pane.
-4.  Use the **Search Bar** to instantly filter V-ids or Statuses (e.g., "Not_Reviewed" or "V-12345").
-5.  Click on any vulnerability to populate the detailed viewing window. Here, you can review the exact `Check Content` and `Fix Text`.
-6.  Adjust the **Status**, **Finding Details**, and **Comments**.
-7.  Click **Save Changes**. The UI will flash to dynamically reflect your modifications.
-8.  When complete, click the **Download Updated CKL** button at the bottom of the interface to securely store your modifications locally.
+1.  Navigate to **Assessment Editor** and upload your `.ckl` file.
+2.  Use the **Search Bar** or **Filters** to find specific rules.
+3.  Click on a vulnerability to view its **Check Content**, **Fix Text**, and even a **Rapid Remediation Script** preview.
+4.  Update the **Status**, **Finding Details**, and **Comments**, then click **Save Changes**.
+5.  Click **Download Updated CKL** at the bottom to save your work.
 
 ---
 
@@ -58,30 +75,33 @@ A highly requested feature, the **Assessment Editor** lets you interact entirely
 
 In fully locked-down environments, the Tkinter UI is exceptionally lightweight and guarantees operability standard to native desktop OS themes.
 
-The GUI mirrors the capability of the web app using a standard Tabular layout. Highlights include:
-*   **Premium Color Palettes**: Switch effortlessly between streamlined Dark Mode and Light Mode with a built-in theme toggle to reduce eye strain.
-*   **Keyboard Accessibility**: Execute tab transitions via explicit mappings.
-*   **Decoupled processing**: Prevents the UI from locking up when analyzing heavy configuration audits.
+The GUI mirrors the capability of the web app with a tabular layout. Highlights include:
+*   **Theme Toggle**: Switch between Dark Mode and Light Mode to reduce eye strain.
+*   **Decoupled processing**: High-performance layout ensures the UI stays responsive during heavy analysis.
 
 ---
 
 ## Key Workflows
 
-### 1. Generating a New Assessment
-1. Determine your required platform STIG (XCCDF format) from DISA's Cyber Exchange.
-2. Navigate to **Create CKL**.
-3. Upload the `.xml` file alongside asset metadata (IP, MAC, Role).
-4. Download the finalized, structural `.ckl` instantly.
+### 1. Advanced Merging with History
+
+When merging checklists, use the **Advanced Merge Options** to:
+
+*   Preserve full assessment history.
+*   Filter by VID regex or status.
+*   Configure conflict resolution (e.g., "Prefer Most Assessed").
 
 ### 2. Fleet Compliance Roll-Up
-1. Create a standard `.zip` containing up to hundreds of completed `.ckl` files.
-2. Navigate to **Fleet Analytics**.
-3. Upload the archive. The program maps compliance levels across the enclave, offering an overarching compliance score and specific data matrices.
+
+1. Create a `.zip` containing multiple `.ckl` files.
+2. Upload to **Fleet Dashboard**.
+3. View aggregated compliance scores, asset breakdowns, and cross-enclave statistics.
 
 ### 3. Drift Analysis (Tracking Changes)
-1. Use the **Ingest/Track CKL** module to cache a baseline assessment into the local SQLite `history` database.
+
+1. Use **Ingest/Track CKL** to baseline an assessment in the history database.
 2. Upload a newer checklist at a later date.
-3. Run the **Drift Analysis**. The platform outputs exact metrics demonstrating resolved vulns alongside regressions, allowing assessors to pinpoint configuration drifts efficiently.
+3. Run **Drift Analysis** to identify resolved vulnerabilities and regressions.
 
 ---
 _Built for usability, precision, and strictly localized data integrity._

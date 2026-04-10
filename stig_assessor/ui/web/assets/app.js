@@ -268,12 +268,8 @@ function initDropZones() {
     initDZ('dash-upload-zone', 'dash-ckl-file', 'dash-file-label');
     // Editor
     initDZ('editor-upload-zone', 'editor-ckl-file', 'editor-file-label');
-}
-    // Analytics & Fleet
-    initDZ('analytics-upload-zone', 'analytics-ckl-file', 'analytics-file-label');
+    // Fleet
     initDZ('fleet-upload-zone', 'fleet-zip-file', 'fleet-file-label');
-    // Dashboard
-    initDZ('dash-upload-zone', 'dash-ckl-file', 'dash-file-label');
     // Diff
     initDZ('diff-ckl1-zone', 'diff-ckl1-file', 'diff-ckl1-label', checkDiffReady);
     initDZ('diff-ckl2-zone', 'diff-ckl2-file', 'diff-ckl2-label', checkDiffReady);
@@ -289,9 +285,13 @@ function initDropZones() {
     initDZ('val-upload-zone', 'val-ckl-file', 'val-file-label', () => {
         const btn = document.getElementById('val-submit'); if (btn) btn.disabled = false;
     });
-    // Repair
     initDZ('repair-upload-zone', 'repair-ckl-file', 'repair-file-label', () => {
         const btn = document.getElementById('repair-submit'); if (btn) btn.disabled = false;
+    });
+    
+    initDZ('bp-apply-zone', 'bp-apply-file', 'bp-apply-label', () => {
+        const btn = document.getElementById('bp-apply-btn');
+        if (btn) btn.disabled = false;
     });
     // Bulk Ops
     initDZ('bulk-upload-zone', 'bulk-ckl-file', 'bulk-file-label', () => {
@@ -383,6 +383,59 @@ function wireGenerate() {
    ═══════════════════════════════════════════════════════════════════ */
 
 function wireExtract() {
+    document.getElementById('ext-preview-btn')?.addEventListener('click', async () => {
+        const file = document.getElementById('ext-xccdf-file')?.files[0];
+        if (!file) { showToast('Upload an XCCDF first to preview.', 'error'); return; }
+
+        const cklFile = document.getElementById('ext-ckl-file')?.files[0];
+        const statusFilter = [];
+        if (cklFile) {
+            if (document.getElementById('ext-stat-open').checked) statusFilter.push('Open');
+            if (document.getElementById('ext-stat-nr').checked) statusFilter.push('Not_Reviewed');
+            if (document.getElementById('ext-stat-na').checked) statusFilter.push('Not_Applicable');
+            if (document.getElementById('ext-stat-naf').checked) statusFilter.push('NotAFinding');
+        }
+
+        const sevCbs = Array.from(document.querySelectorAll('.ext-sev-cb')).filter(cb => cb.checked).map(cb => cb.value);
+
+        const btn = document.getElementById('ext-preview-btn');
+        const res = await postApi('/api/v1/extract_preview', {
+            b64_content: await toBase64(file),
+            filename: file.name,
+            ckl_b64: cklFile ? await toBase64(cklFile) : '',
+            status_filter: statusFilter,
+            severity_filter: sevCbs.length ? sevCbs : null
+        }, btn, 'Generating Preview…');
+
+        if (res.status === 'success') {
+            document.getElementById('ext-preview-section').classList.remove('hidden');
+            const tbody = document.getElementById('ext-preview-tbody');
+            tbody.innerHTML = '';
+            
+            res.data.fixes.forEach(f => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="text-align:center;"><input type="checkbox" class="ext-vid-cb" value="${f.vid}" checked></td>
+                    <td><strong>${f.vid}</strong></td>
+                    <td><span class="badge-sev-${f.severity}">${f.severity}</span></td>
+                    <td>${f.platform}</td>
+                    <td>${f.has_cmd}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            showToast(`Preview loaded: ${res.data.fixes.length} fixes found.`, 'success');
+        }
+    });
+
+    document.getElementById('ext-preview-select-all')?.addEventListener('change', (e) => {
+        document.querySelectorAll('.ext-vid-cb').forEach(cb => cb.checked = e.target.checked);
+    });
+
+    document.getElementById('ext-xccdf-file')?.addEventListener('change', () => {
+        document.getElementById('ext-preview-btn')?.classList.remove('hidden');
+        document.getElementById('ext-preview-btn')?.click();
+    });
+
     document.getElementById('ext-submit')?.addEventListener('click', async () => {
         const file = document.getElementById('ext-xccdf-file')?.files[0];
         if (!file) { showToast('Upload an XCCDF first.', 'error'); return; }
@@ -396,6 +449,20 @@ function wireExtract() {
             if (document.getElementById('ext-stat-naf').checked) statusFilter.push('NotAFinding');
         }
 
+        const sevCbs = Array.from(document.querySelectorAll('.ext-sev-cb')).filter(cb => cb.checked).map(cb => cb.value);
+        
+        let vidInclude = null;
+        if (!document.getElementById('ext-preview-section').classList.contains('hidden')) {
+            vidInclude = Array.from(document.querySelectorAll('.ext-vid-cb:checked')).map(cb => cb.value);
+            if (vidInclude.length === 0) {
+                showToast('No fixes selected for extraction!', 'error');
+                return;
+            }
+        }
+
+        const vidIncludeRegex = document.getElementById('ext-vid-include')?.value || null;
+        const vidExcludeRegex = document.getElementById('ext-vid-exclude')?.value || null;
+
         const btn = document.getElementById('ext-submit');
         showToast('Extracting fixes…', 'info');
         const res = await postApi('/api/v1/extract', {
@@ -403,6 +470,10 @@ function wireExtract() {
             filename: file.name,
             ckl_b64: cklFile ? await toBase64(cklFile) : '',
             status_filter: statusFilter,
+            severity_filter: sevCbs.length ? sevCbs : null,
+            vid_include: vidInclude,
+            vid_include_regex: vidIncludeRegex,
+            vid_exclude_regex: vidExcludeRegex,
             enable_rollbacks: document.getElementById('ext-rollbacks')?.checked || false,
             do_ansible: document.getElementById('ext-ansible')?.checked !== false,
             do_evidence: document.getElementById('ext-evidence')?.checked || false,
@@ -411,12 +482,20 @@ function wireExtract() {
 
         if (res.status === 'success') {
             const s = res.stats || {};
-            showModal('Fixes Extracted', 'Remediation package ready.',
-                statBox(s.filtered || s.total_fixes || 0, 'Checks', 'success') + 
-                statBox(s.with_command || 0, 'With Commands', 'info') +
-                statBox(s.total_groups || 0, 'Total in STIG', 'warn'),
-                res.package_b64, res.filename);
-            showToast('Fixes extracted!', 'success');
+            
+            const summaryDiv = document.getElementById('ext-results-summary');
+            if (summaryDiv) {
+                summaryDiv.classList.remove('hidden');
+                document.getElementById('ext-stats-grid').innerHTML = 
+                    statBox(s.filtered || s.total_fixes || 0, 'Checks', 'success') + 
+                    statBox(s.with_command || 0, 'With Commands', 'info') +
+                    statBox(s.total_groups || 0, 'Total in STIG', 'warn');
+            }
+            
+            if (res.package_b64 && res.filename) {
+                downloadB64(res.package_b64, res.filename);
+            }
+            showToast('Fixes extracted and downloaded!', 'success');
         }
     });
 }
@@ -459,27 +538,117 @@ function wireRemediate() {
    ═══════════════════════════════════════════════════════════════════ */
 
 function wireMerge() {
-    document.getElementById('merge-submit')?.addEventListener('click', async () => {
+    // Advanced Merge Toggle
+    document.getElementById('merge-advanced-toggle')?.addEventListener('toggle', (e) => {
+        document.getElementById('merge-use-advanced').value = e.target.open ? "1" : "0";
+    });
+
+    const getMergePayload = async () => {
         const base = document.getElementById('merge-base-file')?.files[0];
         const hists = document.getElementById('merge-hist-files')?.files;
-        if (!base || !hists?.length) return;
+        if (!base || !hists?.length) return null;
 
-        const btn = document.getElementById('merge-submit');
-        showToast('Merging…', 'info');
         const histB64 = [];
         for (const f of hists) histB64.push(await toBase64(f));
 
-        const res = await postApi('/api/v1/merge_ckls', {
+        const useAdvanced = document.getElementById('merge-use-advanced')?.value === "1";
+        
+        let payload = {
             base_b64: await toBase64(base),
             histories_b64: histB64,
             filename: base.name.replace('.ckl', '_merged.ckl'),
             preserve_history: document.getElementById('merge-preserve')?.checked !== false,
-        }, btn, 'Merging checklists…');
+            use_advanced: useAdvanced
+        };
+
+        if (useAdvanced) {
+            const statuses = Array.from(document.querySelectorAll('.merge-status-cb:checked')).map(cb => cb.value);
+            const sevs = Array.from(document.querySelectorAll('.merge-sev-cb:checked')).map(cb => cb.value);
+            
+            payload.status_filter = statuses.length ? statuses : null;
+            payload.severity_filter = sevs.length ? sevs : null;
+            
+            const inc = document.getElementById('merge-vid-include')?.value.trim();
+            const exc = document.getElementById('merge-vid-exclude')?.value.trim();
+            const list = document.getElementById('merge-vid-list')?.value?.split(',').map(v => v.trim()).filter(v => v) || null;
+            
+            payload.vid_include = inc || null;
+            payload.vid_exclude = exc || null;
+            payload.vid_list = list || null;
+            
+            payload.details_mode = document.getElementById('merge-details-mode')?.value || 'keep_history';
+            payload.comments_mode = document.getElementById('merge-comments-mode')?.value || 'keep_history';
+            payload.status_mode = document.getElementById('merge-status-mode')?.value || 'keep_history';
+            payload.conflict_resolution = document.getElementById('merge-conflict')?.value || 'prefer_history';
+            
+            if (!document.getElementById('merge-preview-results').classList.contains('hidden') && !payload.vid_list) {
+                const checkedVids = Array.from(document.querySelectorAll('.merge-vid-cb:checked')).map(cb => cb.value);
+                payload.vid_list = checkedVids.length ? checkedVids : null;
+            }
+        }
+
+        return payload;
+    };
+
+    const selectAll = document.getElementById('merge-preview-select-all');
+    if (selectAll) {
+        selectAll.addEventListener('change', (e) => {
+            document.querySelectorAll('.merge-vid-cb').forEach(cb => cb.checked = e.target.checked);
+        });
+    }
+
+    const previewBtn = document.getElementById('merge-preview-btn');
+    if (previewBtn) {
+        previewBtn.addEventListener('click', async () => {
+            const payload = await getMergePayload();
+            if (!payload) return;
+            
+            showToast('Generating Preview…', 'info');
+            const res = await postApi('/api/v1/merge_preview', payload, previewBtn, 'Previewing...');
+        
+        if (res.status === 'success') {
+            document.getElementById('merge-preview-results').classList.remove('hidden');
+            const tbody = document.getElementById('merge-preview-tbody');
+            tbody.innerHTML = '';
+            
+            let count = 0;
+            const changes = res.data.changes || {};
+            for (const vid in changes) {
+                count++;
+                const tr = document.createElement('tr');
+                const fieldNames = Object.keys(changes[vid].fields).join(', ');
+                tr.innerHTML = `
+                    <td style="text-align:center;"><input type="checkbox" class="merge-vid-cb" value="${vid}" checked></td>
+                    <td><strong>${vid}</strong></td>
+                    <td><span class="badge-sev-${changes[vid].severity || 'medium'}">${changes[vid].severity || 'medium'}</span></td>
+                    <td>${fieldNames}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+            
+            if (count === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No changes would be applied.</td></tr>';
+            }
+            showToast(`Preview ready: ${count} items would change.`, 'success');
+        }
+    });
+}
+
+
+    document.getElementById('merge-submit')?.addEventListener('click', async () => {
+        const payload = await getMergePayload();
+        if (!payload) return;
+
+        const btn = document.getElementById('merge-submit');
+        showToast('Merging…', 'info');
+        const res = await postApi('/api/v1/merge_ckls', payload, btn, 'Merging checklists…');
 
         if (res.status === 'success') {
             const d = res.data || {};
             showModal('Merge Complete', res.message || 'Done',
-                statBox(d.processed||0,'Total','info') + statBox(d.updated||0,'Updated','success') + statBox(d.skipped||0,'Unchanged','warn'),
+                statBox(d.processed||0,'Assessed','info') + 
+                statBox(d.updated||0,'Updated','success') + 
+                (d.filtered ? statBox(d.filtered, 'Filtered out', 'danger') : statBox(d.skipped||0,'Unchanged','warn')),
                 d.ckl_b64, d.filename);
             showToast('Merge complete!', 'success');
         }
@@ -668,7 +837,10 @@ function renderAnalyticsTable(details, filter = '') {
 
 function renderMatrix(containerId, matrix) {
     const el = document.getElementById(containerId);
-    if (!el || !Object.keys(matrix).length) { if (el) el.innerHTML = '<p style="color:var(--tx-muted);padding:12px;">No data</p>'; return; }
+    if (!el || !Object.keys(matrix || {}).length) {
+        if (el) el.innerHTML = '<p style="color:var(--tx-muted);padding:12px;">No data</p>';
+        return;
+    }
     let html = '<table class="data-table" style="width:100%;"><thead><tr><th>Status</th><th>High</th><th>Medium</th><th>Low</th></tr></thead><tbody>';
     for (const [status, sevs] of Object.entries(matrix)) {
         html += `<tr><td>${status}</td><td>${sevs.high||0}</td><td>${sevs.medium||0}</td><td>${sevs.low||0}</td></tr>`;
@@ -914,6 +1086,147 @@ let _bpData = {}, _selectedVid = null;
 
 function wireBoilerplates() {
     loadBpList();
+
+    document.getElementById('bp-btn-today')?.addEventListener('click', () => {
+        const dateInp = document.getElementById('bp-apply-date');
+        if (dateInp) {
+            dateInp.value = new Date().toISOString().split('T')[0];
+            showToast('Date set to today', 'info');
+        }
+    });
+    
+    // Apply Boilerplates to Checklist
+    const bpApplyInput = document.getElementById('bp-apply-file');
+    const bpApplyBtn = document.getElementById('bp-apply-btn');
+    
+    if (bpApplyInput && bpApplyBtn) {
+        const bpPreviewBtn = document.getElementById('bp-preview-btn');
+        
+        bpApplyInput.addEventListener('change', () => {
+             const hasFile = !!bpApplyInput.files.length;
+             bpApplyBtn.disabled = !hasFile;
+             if (bpPreviewBtn) bpPreviewBtn.disabled = !hasFile;
+             if (!hasFile) document.getElementById('bp-preview-section')?.classList.add('hidden');
+        });
+
+        bpPreviewBtn?.addEventListener('click', async () => {
+            const file = bpApplyInput.files[0];
+            if (!file) return;
+
+            const mode = document.getElementById('bp-apply-mode')?.value || 'overwrite_empty';
+            const statusFilter = document.getElementById('bp-apply-status-filter')?.value?.trim();
+            const sevFilter = document.getElementById('bp-apply-sev-filter')?.value?.trim();
+            const vidsFilter = document.getElementById('bp-apply-vids-filter')?.value?.trim();
+
+            const req = {
+                filename: file.name,
+                ckl_b64: await toBase64(file),
+                apply_mode: mode
+            };
+
+            const dateOverride = document.getElementById('bp-apply-date')?.value;
+            if (dateOverride) req.date_override = dateOverride;
+            if (statusFilter) req.status_filter = statusFilter.split(',').map(s => s.trim());
+            if (sevFilter) req.severity_filter = sevFilter.split(',').map(s => s.trim());
+            if (vidsFilter) req.vid_include = vidsFilter.split(',').map(s => s.trim().toUpperCase());
+
+            showToast('Generating preview...', 'info');
+            bpPreviewBtn.disabled = true;
+            
+            try {
+                const res = await postApi('/api/v1/bp_preview', req);
+                if (res.status === 'success' && res.data) {
+                    const section = document.getElementById('bp-preview-section');
+                    section.classList.remove('hidden');
+                    
+                    const countEl = document.getElementById('bp-preview-count');
+                    const tbody = document.getElementById('bp-preview-tbody');
+                    const vids = res.data.affected_vids || [];
+                    
+                    countEl.textContent = vids.length;
+                    tbody.innerHTML = '';
+                    
+                    vids.forEach(vid => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="text-align:center;"><input type="checkbox" class="bp-vid-cb" value="${vid}" checked></td>
+                            <td><strong>${vid}</strong></td>
+                            <td><span class="badge-nr">Match</span></td>
+                            <td style="font-size:0.8rem;color:var(--tx-muted);">Template exists</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                    
+                    if (vids.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--tx-muted);">No vulnerabilities match the selected boilerplate templates and filters.</td></tr>';
+                    }
+                    showToast('Preview loaded.', 'success');
+                }
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                bpPreviewBtn.disabled = false;
+            }
+        });
+
+        document.getElementById('bp-preview-select-all')?.addEventListener('change', (e) => {
+            document.querySelectorAll('.bp-vid-cb').forEach(cb => cb.checked = e.target.checked);
+        });
+        
+        bpApplyBtn.addEventListener('click', async () => {
+            const file = bpApplyInput.files[0];
+            if (!file) return;
+            
+            const mode = document.getElementById('bp-apply-mode')?.value || 'overwrite_empty';
+            const statusFilter = document.getElementById('bp-apply-status-filter')?.value?.trim();
+            const sevFilter = document.getElementById('bp-apply-sev-filter')?.value?.trim();
+            const vidsFilter = document.getElementById('bp-apply-vids-filter')?.value?.trim();
+            
+            const req = {
+                filename: file.name,
+                ckl_b64: await toBase64(file),
+                apply_mode: mode
+            };
+            
+            const dateOverride = document.getElementById('bp-apply-date')?.value;
+            if (dateOverride) req.date_override = dateOverride;
+            
+            if (statusFilter) req.status_filter = statusFilter.split(',').map(s => s.trim());
+            if (sevFilter) req.severity_filter = sevFilter.split(',').map(s => s.trim());
+            
+            // Collect selected VIDs from preview if visible, otherwise use filter input
+            const previewSection = document.getElementById('bp-preview-section');
+            if (previewSection && !previewSection.classList.contains('hidden')) {
+                const selectedVids = Array.from(document.querySelectorAll('.bp-vid-cb:checked')).map(cb => cb.value);
+                if (selectedVids.length === 0) {
+                    showToast('No VIDs selected for application!', 'error');
+                    return;
+                }
+                req.vid_include = selectedVids;
+            } else if (vidsFilter) {
+                req.vid_include = vidsFilter.split(',').map(s => s.trim().toUpperCase());
+            }
+            
+            showToast('Applying boilerplates...', 'info');
+            bpApplyBtn.disabled = true;
+            bpApplyBtn.textContent = 'Processing...';
+            
+            try {
+                const res = await postApi('/api/v1/bp_apply', req);
+                if (res.status === 'success' && res.data) {
+                    downloadB64(res.data.ckl_b64, res.data.filename);
+                    showToast(`Applied to ${res.data.applied || res.data.updated || 0} findings.`, 'success');
+                } else {
+                    showToast(res.message || 'Failed to apply boilerplates', 'error');
+                }
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                bpApplyBtn.disabled = false;
+                bpApplyBtn.textContent = 'Apply Boilerplates';
+            }
+        });
+    }
 
     // Save boilerplate
     document.getElementById('bp-save-btn')?.addEventListener('click', async () => {
@@ -1186,47 +1499,83 @@ function wireBulkOps() {
         document.getElementById('btn-dl-bulk')?.classList.add('hidden');
         showToast('Checklist loaded for bulk edit.', 'success');
     });
-    
-    document.getElementById('btn-run-bulk')?.addEventListener('click', async () => {
-        if (!_bulkFileB64) return;
-        
+
+    const getBulkPayload = (preview = false) => {
         const severity = document.getElementById('bulk-severity')?.value;
         const regex_vid = document.getElementById('bulk-regex')?.value;
         const new_status = document.getElementById('bulk-status')?.value;
+        const new_finding = document.getElementById('bulk-finding')?.value;
         const new_comment = document.getElementById('bulk-comment')?.value;
         const append_comment = document.getElementById('bulk-append')?.checked;
+        const status_filters = Array.from(document.querySelectorAll('.bulk-status-cb:checked')).map(cb => cb.value);
         
-        if (!new_status) {
+        if (!new_status && !preview) {
             showToast('New Status is required!', 'error');
-            return;
+            return null;
         }
-        
-        const btn = document.getElementById('btn-run-bulk');
-        showToast('Running Bulk Overrides...', 'info');
-        
-        const res = await postApi('/api/v1/bulk_edit', {
+
+        return {
             ckl_b64: _bulkFileB64,
             filename: _bulkFile.name,
             severity,
             regex_vid,
+            status_filter: status_filters.length > 0 ? status_filters : null,
             new_status,
+            new_finding,
             new_comment,
-            append_comment
-        }, btn, 'Executing Changes...');
+            append_comment,
+            append_finding: append_comment, // Use the same append toggle for both for simplicity
+            preview
+        };
+    };
+
+    document.getElementById('btn-preview-bulk')?.addEventListener('click', async () => {
+        if (!_bulkFileB64) return;
+        const payload = getBulkPayload(true);
+        if(!payload) return;
+
+        const btn = document.getElementById('btn-preview-bulk');
+        const res = await postApi('/api/v1/bulk_edit', payload, btn, 'Previewing...');
         
         if (res.status === 'success') {
-            document.getElementById('btn-run-bulk')?.classList.add('hidden');
+            document.getElementById('bulk-preview-results').classList.remove('hidden');
+            document.getElementById('bulk-preview-count').textContent = res.data.updates || 0;
+            
+            const listDiv = document.getElementById('bulk-preview-list');
+            listDiv.innerHTML = '';
+            const affected = res.data.affected_vids || [];
+            if(affected.length > 0) {
+                listDiv.innerHTML = affected.map(v => `<span class="badge-nr">${v}</span>`).join(' ');
+            } else {
+                listDiv.textContent = 'No vulnerabilities match the criteria.';
+            }
+            showToast(`Preview: ${res.data.updates} items will be affected.`, 'success');
+        }
+    });
+
+    document.getElementById('btn-run-bulk')?.addEventListener('click', async () => {
+        if (!_bulkFileB64) return;
+        
+        const payload = getBulkPayload(false);
+        if(!payload) return;
+        
+        const btn = document.getElementById('btn-run-bulk');
+        showToast('Running Bulk Overrides...', 'info');
+        
+        const res = await postApi('/api/v1/bulk_edit', payload, btn, 'Executing Changes...');
+        
+        if (res.status === 'success') {
             const dlBtn = document.getElementById('btn-dl-bulk');
             if (dlBtn) {
                 dlBtn.classList.remove('hidden');
                 dlBtn.onclick = () => {
-                   const a = document.createElement('a');
-                   a.href = 'data:application/xml;base64,' + res.data.ckl_b64;
-                   a.download = res.data.filename;
-                   a.click();
+                    downloadB64(res.data.ckl_b64, res.data.filename);
                 };
             }
-            showModal('Success', res.message, statBox(res.data.updates, 'Vulns modified', 'success'));
+            
+            document.getElementById('bulk-preview-results').classList.remove('hidden');
+            document.getElementById('bulk-preview-count').textContent = res.data.updates || 0;
+            
             showToast(res.message, 'success');
         }
     });
@@ -1243,6 +1592,7 @@ function wireAssessmentEditor() {
     let editorActiveVid = null;
     let editorDetailsPane = document.getElementById('editor-details-pane');
     let editorPlaceholder = document.getElementById('editor-placeholder');
+    let isDirty = false;
     
     document.getElementById('editor-ckl-file')?.addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -1258,28 +1608,47 @@ function wireAssessmentEditor() {
             
             const stats = res.stats_data || {};
             editorFindingsCache = stats.findings_details || [];
-            
-            // Draw summary stats
-            const counts = stats.status_counts || {};
-            document.getElementById('editor-stats-grid').innerHTML =
-                statBox(stats.total_vulns || 0, 'Total Vulns', 'info') +
-                statBox(counts.Open || 0, 'Open', 'danger') +
-                statBox(counts.NotAFinding || 0, 'Compliant', 'success') +
-                statBox((stats.compliance_pct || 0).toFixed(1) + '%', 'Compliance', 'success');
-
+            updateEditorProgress();
             renderEditorVulnList();
             showToast('Checklist loaded successfully!', 'success');
         }
     });
     
-    function renderEditorVulnList(filterText = '') {
+    function updateEditorProgress() {
+        let total = editorFindingsCache.length;
+        if(total === 0) return;
+        
+        let reviewed = editorFindingsCache.filter(v => ['Open','NotAFinding','Not_Applicable'].includes(v.status)).length;
+        let pct = (reviewed / total) * 100;
+        
+        document.getElementById('editor-progress-text').textContent = `${reviewed} / ${total} reviewed (${pct.toFixed(1)}%)`;
+        document.getElementById('editor-progress-bar').style.width = `${pct}%`;
+        
+        // Also update the stats grid if needed
+        const stats = {total_vulns: total};
+        const counts = {Open:0, Not_Reviewed:0, NotAFinding:0, Not_Applicable:0};
+        editorFindingsCache.forEach(v => { counts[v.status] = (counts[v.status] || 0) + 1; });
+        
+        document.getElementById('editor-stats-grid').innerHTML =
+                statBox(stats.total_vulns || 0, 'Total Vulns', 'info') +
+                statBox(counts.Open || 0, 'Open', 'danger') +
+                statBox(counts.NotAFinding || 0, 'Compliant', 'success') +
+                statBox(pct.toFixed(1) + '%', 'Progress', 'success');
+    }
+
+    function renderEditorVulnList() {
+        const filterText = document.getElementById('editor-search')?.value || '';
+        const statusFilter = document.getElementById('editor-status-filter')?.value || '';
+        const sevFilter = document.getElementById('editor-severity-filter')?.value || '';
         const ul = document.getElementById('editor-vuln-list');
         ul.innerHTML = '';
         
         const searchVal = filterText.toLowerCase();
         
         editorFindingsCache.forEach(vuln => {
-            if (searchVal && !(vuln.vid||'').toLowerCase().includes(searchVal) && !(vuln.status||'').toLowerCase().includes(searchVal)) return;
+            if (searchVal && !(vuln.vid||'').toLowerCase().includes(searchVal) && !(vuln.rule_title||'').toLowerCase().includes(searchVal)) return;
+            if (statusFilter && vuln.status !== statusFilter) return;
+            if (sevFilter && vuln.severity !== sevFilter) return;
 
             const li = document.createElement('li');
             li.className = 'vuln-list-item' + (editorActiveVid === vuln.vid ? ' active' : '');
@@ -1296,7 +1665,10 @@ function wireAssessmentEditor() {
             
             li.addEventListener('click', () => {
                 editorActiveVid = vuln.vid;
-                renderEditorVulnList(document.getElementById('editor-search').value);
+                setDirty(false); // Reset dirty flag
+                // Render list again to update active class
+                Array.from(ul.children).forEach(c => c.classList.remove('active'));
+                li.classList.add('active');
                 
                 // Show pane
                 editorPlaceholder.classList.add('hidden');
@@ -1307,6 +1679,44 @@ function wireAssessmentEditor() {
                 document.getElementById('editor-rule-title').textContent = vuln.rule_title;
                 document.getElementById('editor-check-content').textContent = vuln.check_content;
                 document.getElementById('editor-fix-text').textContent = vuln.fix_text;
+                
+                const generateSnippet = (text) => {
+                    if (!text) return "";
+                    let lines = text.split('\n');
+                    let cmds = [];
+                    let inBlock = false;
+                    for(let line of lines) {
+                        line = line.trim();
+                        if(line.startsWith('```')) {
+                            inBlock = !inBlock;
+                            continue;
+                        }
+                        if(inBlock) {
+                            cmds.push(line);
+                            continue;
+                        }
+                        if(line.match(/^(?:sudo|yum|dnf|apt(?:-get)?|systemctl|chmod|chown|sed|awk|grep|vi|nano|Set-[A-Za-z]+|Get-[A-Za-z]+|New-[A-Za-z]+|reg(?:.exe)?)/i)) {
+                            cmds.push(line);
+                        }
+                    }
+                    if (cmds.length > 0) return cmds.join('\n');
+                    
+                    const runMatch = text.match(/(?:Run|Execute)\s*:\s*\n?([^\n]+)/i);
+                    if (runMatch) return runMatch[1].trim();
+                    return "";
+                };
+                
+                const rapidRemSnippet = generateSnippet(vuln.fix_text);
+                const rmContainer = document.getElementById('editor-rapid-rem');
+                const rmSnippetEl = document.getElementById('editor-rem-snippet');
+                
+                if (rapidRemSnippet) {
+                    rmContainer.classList.remove('hidden');
+                    rmSnippetEl.textContent = rapidRemSnippet;
+                } else {
+                    rmContainer.classList.add('hidden');
+                    rmSnippetEl.textContent = "";
+                }
                 
                 document.getElementById('editor-status').value = vuln.status;
                 document.getElementById('editor-finding-details').value = vuln.details || '';
@@ -1322,10 +1732,58 @@ function wireAssessmentEditor() {
         });
     }
 
-    document.getElementById('editor-search')?.addEventListener('input', (e) => {
-        renderEditorVulnList(e.target.value);
+    ['editor-search', 'editor-status-filter', 'editor-severity-filter'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', renderEditorVulnList);
     });
     
+    document.getElementById('editor-next-unreviewed')?.addEventListener('click', () => {
+        const unreviewed = editorFindingsCache.find(v => v.status === 'Not_Reviewed');
+        if (unreviewed) {
+            // Find and click the LI in the DOM to trigger the standard flow
+            const lis = Array.from(document.querySelectorAll('#editor-vuln-list li'));
+            const targetLi = lis.find(li => li.querySelector('.vid-text').textContent === unreviewed.vid);
+            if(targetLi) {
+                targetLi.click();
+                targetLi.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        } else {
+            showToast('No unreviewed findings remaining.', 'success');
+        }
+    });
+
+    const setDirty = (dirty) => {
+        isDirty = dirty;
+        const ind = document.getElementById('editor-dirty-indicator');
+        if (ind) {
+            dirty ? ind.classList.remove('hidden') : ind.classList.add('hidden');
+        }
+    }
+
+    ['editor-status', 'editor-finding-details', 'editor-comments'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', () => setDirty(true));
+    });
+
+    document.getElementById('editor-copy-rem-btn')?.addEventListener('click', () => {
+        const text = document.getElementById('editor-rem-snippet')?.textContent;
+        if(text) copyToClipboard(text);
+    });
+
+    // BP Apply
+    document.getElementById('editor-apply-bp-btn')?.addEventListener('click', () => {
+        if (!editorActiveVid) return;
+        const status = document.getElementById('editor-status').value;
+        const bp = _bpData[editorActiveVid] || _bpData['V-*'] || {};
+        const template = bp[status];
+        if (template) {
+            if (template.finding_details) document.getElementById('editor-finding-details').value = template.finding_details;
+            if (template.comments) document.getElementById('editor-comments').value = template.comments;
+            showToast('Boilerplate populated.', 'success');
+            setDirty(true);
+        } else {
+            showToast(`No boilerplate found for ${editorActiveVid} (${status})`, 'warn');
+        }
+    });
+
     document.getElementById('editor-save-btn')?.addEventListener('click', async () => {
         if (!editorActiveVid || !editorB64Str) return;
         
@@ -1353,13 +1811,21 @@ function wireAssessmentEditor() {
             }
             
             showToast(`${editorActiveVid} saved!`, 'success');
-            renderEditorVulnList(document.getElementById('editor-search').value);
+            setDirty(false);
             
             document.getElementById('editor-status-badge').className = `status-badge badge-${newStatus === 'Open' ? 'Open' : newStatus}`;
             document.getElementById('editor-status-badge').textContent = newStatus;
             
-            document.getElementById('editor-download-btn')?.classList.add('btn-pulse');
-            setTimeout(() => document.getElementById('editor-download-btn')?.classList.remove('btn-pulse'), 3000);
+            updateEditorProgress();
+            
+            // Re-render list but preserve active selection efficiently
+            const lis = Array.from(document.querySelectorAll('#editor-vuln-list li'));
+            const targetLi = lis.find(li => li.querySelector('.vid-text').textContent === editorActiveVid);
+            if(targetLi) {
+                const indicator = targetLi.querySelector('.status-indicator');
+                indicator.className = `status-indicator ${newStatus === 'Open' ? 'fail' : newStatus === 'NotAFinding' ? 'pass' : newStatus === 'Not_Applicable' ? 'na' : 'nr'}`;
+                indicator.title = newStatus;
+            }
             
             // Allow caller to hook into post-save success
             return true;
@@ -1407,9 +1873,11 @@ function wireAssessmentEditor() {
         }
     });
 
+    // Setup global download button for editor (if we add it in markup later)
     document.getElementById('editor-download-btn')?.addEventListener('click', () => {
         if (!editorB64Str) return;
         downloadB64(editorB64Str, editorVisibleFile.name.replace('.ckl', '_edited.ckl'));
         showToast('Checklist Downloaded!', 'success');
     });
 }
+

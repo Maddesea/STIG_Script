@@ -1,0 +1,4 @@
+[2026-04-10 11:00:11] [INFO    ] Info message
+[2026-04-10 11:00:11] [WARNING ] Warning message
+[2026-04-10 11:00:11] [ERROR   ] Error message
+[2026-04-10 11:00:11] [CRITICAL] Critical message

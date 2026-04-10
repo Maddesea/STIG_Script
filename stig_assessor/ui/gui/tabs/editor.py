@@ -3,8 +3,9 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinter.scrolledtext import ScrolledText
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
-from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_FONT_MONO, Status, GUI_FONT_HEADING, GUI_ENTRY_WIDTH_MEDIUM
+from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_FONT_MONO, GUI_FONT_NORMAL, Status, GUI_FONT_HEADING, GUI_ENTRY_WIDTH_MEDIUM
 from stig_assessor.io.file_ops import FO
 from stig_assessor.processor.html_report import _parse_checklist
 from stig_assessor.ui.helpers import ToolTip, TextContextMenu
@@ -56,10 +57,20 @@ def build_editor_tab(app, frame):
     app._editor_stats_open = tk.StringVar(value="Open: 0")
     app._editor_stats_naf = tk.StringVar(value="NotAFinding: 0")
     app._editor_stats_nr = tk.StringVar(value="Not Reviewed: 0")
+    app._editor_stats_na = tk.StringVar(value="N/A: 0")
 
     ttk.Label(status_summary_frame, textvariable=app._editor_stats_open, foreground="#ef4444", font=(GUI_FONT_NORMAL[0], 9, "bold")).pack(side="left", padx=GUI_PADDING)
     ttk.Label(status_summary_frame, textvariable=app._editor_stats_naf, foreground="#10b981", font=(GUI_FONT_NORMAL[0], 9, "bold")).pack(side="left", padx=GUI_PADDING)
     ttk.Label(status_summary_frame, textvariable=app._editor_stats_nr, foreground="#f59e0b", font=(GUI_FONT_NORMAL[0], 9, "bold")).pack(side="left", padx=GUI_PADDING)
+    ttk.Label(status_summary_frame, textvariable=app._editor_stats_na, foreground="#6b7280", font=(GUI_FONT_NORMAL[0], 9, "bold")).pack(side="left", padx=GUI_PADDING)
+
+    # Progress Bar
+    progress_frame = ttk.Frame(top_frame)
+    progress_frame.pack(fill="x", pady=(2, 0))
+    app._editor_progress_var = tk.DoubleVar()
+    app._editor_progress_text = tk.StringVar(value="0/0 (0%)")
+    ttk.Progressbar(progress_frame, variable=app._editor_progress_var, maximum=100).pack(side="left", fill="x", expand=True, padx=(0, GUI_PADDING))
+    ttk.Label(progress_frame, textvariable=app._editor_progress_text, font=(GUI_FONT_NORMAL[0], 9)).pack(side="left")
 
     search_row = ttk.Frame(top_frame)
     search_row.pack(fill="x", pady=(5, 0))
@@ -122,11 +133,48 @@ def build_editor_tab(app, frame):
         ttk.Button(content, text="Select All", command=_select_all_status, style="Text.TButton").pack(anchor="w", padx=10)
 
         ttk.Separator(content, orient="horizontal").pack(fill="x", pady=10)
+        ttk.Label(content, text="Filter by Severity:", font=(GUI_FONT_NORMAL[0], 10, "bold")).pack(anchor="w")
+        
+        sev_vars = {}
+        for sev, lbl in [("high", "CAT I (High)"), ("medium", "CAT II (Medium)"), ("low", "CAT III (Low)")]:
+            var = tk.BooleanVar(value=True)
+            sev_vars[sev] = var
+            ttk.Checkbutton(content, text=lbl, variable=var).pack(anchor="w", padx=10)
+
+        ttk.Separator(content, orient="horizontal").pack(fill="x", pady=10)
+        
+        ttk.Label(content, text="Script Options:", font=(GUI_FONT_NORMAL[0], 10, "bold")).pack(anchor="w")
+        dry_var = tk.BooleanVar(value=app._settings.get("ext_dry", False))
+        ttk.Checkbutton(content, text="Dry-Run (Print Commands Without Executing)", variable=dry_var).pack(anchor="w", padx=10)
+        rollback_var = tk.BooleanVar(value=app._settings.get("ext_roll", False))
+        ttk.Checkbutton(content, text="Enable PowerShell Registry Rollbacks (`reg export`)", variable=rollback_var).pack(anchor="w", padx=10)
+        evidence_var = tk.BooleanVar(value=app._settings.get("ext_evid", False))
+        ttk.Checkbutton(content, text="Generate Evidence Collection Scripts", variable=evidence_var).pack(anchor="w", padx=10)
+
+        ttk.Separator(content, orient="horizontal").pack(fill="x", pady=10)
+        ttk.Label(content, text="Target VIDs (Optional, comma-separated):", font=(GUI_FONT_NORMAL[0], 10, "bold")).pack(anchor="w")
+        vid_filter_var = tk.StringVar()
+        ttk.Entry(content, textvariable=vid_filter_var).pack(fill="x", padx=10, pady=(0, 5))
+        
+        def _save_editor_opts(*args):
+            app._settings["ext_dry"] = dry_var.get()
+            app._settings["ext_roll"] = rollback_var.get()
+            app._settings["ext_evid"] = evidence_var.get()
+            app._save_settings()
+            
+        dry_var.trace_add("write", _save_editor_opts)
+        rollback_var.trace_add("write", _save_editor_opts)
+        evidence_var.trace_add("write", _save_editor_opts)
         
         def _generate():
             selected_statuses = [s for s, v in status_vars.items() if v.get()]
             if not selected_statuses:
                 messagebox.showwarning("No Status Selected", "Please select at least one status.")
+                return
+                
+            selected_sevs = [s for s, v in sev_vars.items() if v.get()]
+            if not selected_sevs:
+                messagebox.showwarning("No Severity Selected", "Please select at least one severity.")
                 return
 
             xccdf_path = filedialog.askopenfilename(title="Select Source Benchmark (XCCDF/XML)", filetypes=[("XML files", "*.xml")])
@@ -137,19 +185,30 @@ def build_editor_tab(app, frame):
 
             try:
                 ext = FixExt(xccdf_path, checklist=app._editor_ckl_path)
-                ext.extract(status_filter=selected_statuses)
                 
-                plat = platform_filter = platform_var.get()
+                # Fetch target VIDs from the entry
+                vid_raw = vid_filter_var.get().strip()
+                vids = [v.strip().upper() for v in vid_raw.split(",") if v.strip()] if vid_raw else None
+                
+                ext.extract(status_filter=selected_statuses, vid_include=vids)
+                
+                if len(selected_sevs) < 3:
+                     ext.fixes = [f for f in ext.fixes if f.severity.lower() in selected_sevs]
+                
+                plat = platform_var.get()
                 out_name = f"remediate_{plat}.ps1" if plat == "windows" else f"remediate_{plat}.sh"
                 out_path = Path(out_dir) / out_name
                 
                 if plat == "windows":
-                    ext.to_powershell(out_path)
+                    ext.to_powershell(out_path, dry_run=dry_var.get(), enable_rollbacks=rollback_var.get())
                 else:
-                    ext.to_bash(out_path)
+                    ext.to_bash(out_path, dry_run=dry_var.get())
+                    
+                if evidence_var.get():
+                    ext.to_evidence(Path(out_dir) / f"gather_evidence_{plat}.{'ps1' if plat == 'windows' else 'sh'}")
                 
                 dialog.destroy()
-                messagebox.showinfo("Success", f"Playbook generated successfully:\n{out_path}\n\nMapping logs: evidence/*.log")
+                messagebox.showinfo("Success", f"Playbook generated successfully:\n{out_path}\n\nEvidence mapping logs and scripts are in the output directory.")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to generate playbook: {e}")
 
@@ -179,11 +238,13 @@ def build_editor_tab(app, frame):
     list_frame = ttk.Frame(pw)
     pw.add(list_frame, weight=1)
 
-    columns = ("vid", "status")
+    columns = ("vid", "severity", "status")
     app._editor_tree = ttk.Treeview(list_frame, columns=columns, show="headings", selectmode="extended")
     app._editor_tree.heading("vid", text="VID")
+    app._editor_tree.heading("severity", text="Severity")
     app._editor_tree.heading("status", text="Status")
-    app._editor_tree.column("vid", width=110, anchor="w")
+    app._editor_tree.column("vid", width=100, anchor="w")
+    app._editor_tree.column("severity", width=70, anchor="center")
     app._editor_tree.column("status", width=90, anchor="center")
     
     scroll_tree = ttk.Scrollbar(list_frame, orient="vertical", command=app._editor_tree.yview)
@@ -257,16 +318,29 @@ def build_editor_tab(app, frame):
     status_cb.pack(side="left")
     
     app._editor_rule_title_var = tk.StringVar()
-    ttk.Label(status_row, textvariable=app._editor_rule_title_var, foreground=app._colors.get("info", "blue"), wraplength=450).pack(side="left", padx=GUI_PADDING_LARGE)
+    ttk.Label(status_row, textvariable=app._editor_rule_title_var, foreground=app._colors.get("info", "blue"), wraplength=400).pack(side="left", padx=GUI_PADDING_LARGE)
+    
+    app._editor_severity_var = tk.StringVar()
+    app._editor_severity_lbl = ttk.Label(status_row, textvariable=app._editor_severity_var, font=("TkDefaultFont", 10, "bold"))
+    app._editor_severity_lbl.pack(side="right", padx=GUI_PADDING_LARGE)
+    
+    app._editor_is_dirty = False
+    
+    def _mark_dirty(*args):
+        app._editor_is_dirty = True
+        
+    app._editor_status_var.trace_add("write", _mark_dirty)
     
     ttk.Label(single_pane, text="Finding Details (Right-click to Copy/Paste):").pack(anchor="w", pady=(GUI_PADDING, 2))
     app._editor_details_txt = ScrolledText(single_pane, width=60, height=8, font=GUI_FONT_MONO)
     app._editor_details_txt.pack(fill="x", pady=(0, GUI_PADDING))
+    app._editor_details_txt.bind("<KeyRelease>", _mark_dirty)
     TextContextMenu(app._editor_details_txt)
 
     ttk.Label(single_pane, text="Comments (Right-click to Copy/Paste):").pack(anchor="w", pady=(GUI_PADDING, 2))
     app._editor_comments_txt = ScrolledText(single_pane, width=60, height=5, font=GUI_FONT_MONO)
     app._editor_comments_txt.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+    app._editor_comments_txt.bind("<KeyRelease>", _mark_dirty)
     TextContextMenu(app._editor_comments_txt)
 
     info_pw = ttk.PanedWindow(single_pane, orient="horizontal")
@@ -315,6 +389,7 @@ def build_editor_tab(app, frame):
                 
         try:
             FO.write_xml(app._editor_active_xml_tree, app._editor_ckl_path)
+            app._editor_is_dirty = False
             app.status_var.set(f"Saved {app._editor_current_vid} directly to checklist.")
             _refresh_editor_list()
             app._editor_tree.selection_set(app._editor_current_vid)
@@ -322,6 +397,21 @@ def build_editor_tab(app, frame):
             app._editor_tree.see(app._editor_current_vid)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save:\n{e}")
+
+    def _update_severity_badge(severity):
+        sev_lower = (severity or "unknown").lower()
+        if sev_lower == "high":
+            app._editor_severity_lbl.configure(foreground="#ef4444")
+            app._editor_severity_var.set("CAT I (High)")
+        elif sev_lower == "medium":
+            app._editor_severity_lbl.configure(foreground="#f59e0b")
+            app._editor_severity_var.set("CAT II (Medium)")
+        elif sev_lower == "low":
+            app._editor_severity_lbl.configure(foreground="#3b82f6")
+            app._editor_severity_var.set("CAT III (Low)")
+        else:
+            app._editor_severity_lbl.configure(foreground="gray")
+            app._editor_severity_var.set(severity or "")
 
     def _update_xml_vuln(vid, new_status, new_details, new_comments):
         root = app._editor_active_xml_tree.getroot()
@@ -375,22 +465,42 @@ def build_editor_tab(app, frame):
     def _apply_boilerplate():
         if not app._editor_current_vid:
             return
-            
+        
+        from datetime import datetime
+        current_status = app._editor_status_var.get()
+        
         try:
-            bp_all = app.proc.boiler.list_all()
-            bp = bp_all.get(app._editor_current_vid)
-            if not bp:
-                app.status_var.set(f"No boilerplate match found for {app._editor_current_vid}")
-                return
-                
-            app._editor_status_var.set(bp.get("status", Status.OPEN.value))
-            if bp.get("finding"):
+            # Resolve Asset Hostname from XML if possible
+            asset_name = "Unknown"
+            if app._editor_active_xml_tree:
+                from stig_assessor.xml.schema import Sch
+                host_info = app._editor_active_xml_tree.find(f".//{Sch.ASSET}")
+                if host_info is not None:
+                    asset_node = host_info.find(Sch.HOST_NAME)
+                    if asset_node is not None and asset_node.text:
+                        asset_name = asset_node.text
+
+            current_severity = app._editor_severity_var.get().replace("CAT I (", "").replace("CAT II (", "").replace("CAT III (", "").replace(")", "").lower() or "medium"
+            
+            kwargs = {
+                "asset": asset_name,
+                "severity": current_severity,
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "vid": app._editor_current_vid,
+                "status": current_status
+            }
+            
+            new_finding = app.proc.boiler.get_finding(app._editor_current_vid, current_status, **kwargs)
+            new_comment = app.proc.boiler.get_comment(app._editor_current_vid, current_status, **kwargs)
+            
+            if new_finding:
                 app._editor_details_txt.delete("1.0", tk.END)
-                app._editor_details_txt.insert("1.0", bp["finding"])
-            if bp.get("comment"):
+                app._editor_details_txt.insert("1.0", new_finding)
+            if new_comment:
                 app._editor_comments_txt.delete("1.0", tk.END)
-                app._editor_comments_txt.insert("1.0", bp["comment"])
-            app.status_var.set(f"Loaded Boilerplate for {app._editor_current_vid}")
+                app._editor_comments_txt.insert("1.0", new_comment)
+            app._editor_is_dirty = True
+            app.status_var.set(f"Loaded Boilerplate for {current_status}")
         except Exception as e:
              messagebox.showerror("Error", f"Failed to load boilerplate:\n{e}")
 
@@ -410,13 +520,120 @@ def build_editor_tab(app, frame):
     ttk.Label(bulk_pane, text="Bulk Edit Mode", font=GUI_FONT_HEADING).pack(pady=(20, 10))
     
     app._editor_bulk_count_var = tk.StringVar()
-    ttk.Label(bulk_pane, textvariable=app._editor_bulk_count_var).pack(pady=10)
-    
-    bulk_cb.pack(side="left")
+    ttk.Label(bulk_pane, textvariable=app._editor_bulk_count_var).pack(pady=(0, 10))
 
-    app._editor_bulk_append_var = tk.BooleanVar(value=True)
-    ttk.Checkbutton(bulk_status_row, text="Append to existing text (Finding/Comments)", variable=app._editor_bulk_append_var).pack(side="left", padx=GUI_PADDING_LARGE)
-    
+    # --- Bulk Status Row (properly created before use) ---
+    bulk_status_row = ttk.Frame(bulk_pane)
+    bulk_status_row.pack(fill="x", pady=GUI_PADDING)
+
+    ttk.Label(bulk_status_row, text="Set Status:", font=("TkDefaultFont", 10, "bold")).pack(side="left", padx=(0, GUI_PADDING))
+    app._editor_bulk_status_var = tk.StringVar(value=Status.NOT_A_FINDING.value)
+    bulk_cb = ttk.Combobox(
+        bulk_status_row,
+        textvariable=app._editor_bulk_status_var,
+        values=[Status.NOT_A_FINDING.value, Status.OPEN.value, Status.NOT_APPLICABLE.value, Status.NOT_REVIEWED.value],
+        state="readonly",
+        width=18,
+    )
+    bulk_cb.pack(side="left", padx=(0, GUI_PADDING_LARGE))
+
+    ttk.Label(bulk_status_row, text="Apply Mode:", font=("TkDefaultFont", 10, "bold")).pack(side="left", padx=(0, GUI_PADDING))
+    app._editor_bulk_apply_mode = tk.StringVar(value="append")
+    ttk.Combobox(
+        bulk_status_row,
+        textvariable=app._editor_bulk_apply_mode,
+        values=["overwrite", "append", "prepend", "merge"],
+        state="readonly",
+        width=12,
+    ).pack(side="left")
+
+    # Selection helper buttons
+    sel_row = ttk.Frame(bulk_pane)
+    sel_row.pack(fill="x", pady=(GUI_PADDING, 0))
+
+    def _select_all_filtered():
+        for item in app._editor_tree.get_children():
+            app._editor_tree.selection_add(item)
+        app._editor_tree.event_generate("<<TreeviewSelect>>")
+
+    def _invert_selection():
+        all_items = set(app._editor_tree.get_children())
+        selected = set(app._editor_tree.selection())
+        new_sel = all_items - selected
+        app._editor_tree.selection_set(*new_sel) if new_sel else app._editor_tree.selection_set()
+        app._editor_tree.event_generate("<<TreeviewSelect>>")
+
+    def _select_by_severity(sev):
+        if not app._editor_findings_cache:
+            return
+        matching = set()
+        for vuln in app._editor_findings_cache:
+            vid = vuln.get("vid", "")
+            if vuln.get("severity", "").lower() == sev.lower():
+                if app._editor_tree.exists(vid):
+                    matching.add(vid)
+        if matching:
+            app._editor_tree.selection_set(*matching)
+            app._editor_tree.event_generate("<<TreeviewSelect>>")
+
+    def _mark_all_visible():
+        items = app._editor_tree.get_children()
+        if not items: return
+        dialog = tk.Toplevel(app.root)
+        dialog.title("Mark All Visible")
+        dialog.transient(app.root)
+        ttk.Label(dialog, text=f"Set status for {len(items)} visible VIDs:", padding=GUI_PADDING_LARGE).pack()
+        
+        status_var = tk.StringVar(value=Status.NOT_A_FINDING.value)
+        ttk.Combobox(
+            dialog, textvariable=status_var,
+            values=[Status.NOT_A_FINDING.value, Status.OPEN.value, Status.NOT_APPLICABLE.value, Status.NOT_REVIEWED.value],
+            state="readonly"
+        ).pack(padx=GUI_PADDING_LARGE, fill="x")
+        
+        def _apply():
+            new_status = status_var.get()
+            dialog.destroy()
+            for vid in items:
+                vuln = next((v for v in app._editor_findings_cache if v.get("vid") == vid), {})
+                _update_xml_vuln(vid, new_status, vuln.get("finding", ""), vuln.get("comment", ""))
+            try:
+                FO.write_xml(app._editor_active_xml_tree, app._editor_ckl_path)
+                app.status_var.set(f"Marked {len(items)} visible rules as {new_status}")
+                _refresh_editor_list()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save {len(items)} rules:\n{e}")
+                
+        dlg_btn = ttk.Frame(dialog)
+        dlg_btn.pack(pady=GUI_PADDING_LARGE, fill="x", padx=GUI_PADDING_LARGE)
+        ttk.Button(dlg_btn, text="Apply", command=_apply).pack(side="right")
+        ttk.Button(dlg_btn, text="Cancel", command=dialog.destroy).pack(side="right", padx=GUI_PADDING)
+
+    def _select_by_status(s):
+        if not app._editor_findings_cache:
+            return
+        matching = set()
+        for vuln in app._editor_findings_cache:
+            vid = vuln.get("vid", "")
+            if vuln.get("status", "") == s:
+                if app._editor_tree.exists(vid):
+                    matching.add(vid)
+        if matching:
+            app._editor_tree.selection_set(*matching)
+            app._editor_tree.event_generate("<<TreeviewSelect>>")
+
+    # Group 1: Standard Select
+    ttk.Button(sel_row, text="☑ All", command=_select_all_filtered).pack(side="left", padx=2)
+    ttk.Button(sel_row, text="⊘ Inv", command=_invert_selection).pack(side="left", padx=2)
+    # Group 2: Severities
+    ttk.Button(sel_row, text="CAT I", command=lambda: _select_by_severity("high")).pack(side="left", padx=2)
+    ttk.Button(sel_row, text="CAT II", command=lambda: _select_by_severity("medium")).pack(side="left", padx=2)
+    ttk.Button(sel_row, text="CAT III", command=lambda: _select_by_severity("low")).pack(side="left", padx=2)
+    # Group 3: Status
+    ttk.Button(sel_row, text="Open", command=lambda: _select_by_status(Status.OPEN.value)).pack(side="left", padx=2)
+    ttk.Button(sel_row, text="N.R.", command=lambda: _select_by_status(Status.NOT_REVIEWED.value)).pack(side="left", padx=2)
+    ttk.Button(sel_row, text="⚡ Mark All Visible...", command=_mark_all_visible).pack(side="right", padx=2)
+
     ttk.Label(bulk_pane, text="Bulk Finding Details (Leave blank to keep existing):").pack(anchor="w", pady=(10, 2))
     app._editor_bulk_details = ScrolledText(bulk_pane, height=4, font=GUI_FONT_MONO)
     app._editor_bulk_details.pack(fill="x")
@@ -425,6 +642,23 @@ def build_editor_tab(app, frame):
     app._editor_bulk_comments = ScrolledText(bulk_pane, height=3, font=GUI_FONT_MONO)
     app._editor_bulk_comments.pack(fill="x")
     
+    def _apply_text_mode(existing, new_text, mode):
+        """Combine existing and new text using the specified mode."""
+        existing = existing or ""
+        if not new_text:
+            return existing
+        if mode == "overwrite":
+            return new_text
+        elif mode == "prepend":
+            return f"{new_text}\n\n{existing}" if existing.strip() else new_text
+        elif mode == "merge":
+            if existing.strip():
+                divider = "\n--- Boilerplate ---\n"
+                return f"{existing}{divider}{new_text}"
+            return new_text
+        else:  # append
+            return f"{existing}\n\n{new_text}" if existing.strip() else new_text
+
     def _execute_bulk_save():
         if not app._editor_active_xml_tree: return
         selections = app._editor_tree.selection()
@@ -432,30 +666,42 @@ def build_editor_tab(app, frame):
         new_status = app._editor_bulk_status_var.get()
         bulk_find = app._editor_bulk_details.get("1.0", "end-1c").strip()
         bulk_comm = app._editor_bulk_comments.get("1.0", "end-1c").strip()
-        do_append = app._editor_bulk_append_var.get()
+        mode = app._editor_bulk_apply_mode.get()
         
-        for vid in selections:
-            vuln = next((v for v in app._editor_findings_cache if v.get("vid") == vid), {})
-            
-            final_find = vuln.get("finding", "")
-            if bulk_find:
-                final_find = f"{final_find}\n\n{bulk_find}" if do_append and final_find else bulk_find
-            
-            final_comm = vuln.get("comment", "")
-            if bulk_comm:
-                final_comm = f"{final_comm}\n\n{bulk_comm}" if do_append and final_comm else bulk_comm
+        app._editor_bulk_progress["maximum"] = len(selections)
+        app._editor_bulk_progress["value"] = 0
+        import time
+        start_time = time.time()
+        
+        def _process_chunk(idx):
+            if idx >= len(selections):
+                try:
+                    FO.write_xml(app._editor_active_xml_tree, app._editor_ckl_path)
+                    app.status_var.set(f"Bulk saved {len(selections)} records to checklist.")
+                    _refresh_editor_list()
+                    for vid in selections:
+                        try: app._editor_tree.selection_add(vid)
+                        except Exception: pass
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to bulk save:\n{e}")
+                app._editor_bulk_progress["value"] = 0
+                return
                 
-            _update_xml_vuln(vid, new_status, final_find, final_comm)
-        
-        try:
-            FO.write_xml(app._editor_active_xml_tree, app._editor_ckl_path)
-            app.status_var.set(f"Bulk saved {len(selections)} records to checklist.")
-            _refresh_editor_list()
-            for vid in selections:
-                try: app._editor_tree.selection_add(vid)
-                except Exception: pass
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to bulk save:\n{e}")
+            chunk = min(idx + 50, len(selections))
+            for i in range(idx, chunk):
+                vid = selections[i]
+                vuln = next((v for v in app._editor_findings_cache if v.get("vid") == vid), {})
+                final_find = _apply_text_mode(vuln.get("finding", ""), bulk_find, mode)
+                final_comm = _apply_text_mode(vuln.get("comment", ""), bulk_comm, mode)
+                _update_xml_vuln(vid, new_status, final_find, final_comm)
+                
+            app._editor_bulk_progress["value"] = chunk
+            elapsed = time.time() - start_time
+            eta = (elapsed / chunk) * (len(selections) - chunk) if chunk > 0 else 0
+            app.status_var.set(f"Bulk saving... {chunk}/{len(selections)} (ETA: {int(eta)}s)")
+            app.root.after(10, _process_chunk, chunk)
+
+        _process_chunk(0)
 
     def _execute_bulk_boilerplate():
         if not app._editor_active_xml_tree: return
@@ -463,31 +709,80 @@ def build_editor_tab(app, frame):
         if not selections: return
         
         bp_all = app.proc.boiler.list_all()
-        applied_count = 0
-        for vid in selections:
-            bp = bp_all.get(vid)
-            if bp:
-                new_status = bp.get("status", Status.OPEN.value)
-                new_finding = bp.get("finding", "")
-                new_comment = bp.get("comment", "")
-                _update_xml_vuln(vid, new_status, new_finding, new_comment)
+        mode = app._editor_bulk_apply_mode.get()
+        wildcard = bp_all.get("V-*", {})
+        
+        app._editor_bulk_progress["maximum"] = len(selections)
+        app._editor_bulk_progress["value"] = 0
+        import time
+        start_time = time.time()
+        
+        def _process_chunk(idx, applied_count):
+            if idx >= len(selections):
+                if applied_count > 0:
+                    try:
+                        FO.write_xml(app._editor_active_xml_tree, app._editor_ckl_path)
+                        app.status_var.set(f"Applied boilerplates to {applied_count} out of {len(selections)} selected.")
+                        _refresh_editor_list()
+                        for vid in selections:
+                            try: app._editor_tree.selection_add(vid)
+                            except Exception: pass
+                    except Exception as e:
+                        messagebox.showerror("Error", f"Failed to bulk save boilerplates:\n{e}")
+                else:
+                    app.status_var.set("No boilerplates matched the selected vulnerabilities.")
+                app._editor_bulk_progress["value"] = 0
+                return
+
+            from datetime import datetime
+            now_str = datetime.now().strftime("%Y-%m-%d")
+            
+            # Fetch asset name once for bulk
+            asset_name = "Unknown"
+            if app._editor_active_xml_tree:
+                from stig_assessor.xml.schema import Sch
+                host_info = app._editor_active_xml_tree.find(f".//{Sch.ASSET}")
+                if host_info is not None:
+                    asset_node = host_info.find(Sch.HOST_NAME)
+                    if asset_node is not None and asset_node.text:
+                        asset_name = asset_node.text
+
+            chunk = min(idx + 50, len(selections))
+            for i in range(idx, chunk):
+                vid = selections[i]
+                vuln = next((v for v in app._editor_findings_cache if v.get("vid") == vid), {})
+                current_status = vuln.get("status", Status.NOT_REVIEWED.value)
+                
+                kwargs = {
+                    "asset": asset_name,
+                    "severity": vuln.get("severity", "medium").lower(),
+                    "date": now_str,
+                    "vid": vid,
+                    "status": current_status
+                }
+                
+                new_finding = app.proc.boiler.get_finding(vid, current_status, **kwargs)
+                new_comment = app.proc.boiler.get_comment(vid, current_status, **kwargs)
+                
+                if not new_finding and not new_comment: continue
+                
+                final_find = _apply_text_mode(vuln.get("finding", ""), new_finding, mode)
+                final_comm = _apply_text_mode(vuln.get("comment", ""), new_comment, mode)
+                _update_xml_vuln(vid, current_status, final_find, final_comm)
                 applied_count += 1
                 
-        if applied_count > 0:
-            try:
-                FO.write_xml(app._editor_active_xml_tree, app._editor_ckl_path)
-                app.status_var.set(f"Applied boilerplates to {applied_count} out of {len(selections)} selected.")
-                _refresh_editor_list()
-                for vid in selections:
-                    try: app._editor_tree.selection_add(vid)
-                    except Exception: pass
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to bulk save boilerplates:\n{e}")
-        else:
-            app.status_var.set("No boilerplates matched the selected vulnerabilities.")
+            app._editor_bulk_progress["value"] = chunk
+            elapsed = time.time() - start_time
+            eta = (elapsed / chunk) * (len(selections) - chunk) if chunk > 0 else 0
+            app.status_var.set(f"Applying boilerplates... {chunk}/{len(selections)} (ETA: {int(eta)}s)")
+            app.root.after(10, _process_chunk, chunk, applied_count)
+
+        _process_chunk(0, 0)
 
     bulk_btn_row = ttk.Frame(bulk_pane)
-    bulk_btn_row.pack(pady=20)
+    bulk_btn_row.pack(pady=20, fill="x")
+    
+    app._editor_bulk_progress = ttk.Progressbar(bulk_btn_row, mode="determinate")
     
     ttk.Button(bulk_btn_row, text="💾 Bulk Save Status", command=_execute_bulk_save, style="Accent.TButton", width=20).pack(side="left", padx=10)
     ttk.Button(bulk_btn_row, text="📋 Bulk Apply Boilerplates", command=_execute_bulk_boilerplate, width=25).pack(side="left", padx=10)
@@ -512,6 +807,68 @@ def build_editor_tab(app, frame):
 
     app.root.bind("<Control-s>", _bind_save, add="+")
     app.root.bind("<Control-S>", _bind_save, add="+")
+    
+    def _bind_save_next(event):
+        try:
+            idx = app.notebook.index(app.notebook.select())
+            tab_name = app.notebook.tab(idx, "text")
+            if "Editor" in tab_name:
+                selections = app._editor_tree.selection()
+                if len(selections) <= 1:
+                    _save_and_next()
+                return "break"
+        except Exception:
+            pass
+            
+    app.root.bind("<Control-Return>", _bind_save_next, add="+")
+    
+    # Keyboard navigation helper for treeview
+    def _tree_key_nav(event):
+        try:
+            idx = app.notebook.index(app.notebook.select())
+            tab_name = app.notebook.tab(idx, "text")
+            if "Editor" in tab_name:
+                app._editor_tree.focus_set()
+        except:
+            pass
+            
+    app.root.bind("<Up>", _tree_key_nav, add="+")
+    app.root.bind("<Down>", _tree_key_nav, add="+")
+
+    def _bind_bp(event):
+        try:
+            idx = app.notebook.index(app.notebook.select())
+            tab_name = app.notebook.tab(idx, "text")
+            if "Editor" in tab_name:
+                _apply_boilerplate()
+                return "break"
+        except Exception: pass
+        
+    app.root.bind("<Control-b>", _bind_bp, add="+")
+    app.root.bind("<Control-B>", _bind_bp, add="+")
+
+    def _bind_nav(event, direction):
+        try:
+            idx = app.notebook.index(app.notebook.select())
+            if "Editor" not in app.notebook.tab(idx, "text"): return
+            if not app._editor_current_vid: return
+            items = app._editor_tree.get_children()
+            if not items: return
+            
+            try: current_idx = items.index(app._editor_current_vid)
+            except ValueError: return
+            
+            new_idx = current_idx + direction
+            if 0 <= new_idx < len(items):
+                app._editor_tree.selection_set(items[new_idx])
+                app._editor_tree.see(items[new_idx])
+                return "break"
+        except Exception: pass
+        
+    app.root.bind("<Alt-Up>", lambda e: _bind_nav(e, -1), add="+")
+    app.root.bind("<Control-Up>", lambda e: _bind_nav(e, -1), add="+")
+    app.root.bind("<Alt-Down>", lambda e: _bind_nav(e, 1), add="+")
+    app.root.bind("<Control-Down>", lambda e: _bind_nav(e, 1), add="+")
 
     def _refresh_editor_list():
         query = search_var.get().lower()
@@ -524,26 +881,37 @@ def build_editor_tab(app, frame):
         cnt_open = 0
         cnt_naf = 0
         cnt_nr = 0
+        cnt_na = 0
+        total_vulns = len(app._editor_findings_cache)
         
         for vuln in app._editor_findings_cache:
             vid = vuln.get("vid", "")
             status = vuln.get("status", Status.NOT_REVIEWED.value)
             rt = vuln.get("rule_title", "")
+            severity = vuln.get("severity", "medium").lower()
             
             if status == Status.OPEN.value: cnt_open += 1
             elif status == Status.NOT_A_FINDING.value: cnt_naf += 1
             elif status == Status.NOT_REVIEWED.value: cnt_nr += 1
+            elif status == Status.NOT_APPLICABLE.value: cnt_na += 1
             
             if filter_status != "All Statuses" and status != filter_status:
                 continue
             if query and query not in vid.lower() and query not in status.lower() and query not in rt.lower():
                 continue
                 
-            app._editor_tree.insert("", "end", iid=vid, values=(vid, status), tags=(status,))
+            app._editor_tree.insert("", "end", iid=vid, values=(vid, severity.title(), status), tags=(status,))
             
         app._editor_stats_open.set(f"Open: {cnt_open}")
         app._editor_stats_naf.set(f"NotAFinding: {cnt_naf}")
         app._editor_stats_nr.set(f"Not Reviewed: {cnt_nr}")
+        app._editor_stats_na.set(f"N/A: {cnt_na}")
+        
+        # Update progress bar
+        reviewed = cnt_naf + cnt_na + cnt_open
+        pct = (reviewed / total_vulns * 100) if total_vulns > 0 else 0
+        app._editor_progress_var.set(pct)
+        app._editor_progress_text.set(f"{reviewed}/{total_vulns} ({int(pct)}%)")
         
         for vid in selections:
             if app._editor_tree.exists(vid):
@@ -552,6 +920,13 @@ def build_editor_tab(app, frame):
     def _on_vid_select(event):
         sel = app._editor_tree.selection()
         if not sel: return
+        
+        # Unsaved changes checking
+        if getattr(app, '_editor_is_dirty', False) and getattr(app, '_editor_current_vid', None) and app._editor_current_vid not in sel:
+            if not messagebox.askyesno("Unsaved Changes", f"You have unsaved changes in {app._editor_current_vid}.\n\nDiscard changes and continue?"):
+                # Cancel tree navigation and restore old selection without firing event again
+                app._editor_tree.selection_set(app._editor_current_vid)
+                return
         
         if len(sel) > 1:
             single_pane.grid_remove()

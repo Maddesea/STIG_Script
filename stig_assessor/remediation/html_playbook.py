@@ -153,6 +153,73 @@ def generate_html_playbook(extractor: Any, out_path: str) -> str:
         
         .tab-content {{ display: none; }}
         .tab-content.active {{ display: block; }}
+        
+        .controls-row {{
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            align-items: center;
+        }}
+        
+        .search-bar {{
+            flex-grow: 1;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.2);
+            color: var(--tx-main);
+            font-size: 1rem;
+        }}
+        .search-bar:focus {{ outline: 2px solid var(--ac-primary); }}
+        
+        .progress-container {{
+            width: 200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            height: 12px;
+            flex-shrink: 0;
+            position: relative;
+        }}
+        .progress-bar {{
+            height: 100%;
+            background: var(--ac-primary);
+            width: 0%;
+            transition: width 0.3s;
+        }}
+        .progress-text {{
+            font-size: 0.85rem;
+            color: var(--tx-muted);
+            white-space: nowrap;
+        }}
+        
+        .check-container {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+        .check-container input[type="checkbox"] {{
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }}
+        .fix-card.completed {{
+            opacity: 0.6;
+            border-left-color: #10b981;
+        }}
+        .fix-card.completed .fix-title {{ text-decoration: line-through; color: #10b981; }}
+
+        @media print {{
+            body {{ background: #fff; color: #000; }}
+            .header {{ background: #fff; border-bottom: 1px solid #ddd; padding: 1rem; }}
+            .header h1, .header p {{ color: #000; }}
+            .stat-card, .fix-card {{ background: #fff; border: 1px solid #eee; box-shadow: none; break-inside: avoid; }}
+            .stat-card h3 {{ color: #000; }}
+            .tabs, .controls-row, .copy-btn {{ display: none !important; }}
+            .tab-content {{ display: block !important; }}
+            .code-block {{ background: #f8f9fa; border: 1px solid #ddd; color: #000; }}
+            .fix-vid, .fix-text, .fix-title {{ color: #000 !important; background: none !important; }}
+        }}
     </style>
 </head>
 <body>
@@ -185,6 +252,16 @@ def generate_html_playbook(extractor: Any, out_path: str) -> str:
         <button class="tab-btn" onclick="switchTab('low')">CAT III ({len(low)})</button>
     </div>
 
+    <div class="controls-row">
+        <input type="text" id="searchInput" class="search-bar" placeholder="Search VIDs, Titles, or Rules..." onkeyup="filterCards()">
+        <div class="check-container">
+            <span class="progress-text" id="progressText">0 / {len(fixes)} Completed</span>
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="tab-all" class="tab-content active">
 """
     
@@ -213,17 +290,45 @@ def generate_html_playbook(extractor: Any, out_path: str) -> str:
             <code>{html.escape(f.check_command)}</code>
         </div>
 """
+        details_html = ""
+        if f.discussion:
+            details_html += f"""
+            <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+                <div style="font-size: 0.75rem; color: var(--ac-primary); margin-bottom: 4px; font-weight: bold; text-transform: uppercase;">Discussion / Background</div>
+                <div style="color: var(--tx-muted); font-size: 0.9rem;">{html.escape(f.discussion)}</div>
+            </div>
+"""
+        if f.mitigation:
+            details_html += f"""
+            <div style="margin-top: 10px;">
+                <div style="font-size: 0.75rem; color: #10b981; margin-bottom: 4px; font-weight: bold; text-transform: uppercase;">Mitigation Strategy</div>
+                <div style="color: var(--tx-muted); font-size: 0.9rem;">{html.escape(f.mitigation)}</div>
+            </div>
+"""
+        if f.false_positives:
+            details_html += f"""
+            <div style="margin-top: 10px;">
+                <div style="font-size: 0.75rem; color: #f59e0b; margin-bottom: 4px; font-weight: bold; text-transform: uppercase;">Potential False Positives</div>
+                <div style="color: var(--tx-muted); font-size: 0.9rem;">{html.escape(f.false_positives)}</div>
+            </div>
+"""
+
         return f"""
-        <div class="fix-card {sev_class}">
+        <div class="fix-card {sev_class}" id="card-{safe_id}">
             <div class="fix-header">
                 <div>
                     <div class="fix-title">{html.escape(f.title)}</div>
                     <span class="fix-vid">{html.escape(f.vid)}</span>
                     <span class="fix-vid">{html.escape(f.rule_id)}</span>
                 </div>
+                <div class="check-container" title="Mark as Completed">
+                    <input type="checkbox" id="check-{safe_id}" onchange="toggleCompletion('{safe_id}')">
+                    <label for="check-{safe_id}" style="color:var(--tx-muted); font-size:0.9rem; cursor:pointer;">Done</label>
+                </div>
             </div>
-            <div class="fix-text">{html.escape(f.fix_text)}</div>
+            <div class="fix-text" style="font-style: italic; color: #94a3b8; font-size: 0.9rem; margin-bottom: 12px; border-left: 2px solid rgba(255,255,255,0.1); padding-left: 10px;">{html.escape(f.fix_text)}</div>
             {cmd_html}
+            {details_html}
         </div>
 """
 
@@ -267,6 +372,64 @@ function copyCode(btn, b64Code) {
             btn.style.background = "rgba(255,255,255,0.1)";
         }, 2000);
     });
+}
+
+const totalFixes = parseInt("{len(fixes)}", 10) || 1;
+
+function updateProgress() {
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="check-"]');
+    const checked = Array.from(checkboxes).filter(cb => cb.checked);
+    // Use a Set to handle duplicates across tabs
+    const uniqueIds = new Set(checked.map(cb => cb.id));
+    const count = uniqueIds.size;
+    
+    document.getElementById('progressText').innerText = `${Math.min(count, totalFixes)} / ${totalFixes} Completed`;
+    document.getElementById('progressBar').style.width = `${Math.min((count / totalFixes) * 100, 100)}%`;
+}
+
+function toggleCompletion(safeId) {
+    const isChecked = document.getElementById('check-' + safeId).checked;
+    
+    // Sync checkboxes across tabs
+    document.querySelectorAll(`input[id="check-${safeId}"]`).forEach(cb => cb.checked = isChecked);
+    document.querySelectorAll(`div[id="card-${safeId}"]`).forEach(card => {
+        if (isChecked) {
+            card.classList.add('completed');
+        } else {
+            card.classList.remove('completed');
+        }
+    });
+
+    if (isChecked) {
+        localStorage.setItem(`stig_playbook_${safeId}`, 'true');
+    } else {
+        localStorage.removeItem(`stig_playbook_${safeId}`);
+    }
+    
+    updateProgress();
+}
+
+function filterCards() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('.fix-card').forEach(card => {
+        const text = card.innerText.toLowerCase();
+        card.style.display = text.includes(query) ? 'block' : 'none';
+    });
+}
+
+window.onload = function() {
+    document.querySelectorAll('.fix-card').forEach(card => {
+        if (!card.id) return;
+        const safeId = card.id.replace('card-', '');
+        if (localStorage.getItem(`stig_playbook_${safeId}`)) {
+            const cb = document.getElementById('check-' + safeId);
+            if(cb) {
+                cb.checked = true;
+                card.classList.add('completed');
+            }
+        }
+    });
+    updateProgress();
 }
 </script>
 

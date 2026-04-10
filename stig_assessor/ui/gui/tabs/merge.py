@@ -61,11 +61,15 @@ def build_merge_tab(app, frame):
     ttk.Label(input_frame, text="History Files:").grid(
         row=1, column=0, sticky="nw", pady=GUI_PADDING
     )
+    ttk.Label(input_frame, text="(💡 Drag & drop supported)", font=("TkDefaultFont", 8), foreground="gray").grid(
+        row=2, column=0, sticky="nw", padx=(0, 4)
+    )
 
     list_container = ttk.Frame(input_frame)
     list_container.grid(
         row=1,
         column=1,
+        rowspan=2,
         padx=GUI_PADDING,
         pady=GUI_PADDING,
         sticky="ew",
@@ -134,7 +138,7 @@ def build_merge_tab(app, frame):
         app.merge_list.delete(0, tk.END)
 
     btn_frame = ttk.Frame(input_frame)
-    btn_frame.grid(row=1, column=2, sticky="n", pady=GUI_PADDING)
+    btn_frame.grid(row=1, column=2, rowspan=2, sticky="n", pady=GUI_PADDING)
     ttk.Button(btn_frame, text="Add Files…", command=_add_merge_hist).pack(
         fill="x", pady=2
     )
@@ -212,64 +216,346 @@ def build_merge_tab(app, frame):
         "Fill empty finding details and comments with\ndefault boilerplate text based on the vulnerability status.",
     )
 
-    def _do_merge():
-        if not app.merge_base.get() or not app.merge_out.get():
-            app._show_inline_error(
-                btn_merge,
-                "Missing input: Please provide base checklist and output path.",
-            )
+    # ═══ Granular Merge Controls ═══
+    granular_frame = ttk.LabelFrame(frame, text="Merge Strategy & Granular Control", padding=GUI_PADDING_LARGE)
+    granular_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
+
+    # Row 1: Conflict and Text Modes
+    strategy_row = ttk.Frame(granular_frame)
+    strategy_row.pack(fill="x", pady=(0, GUI_PADDING))
+
+    ttk.Label(strategy_row, text="Conflict Resolution:", font=("TkDefaultFont", 10, "bold")).pack(side="left", padx=(0, GUI_PADDING))
+    app.merge_conflict = tk.StringVar(value="prefer_history")
+    conflict_cb = ttk.Combobox(
+        strategy_row,
+        textvariable=app.merge_conflict,
+        values=["prefer_history", "prefer_base", "prefer_most_assessed"],
+        state="readonly",
+        width=20,
+    )
+    conflict_cb.pack(side="left", padx=(0, GUI_PADDING_LARGE))
+
+    ttk.Label(strategy_row, text="Finding Details Mode:").pack(side="left", padx=(0, 4))
+    app.merge_details_mode = tk.StringVar(value="overwrite")
+    ttk.Combobox(
+        strategy_row,
+        textvariable=app.merge_details_mode,
+        values=["overwrite", "prepend", "append", "keep_base", "keep_history"],
+        state="readonly",
+        width=12,
+    ).pack(side="left", padx=(0, GUI_PADDING_LARGE))
+
+    ttk.Label(strategy_row, text="Comments Mode:").pack(side="left", padx=(0, 4))
+    app.merge_comments_mode = tk.StringVar(value="overwrite")
+    ttk.Combobox(
+        strategy_row,
+        textvariable=app.merge_comments_mode,
+        values=["overwrite", "prepend", "append", "keep_base", "keep_history"],
+        state="readonly",
+        width=12,
+    ).pack(side="left")
+
+    # Row 2: Status Mode and Status Filter
+    filter_row = ttk.Frame(granular_frame)
+    filter_row.pack(fill="x", pady=(GUI_PADDING, 0))
+
+    ttk.Label(filter_row, text="Status Mode:").pack(side="left", padx=(0, 4))
+    app.merge_status_mode = tk.StringVar(value="overwrite")
+    ttk.Combobox(
+        filter_row,
+        textvariable=app.merge_status_mode,
+        values=["overwrite", "keep_base", "keep_history"],
+        state="readonly",
+        width=12,
+    ).pack(side="left", padx=(0, GUI_PADDING_LARGE))
+
+    ttk.Label(filter_row, text="Filter by Status (comma-sep, optional):").pack(side="left", padx=(0, 4))
+    app.merge_status_filter = tk.StringVar(value="")
+    ttk.Entry(filter_row, textvariable=app.merge_status_filter, width=20).pack(side="left", padx=(0, GUI_PADDING_LARGE))
+
+    ttk.Label(filter_row, text="Filter by Severity (comma-sep, optional):").pack(side="left", padx=(0, 4))
+    app.merge_severity_filter = tk.StringVar(value="")
+    ttk.Entry(filter_row, textvariable=app.merge_severity_filter, width=20).pack(side="left")
+
+    # Row 3: Profile Actions
+    import json
+    profile_row = ttk.Frame(granular_frame)
+    profile_row.pack(fill="x", pady=(GUI_PADDING_LARGE, 0))
+
+    def _save_merge_profile():
+        path = filedialog.asksaveasfilename(
+            title="Save Merge Profile",
+            defaultextension=".json",
+            filetypes=[("JSON Profile", "*.json")],
+        )
+        if not path:
+            return
+        
+        profile = {
+            "preserve_history": app.merge_preserve.get(),
+            "apply_boilerplates": app.merge_bp.get(),
+            "conflict": app.merge_conflict.get(),
+            "details_mode": app.merge_details_mode.get(),
+            "comments_mode": app.merge_comments_mode.get(),
+            "status_mode": app.merge_status_mode.get(),
+            "status_filter": app.merge_status_filter.get(),
+            "severity_filter": app.merge_severity_filter.get(),
+        }
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(profile, f, indent=2)
+            app.status_var.set("Merge profile saved successfully.")
+        except Exception as e:
+            messagebox.showerror("Save Error", str(e))
+
+    def _load_merge_profile():
+        path = filedialog.askopenfilename(
+            title="Load Merge Profile",
+            filetypes=[("JSON Profile", "*.json")],
+        )
+        if not path:
+            return
+            
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                profile = json.load(f)
+            if "preserve_history" in profile: app.merge_preserve.set(profile["preserve_history"])
+            if "apply_boilerplates" in profile: app.merge_bp.set(profile["apply_boilerplates"])
+            if "conflict" in profile: app.merge_conflict.set(profile["conflict"])
+            if "details_mode" in profile: app.merge_details_mode.set(profile["details_mode"])
+            if "comments_mode" in profile: app.merge_comments_mode.set(profile["comments_mode"])
+            if "status_mode" in profile: app.merge_status_mode.set(profile["status_mode"])
+            if "status_filter" in profile: app.merge_status_filter.set(profile["status_filter"])
+            if "severity_filter" in profile: app.merge_severity_filter.set(profile["severity_filter"])
+            app.status_var.set("Merge profile loaded successfully.")
+        except Exception as e:
+            messagebox.showerror("Load Error", str(e))
+
+    ttk.Button(profile_row, text="💾 Save Profile", command=_save_merge_profile).pack(side="left", padx=(0, 10))
+    ttk.Button(profile_row, text="📂 Load Profile", command=_load_merge_profile).pack(side="left")
+
+    def _build_merge_kwargs():
+        """Gather all granular merge parameters from the UI."""
+        status_f = [s.strip() for s in app.merge_status_filter.get().split(",")] if app.merge_status_filter.get() else None
+        sev_f = [s.strip() for s in app.merge_severity_filter.get().split(",")] if app.merge_severity_filter.get() else None
+
+        return {
+            "conflict_resolution": app.merge_conflict.get(),
+            "details_mode": app.merge_details_mode.get(),
+            "comments_mode": app.merge_comments_mode.get(),
+            "status_mode": app.merge_status_mode.get(),
+            "status_filter": [s for s in status_f if s] if status_f else None,
+            "severity_filter": [s for s in sev_f if s] if sev_f else None,
+        }
+
+    # ═══ Merge Preview Panel ═══
+    preview_frame = ttk.LabelFrame(frame, text="Affected Rules", padding=GUI_PADDING_LARGE)
+    preview_frame.pack(fill="both", expand=True, pady=(0, GUI_PADDING))
+
+    preview_cols = ("vid", "severity", "changes")
+    app.merge_preview_tree = ttk.Treeview(
+        preview_frame,
+        columns=preview_cols,
+        show="headings",
+        height=5,
+        selectmode="extended"
+    )
+    app.merge_preview_tree.heading("vid", text="VID")
+    app.merge_preview_tree.heading("severity", text="Severity")
+    app.merge_preview_tree.heading("changes", text="Changes / Status")
+    app.merge_preview_tree.column("vid", width=120)
+    app.merge_preview_tree.column("severity", width=80)
+    app.merge_preview_tree.column("changes", width=500)
+    app.merge_preview_tree.pack(side="left", fill="both", expand=True)
+
+    preview_scroll = ttk.Scrollbar(preview_frame, orient="vertical", command=app.merge_preview_tree.yview)
+    preview_scroll.pack(side="right", fill="y")
+    app.merge_preview_tree.config(yscrollcommand=preview_scroll.set)
+
+    tree_toolbar = ttk.Frame(preview_frame)
+    tree_toolbar.pack(fill="x", pady=(5, 0))
+
+    def _select_all_merge():
+        app.merge_preview_tree.selection_set(app.merge_preview_tree.get_children())
+        
+    def _clear_merge_selection():
+        app.merge_preview_tree.selection_remove(app.merge_preview_tree.selection())
+
+    ttk.Button(tree_toolbar, text="Select All", command=_select_all_merge).pack(side="left", padx=(0, 5))
+    ttk.Button(tree_toolbar, text="Clear Selection", command=_clear_merge_selection).pack(side="left", padx=(0, 15))
+
+    app.merge_selected_only = tk.BooleanVar(value=False)
+    ttk.Checkbutton(
+        tree_toolbar,
+        text="Only merge selected vulnerabilities from preview grid above",
+        variable=app.merge_selected_only,
+    ).pack(side="left")
+
+    def _do_preview():
+        if not app.merge_base.get() or not app.merge_histories:
+            messagebox.showinfo("Missing Input", "Base and History files are required for preview.")
             return
 
-        out_path = Path(app.merge_out.get())
-        if out_path.exists():
-            if not messagebox.askyesno(
-                "Overwrite?",
-                f"{out_path.name} already exists.\nOverwrite it?",
-            ):
-                return
-
-        histories = list(app.merge_histories)
-
-        in_base = app.merge_base.get()
-        in_out = app.merge_out.get()
-        in_preserve = app.merge_preserve.get()
-        in_bp = app.merge_bp.get()
+        kwargs = _build_merge_kwargs()
 
         def work():
-            return app.proc.merge(
-                in_base,
-                histories,
-                in_out,
-                preserve_history=in_preserve,
-                apply_boilerplate=in_bp,
+            return app.proc.merge_preview(
+                app.merge_base.get(),
+                app.merge_histories,
+                status_filter=kwargs.get("status_filter"),
+                severity_filter=kwargs.get("severity_filter"),
+            )
+
+        def done(res):
+            for row in app.merge_preview_tree.get_children():
+                app.merge_preview_tree.delete(row)
+
+            if isinstance(res, Exception):
+                messagebox.showerror("Preview Failed", str(res))
+                return
+
+            preview_list = res.get("preview", [])
+            for p in preview_list:
+                change_strs = []
+                for c in p.get("changes", []):
+                    if c["field"] == "status":
+                        change_strs.append(f"Status: {c['from']}->{c['to']}")
+                    else:
+                        change_strs.append(f"{c['field']} length: {c['from_length']}->{c['to_length']}")
+                app.merge_preview_tree.insert("", tk.END, values=(
+                    p.get("vid", ""),
+                    p.get("severity", ""),
+                    " | ".join(change_strs)
+                ))
+            app.status_var.set(f"Preview: {res.get('total_affected', 0)} VIDs would be affected ({res.get('filtered', 0)} filtered)")
+
+        app.status_var.set("Generating preview...")
+        app._async(work, done)
+
+    def _do_merge(dry=False):
+        if not app.merge_base.get() or not app.merge_histories:
+            app._show_inline_error(btn_merge, "Missing input: base and history required.")
+            return
+        if not dry and not app.merge_out.get():
+            app._show_inline_error(btn_merge, "Missing output path.")
+            return
+
+        out_path_str = app.merge_out.get() if not dry else app.merge_base.get().replace(".ckl", "_preview.ckl")
+        if not dry and Path(out_path_str).exists():
+            if not messagebox.askyesno("Overwrite?", f"{Path(out_path_str).name} already exists. Overwrite?"):
+                return
+
+        merge_kwargs = _build_merge_kwargs()
+        
+        # Only inject vid_list if we're actually merging (or dry run merging)
+        # and the user explicitly ticked the box.
+        if app.merge_selected_only.get():
+            sel_items = app.merge_preview_tree.selection()
+            if not sel_items:
+                messagebox.showwarning("No Selection", "You checked 'Only merge selected' but selected nothing in the preview grid.")
+                return
+            
+            vid_list = [app.merge_preview_tree.item(item, "values")[0] for item in sel_items]
+            merge_kwargs["vid_list"] = vid_list
+
+        def work():
+            return app.proc.merge_advanced(
+                app.merge_base.get(),
+                app.merge_histories,
+                out_path_str,
+                preserve_history=app.merge_preserve.get(),
+                apply_boilerplate=app.merge_bp.get(),
+                dry=dry,
+                **merge_kwargs,
             )
 
         def done(result):
             if isinstance(result, Exception):
                 app.status_var.set(f"✘ Error: {result}")
                 messagebox.showerror("Merge Failed", str(result))
+                return
+
+            updated = result.get("updated", 0)
+            skipped = result.get("skipped", 0)
+            filtered = result.get("filtered", 0)
+            
+            # Populate summary frame
+            app.merge_updated_var.set(f"Updated: {updated}")
+            app.merge_skipped_var.set(f"Skipped: {skipped}")
+            app.merge_protected_var.set(f"Protected/Filtered: {filtered}")
+            
+            # Show the results frame if not already packed
+            if not getattr(app, '_merge_results_packed', False):
+                app.merge_results_frame.pack(fill="x", pady=GUI_PADDING, after=btn_row)
+                app._merge_results_packed = True
+            
+            if dry:
+                _do_preview()
+                app.status_var.set(f"Dry Run: {updated} would change, {skipped} skipped, {filtered} filtered")
             else:
-                updated = result.get("updated", 0)
-                skipped = result.get("skipped", 0)
-                app.status_var.set(f"✔ Merged checklist: {result.get('output')}")
+                _do_preview() # Show actual changes
+                out_path = result.get('output')
+                app.status_var.set(f"✔ Merged checklist saved: {out_path}")
+                
+                # Configure open button
+                def _open_out():
+                    import os, sys, subprocess
+                    dir_path = str(Path(out_path).parent)
+                    if os.name == "nt": os.startfile(dir_path)
+                    elif sys.platform == "darwin": subprocess.call(["open", dir_path])
+                    else: subprocess.call(["xdg-open", dir_path])
+                    
+                app.merge_open_btn.configure(command=_open_out)
+                
                 messagebox.showinfo(
                     "Merge Complete",
                     f"Merge completed successfully.\n\n"
-                    f"Vulnerabilities updated: {updated}\n"
-                    f"Unchanged: {skipped}\n"
-                    f"Output: {result.get('output', 'N/A')}",
+                    f"Updated: {updated}\n"
+                    f"Skipped: {skipped}\n"
+                    f"Filtered out: {filtered}",
                 )
 
-        app.status_var.set("Processing…")
+        app.status_var.set("Processing merge...")
         app._async(work, done)
 
+    btn_row = ttk.Frame(frame)
+    btn_row.pack(pady=GUI_PADDING_SECTION)
+
+    btn_preview = ttk.Button(
+        btn_row,
+        text="👁 Preview Merge",
+        command=lambda: _do_merge(dry=True),
+        width=18,
+    )
+    btn_preview.pack(side="left", padx=GUI_PADDING)
+    ToolTip(btn_preview, "Run a dry-run merge to preview what would change\nwithout writing any files.")
+
     btn_merge = ttk.Button(
-        frame,
+        btn_row,
         text="🔀 Merge Checklists",
-        command=_do_merge,
+        command=lambda: _do_merge(dry=False),
         width=GUI_BUTTON_WIDTH_WIDE,
         style="Accent.TButton",
     )
-    btn_merge.pack(pady=GUI_PADDING_SECTION)
+    btn_merge.pack(side="left", padx=GUI_PADDING)
     app._action_buttons.append(btn_merge)
-    app.action_merge = _do_merge
+    app.action_merge = lambda: _do_merge(dry=False)
+
+    # ═══ Merge Results Panel ═══
+    app.merge_results_frame = ttk.LabelFrame(frame, text="Merge Results Summary", padding=GUI_PADDING_LARGE)
+    
+    stats_row = ttk.Frame(app.merge_results_frame)
+    stats_row.pack(fill="x", pady=5)
+    
+    app.merge_updated_var = tk.StringVar(value="Updated: 0")
+    app.merge_skipped_var = tk.StringVar(value="Skipped: 0")
+    app.merge_protected_var = tk.StringVar(value="Protected/Filtered: 0")
+    
+    ttk.Label(stats_row, textvariable=app.merge_updated_var, foreground="#10b981", font=("TkDefaultFont", 10, "bold")).pack(side="left", padx=(0, GUI_PADDING_LARGE))
+    ttk.Label(stats_row, textvariable=app.merge_skipped_var, foreground="#6b7280", font=("TkDefaultFont", 10, "bold")).pack(side="left", padx=GUI_PADDING_LARGE)
+    ttk.Label(stats_row, textvariable=app.merge_protected_var, foreground="#f59e0b", font=("TkDefaultFont", 10, "bold")).pack(side="left", padx=GUI_PADDING_LARGE)
+    
+    app.merge_open_btn = ttk.Button(stats_row, text="📂 Open Output Folder")
+    app.merge_open_btn.pack(side="right")
+
+

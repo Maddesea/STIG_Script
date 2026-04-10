@@ -6,17 +6,24 @@ import tempfile
 from pathlib import Path
 from typing import List
 
+import xml.etree.ElementTree as ET
 from stig_assessor.core.state import GLOBAL_STATE
 from stig_assessor.evidence.manager import EVIDENCE
 from stig_assessor.processor.processor import Proc
 from stig_assessor.remediation.extractor import FixExt
 from stig_assessor.remediation.processor import FixResPro
+from stig_assessor.xml.utils import XmlUtils
 
 
 def _decode_to_temp(b64_str: str, suffix: str) -> Path:
     if not isinstance(b64_str, str) or not b64_str.strip():
         raise ValueError(f"Missing or invalid file content payload for {suffix}")
     try:
+        # Normalize and fix padding if necessary for some non-standard b64 sources
+        b64_str = b64_str.strip()
+        padding = len(b64_str) % 4
+        if padding:
+            b64_str += "=" * (4 - padding)
         content_bytes = base64.b64decode(b64_str)
     except Exception as e:
         raise ValueError(f"Malformed base64 encoding: {e}")
@@ -164,6 +171,18 @@ def handle_merge_ckls(payload: dict) -> dict:
     filename = payload.get("filename", "merged.ckl")
     preserve_history = payload.get("preserve_history", True)
 
+    # Advanced merge options
+    use_advanced = payload.get("use_advanced", False)
+    status_filter = payload.get("status_filter") or None
+    severity_filter = payload.get("severity_filter") or None
+    vid_include = payload.get("vid_include") or None
+    vid_exclude = payload.get("vid_exclude") or None
+    vid_list = payload.get("vid_list") or None
+    details_mode = payload.get("details_mode", "keep_history")
+    comments_mode = payload.get("comments_mode", "keep_history")
+    status_mode = payload.get("status_mode", "keep_history")
+    conflict_resolution = payload.get("conflict_resolution", "prefer_history")
+
     base_path = None
     hist_paths = []
     out_path = None
@@ -178,16 +197,33 @@ def handle_merge_ckls(payload: dict) -> dict:
         GLOBAL_STATE.add_temp(out_path)
 
         proc = Proc()
-        result = proc.merge(
-            base=base_path,
-            histories=hist_paths,
-            out=out_path,
-            preserve_history=preserve_history,
-        )
+
+        if use_advanced:
+            result = proc.merge_advanced(
+                base=base_path,
+                histories=hist_paths,
+                out=out_path,
+                preserve_history=preserve_history,
+                status_filter=status_filter,
+                severity_filter=severity_filter,
+                vid_include=vid_include,
+                vid_exclude=vid_exclude,
+                vid_list=vid_list,
+                details_mode=details_mode,
+                comments_mode=comments_mode,
+                status_mode=status_mode,
+                conflict_resolution=conflict_resolution,
+            )
+        else:
+            result = proc.merge(
+                base=base_path,
+                histories=hist_paths,
+                out=out_path,
+                preserve_history=preserve_history,
+            )
 
         out_b64 = _encode_from_temp(out_path)
 
-        # Processor returns 'updated' — frontend reads 'processed'
         processed = result.get("updated", 0) + result.get("skipped", 0)
 
         return {
@@ -199,6 +235,8 @@ def handle_merge_ckls(payload: dict) -> dict:
                 "processed": processed,
                 "updated": result.get("updated", 0),
                 "skipped": result.get("skipped", 0),
+                "filtered": result.get("filtered", 0),
+                "affected_vids": result.get("affected_vids", []),
             },
         }
     finally:
@@ -278,7 +316,6 @@ def handle_bp_reset(payload: dict) -> dict:
         "status": "success",
         "message": "Boilerplates reset to factory defaults",
     }
-
 
 def handle_evidence_summary(payload: dict) -> dict:
     return {"status": "success", "summary": EVIDENCE.summary()}
@@ -360,7 +397,19 @@ def handle_extract_fixes(payload: dict) -> dict:
             ckl_path = _decode_to_temp(ckl_b64, ".ckl")
 
         extractor = FixExt(str(in_path), checklist=ckl_path)
-        extractor.extract(status_filter=status_filter if ckl_path else None)
+
+        severity_filter = payload.get("severity_filter") or None
+        vid_include_regex = payload.get("vid_include_regex") or None
+        vid_exclude_regex = payload.get("vid_exclude_regex") or None
+        vid_list = payload.get("vid_include") # This is often passed as 'vid_include' array from UI
+        
+        extractor.extract(
+            status_filter=status_filter if ckl_path else None,
+            severity_filter=severity_filter,
+            vid_list=vid_list if isinstance(vid_list, list) else None,
+            vid_include=vid_include_regex,
+            vid_exclude=vid_exclude_regex,
+        )
 
         extractor.to_json(dir_path / "fixes.json")
         extractor.to_csv(dir_path / "fixes.csv")
@@ -408,6 +457,61 @@ def handle_extract_fixes(payload: dict) -> dict:
             shutil.rmtree(dir_path)
         except Exception:
             pass
+
+
+def handle_extract_preview(payload: dict) -> dict:
+    """Quick preview: extract in memory and return a summary without writing files."""
+    b64_content = payload.get("b64_content", "") or payload.get("content_b64", "")
+    filename = payload.get("filename", "upload.xml")
+    ckl_b64 = payload.get("ckl_b64", "")
+    status_filter = payload.get("status_filter", ["Open", "Not_Reviewed"])
+
+    in_path = None
+    ckl_path = None
+
+    try:
+        ext = Path(filename).suffix
+        in_path = _decode_to_temp(b64_content, ext)
+
+        if ckl_b64:
+            ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+
+        extractor = FixExt(str(in_path), checklist=ckl_path)
+
+        severity_filter = payload.get("severity_filter") or None
+        vid_include_regex = payload.get("vid_include_regex") or None
+        vid_exclude_regex = payload.get("vid_exclude_regex") or None
+        
+        extractor.extract(
+            status_filter=status_filter if ckl_path else None,
+            severity_filter=severity_filter,
+            vid_include=vid_include_regex,
+            vid_exclude=vid_exclude_regex,
+        )
+
+        results = []
+        for f in extractor.fixes:
+            has_cmd = "Both" if f.fix_command and f.check_command else "Fix" if f.fix_command else "Check" if f.check_command else "None"
+            results.append({
+                "vid": f.vid,
+                "severity": f.severity,
+                "platform": f.platform,
+                "has_cmd": has_cmd,
+                "fix_text": f.fix_text or "",
+                "check_text": f.check_text or "",
+                "fix_command": f.fix_command or "",
+                "check_command": f.check_command or ""
+            })
+
+        return {
+            "status": "success",
+            "data": {
+                "fixes": results,
+                "stats": extractor.stats_summary(),
+            }
+        }
+    finally:
+        _cleanup_paths([in_path, ckl_path])
 
 
 def handle_diff(payload: dict) -> dict:
@@ -471,28 +575,11 @@ def handle_stats(payload: dict) -> dict:
             "Not_Reviewed": by_status.get("Not_Reviewed", 0),
         }
 
-        # Build the per-finding detail rows for the Analytics table
-        findings_details = []
         try:
-            tree = proc._load_file_as_xml(ckl_path)
-            root = tree.getroot()
-            vulns = proc._extract_vuln_data(root)
-            for vid, vdata in vulns.items():
-                findings_details.append(
-                    {
-                        "vid": vid,
-                        "status": vdata.get("status", "Not_Reviewed"),
-                        "severity": vdata.get("severity", "medium"),
-                        "details": vdata.get("finding_details", ""),
-                        "rule_title": vdata.get("rule_title", ""),
-                        "check_content": vdata.get("check_content", ""),
-                        "fix_text": vdata.get("fix_text", ""),
-                        "comments": vdata.get("comments", ""),
-                    }
-                )
-        except Exception:
-            # If per-finding extraction fails, return empty list
-            pass
+            findings_details = _build_analytics_details(proc, ckl_path)
+        except Exception as e:
+            from stig_assessor.core.logging import LOG
+            LOG.e(f"Failed to extract per-finding detail rows: {e}")
 
         return {
             "status": "success",
@@ -513,6 +600,26 @@ def handle_stats(payload: dict) -> dict:
         }
     finally:
         _cleanup_paths([ckl_path])
+
+
+def _build_analytics_details(proc: Proc, ckl_path: Path) -> List[Dict[str, str]]:
+    """Helper to extract flat finding detail rows for the frontend Analytics table."""
+    details = []
+    tree = proc._load_file_as_xml(ckl_path)
+    root = tree.getroot()
+    vulns = proc._extract_vuln_data(root)
+    for vid, vdata in vulns.items():
+        details.append({
+            "vid": vid,
+            "status": vdata.get("status", "Not_Reviewed"),
+            "severity": vdata.get("severity", "medium"),
+            "details": vdata.get("finding_details", ""),
+            "rule_title": vdata.get("rule_title", ""),
+            "check_content": vdata.get("check_content", ""),
+            "fix_text": vdata.get("fix_text", ""),
+            "comments": vdata.get("comments", ""),
+        })
+    return details
 
 
 def handle_fleet_stats(payload: dict) -> dict:
@@ -786,10 +893,14 @@ def handle_bulk_edit(payload: dict) -> dict:
     regex_vid = payload.get("regex_vid")
     if regex_vid == "":
         regex_vid = None
-        
+
+    status_filter = payload.get("status_filter") or None
     new_status = payload.get("new_status")
     new_comment = payload.get("new_comment", "")
+    new_finding = payload.get("new_finding", "")
     append_comment = payload.get("append_comment", False)
+    append_finding = payload.get("append_finding", False)
+    preview_mode = payload.get("preview", False)
     
     if not new_status:
         return {"status": "error", "message": "new_status is required"}
@@ -809,11 +920,26 @@ def handle_bulk_edit(payload: dict) -> dict:
             out_path,
             severity=severity,
             regex_vid=regex_vid,
+            status_filter=status_filter,
             new_status=new_status,
             new_comment=new_comment,
-            append_comment=append_comment
+            new_finding=new_finding,
+            append_comment=append_comment,
+            append_finding=append_finding,
+            preview=preview_mode,
         )
-        
+
+        if preview_mode:
+            return {
+                "status": "success",
+                "message": f"Preview: {result.get('updates', 0)} vulnerabilities would be affected.",
+                "data": {
+                    "preview": True,
+                    "updates": result.get("updates", 0),
+                    "affected_vids": result.get("affected_vids", []),
+                },
+            }
+
         out_b64 = _encode_from_temp(out_path)
         
         return {
@@ -822,7 +948,8 @@ def handle_bulk_edit(payload: dict) -> dict:
             "data": {
                 "ckl_b64": out_b64,
                 "filename": filename.replace(".ckl", "_bulk_updated.ckl") if ".ckl" in filename else f"{filename}_updated.ckl",
-                "updates": result.get("updates", 0)
+                "updates": result.get("updates", 0),
+                "affected_vids": result.get("affected_vids", []),
             }
         }
     finally:
@@ -875,7 +1002,6 @@ def handle_assess_update(payload: dict) -> dict:
     out_path = None
     
     try:
-        from stig_assessor.processor.xml_utils import XmlUtils
         ckl_path = _decode_to_temp(ckl_b64, ".ckl")
         
         proc = Proc()
@@ -889,13 +1015,7 @@ def handle_assess_update(payload: dict) -> dict:
             attrs = vuln.findall("VULN_ATTRIBUTE")
             if any(a.text == "Vuln_Num" for a in attrs):
                 # Try to map attribute accurately
-                vnum_node = None
-                for a in vuln.findall("VULN_ATTRIBUTE"):
-                    if a.text == "Vuln_Num":
-                        # The actual VID is typically in the sibling ATTRIBUTE_DATA
-                        pass
-                
-                # Alternate faster lookup:
+                # Note: VID lookup is performed below via STIG_DATA nodes which is more reliable
                 vuln_vid = None
                 for attr_node in vuln.findall("STIG_DATA"):
                     name_node = attr_node.find("VULN_ATTRIBUTE")
@@ -955,6 +1075,156 @@ def handle_assess_update(payload: dict) -> dict:
         _cleanup_paths([ckl_path, out_path])
 
 
+def handle_merge_preview(payload: dict) -> dict:
+    """Preview merge changes without writing."""
+    base_b64 = payload.get("base_b64", "")
+    histories_b64 = payload.get("histories_b64", [])
+
+    base_path = None
+    hist_paths = []
+
+    try:
+        base_path = _decode_to_temp(base_b64, ".ckl")
+        for hist_b64 in histories_b64:
+            hist_paths.append(_decode_to_temp(hist_b64, ".ckl"))
+
+        proc = Proc()
+        result = proc.merge_preview(
+            base=base_path,
+            histories=hist_paths,
+            status_filter=payload.get("status_filter") or None,
+            severity_filter=payload.get("severity_filter") or None,
+            vid_include=payload.get("vid_include") or None,
+            vid_exclude=payload.get("vid_exclude") or None,
+            vid_list=payload.get("vid_list") or None,
+        )
+
+        return {"status": "success", "data": result}
+    finally:
+        _cleanup_paths([base_path] + hist_paths)
+
+
+def handle_bp_apply(payload: dict) -> dict:
+    """Apply boilerplates to a CKL file."""
+    ckl_b64 = payload.get("ckl_b64", "")
+    filename = payload.get("filename", "upload.ckl")
+    apply_mode = payload.get("apply_mode", "overwrite_empty")
+    status_filter = payload.get("status_filter") or None
+    severity_filter = payload.get("severity_filter") or None
+    vid_include = payload.get("vid_include") or None
+    date_override = payload.get("date_override") or None
+
+    ckl_path = None
+    out_path = None
+
+    try:
+        ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+
+        proc = Proc()
+        tree = proc._load_file_as_xml(ckl_path)
+        root = tree.getroot()
+
+        result = proc.boiler.apply_to_checklist(
+            root,
+            status_filter=status_filter,
+            severity_filter=severity_filter,
+            apply_mode=apply_mode,
+            vid_list=vid_include,
+            date_override=date_override,
+        )
+
+        XmlUtils.indent_xml(root)
+
+        with tempfile.NamedTemporaryFile(suffix=".ckl", delete=False) as tf:
+            out_path = Path(tf.name)
+        GLOBAL_STATE.add_temp(out_path)
+
+        proc._export_xml_to_file(root, out_path)
+        out_b64 = _encode_from_temp(out_path)
+
+        return {
+            "status": "success",
+            "message": f"Applied boilerplates to {result.get('applied', 0)} vulnerabilities.",
+            "data": {
+                "ckl_b64": out_b64,
+                "filename": filename,
+                "applied": result.get("applied", 0),
+                "skipped": result.get("skipped", 0),
+                "affected_vids": result.get("affected_vids", []),
+            },
+        }
+    finally:
+        _cleanup_paths([ckl_path, out_path])
+
+
+def handle_bp_preview(payload: dict) -> dict:
+    """Preview boilerplate application without writing."""
+    ckl_b64 = payload.get("ckl_b64", "")
+    apply_mode = payload.get("apply_mode", "overwrite_empty")
+    status_filter = payload.get("status_filter") or None
+    severity_filter = payload.get("severity_filter") or None
+    date_override = payload.get("date_override") or None
+
+    ckl_path = None
+    try:
+        ckl_path = _decode_to_temp(ckl_b64, ".ckl")
+        proc = Proc()
+        tree = proc._load_file_as_xml(ckl_path)
+        root = tree.getroot()
+
+        result = proc.boiler.apply_to_checklist(
+            root,
+            status_filter=status_filter,
+            severity_filter=severity_filter,
+            apply_mode=apply_mode,
+            date_override=date_override,
+        )
+
+        return {
+            "status": "success",
+            "data": {
+                "applied": result.get("applied", 0),
+                "skipped": result.get("skipped", 0),
+                "affected_vids": result.get("affected_vids", []),
+            },
+        }
+    finally:
+        _cleanup_paths([ckl_path])
+
+
+def handle_bp_search(payload: dict) -> dict:
+    """Search boilerplate text."""
+    query = payload.get("query", "").strip()
+    if not query:
+        return {"status": "error", "message": "query is required"}
+
+    proc = Proc()
+    results = proc.boiler.search(query)
+    return {"status": "success", "data": {"results": results, "count": len(results)}}
+
+
+def handle_bp_bulk_set(payload: dict) -> dict:
+    """Bulk-set boilerplate for multiple VIDs."""
+    vids = payload.get("vids", [])
+    status = payload.get("status", "").strip()
+    finding = payload.get("finding", "")
+    comment = payload.get("comment", "")
+
+    if not vids or not status:
+        return {"status": "error", "message": "vids and status are required"}
+
+    proc = Proc()
+    count = proc.boiler.bulk_set(vids, status, finding, comment)
+    return {"status": "success", "message": f"Set boilerplate for {count} VIDs"}
+
+
+def handle_bp_duplicates(payload: dict) -> dict:
+    """Find duplicate boilerplate templates."""
+    proc = Proc()
+    duplicates = proc.boiler.find_duplicates()
+    return {"status": "success", "data": {"duplicates": duplicates, "count": len(duplicates)}}
+
+
 def route_request(path: str, payload: dict) -> dict:
     """Route the request to the appropriate handler."""
     handlers = {
@@ -962,16 +1232,23 @@ def route_request(path: str, payload: dict) -> dict:
         "/api/v1/xccdf_to_ckl": handle_xccdf_to_ckl,
         "/api/v1/apply_results": handle_apply_results,
         "/api/v1/merge_ckls": handle_merge_ckls,
+        "/api/v1/merge_preview": handle_merge_preview,
         "/api/v1/bp_list": handle_bp_list,
         "/api/v1/bp_set": handle_bp_set,
         "/api/v1/bp_delete": handle_bp_delete,
         "/api/v1/bp_export": handle_bp_export,
         "/api/v1/bp_import": handle_bp_import,
         "/api/v1/bp_reset": handle_bp_reset,
+        "/api/v1/bp_apply": handle_bp_apply,
+        "/api/v1/bp_preview": handle_bp_preview,
+        "/api/v1/bp_search": handle_bp_search,
+        "/api/v1/bp_bulk_set": handle_bp_bulk_set,
+        "/api/v1/bp_duplicates": handle_bp_duplicates,
         "/api/v1/evidence/summary": handle_evidence_summary,
         "/api/v1/evidence/import": handle_evidence_import,
         "/api/v1/evidence/package": handle_evidence_package,
         "/api/v1/extract": handle_extract_fixes,
+        "/api/v1/extract_preview": handle_extract_preview,
         "/api/v1/fleet_stats": handle_fleet_stats,
         "/api/v1/diff": handle_diff,
         "/api/v1/stats": handle_stats,

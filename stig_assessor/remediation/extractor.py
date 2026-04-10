@@ -264,13 +264,22 @@ class FixExt:
             self._load_statuses()
 
     # ---------------------------------------------------------------- extract
-    def extract(self, status_filter: Optional[List[str]] = None) -> List[Fix]:
+    def extract(
+        self,
+        status_filter: Optional[List[str]] = None,
+        severity_filter: Optional[List[str]] = None,
+        vid_list: Optional[List[str]] = None,
+        vid_include: Optional[str] = None,
+        vid_exclude: Optional[str] = None,
+    ) -> List[Fix]:
         """
-        Extract all fixes from XCCDF, optionally filtering by checklist status.
+        Extract all fixes from XCCDF, optionally filtering by checklist status
+        and/or severity.
 
         Args:
             status_filter: Optional list of statuses to include (e.g. ['Open', 'Not_Reviewed']).
                           Only applies if a checklist was provided during initialization.
+            severity_filter: Optional list of severities to include (e.g. ['high', 'medium']).
 
         Returns:
             List of Fix objects
@@ -281,9 +290,13 @@ class FixExt:
         self.fixes = []  # Reset
         self.stats["with_fix"] = 0
         self.stats["with_command"] = 0
+        self.stats["with_check"] = 0
         self.stats["platforms"] = defaultdict(int)
+        self.stats["by_severity"] = defaultdict(int)
+        self.stats["manual_review"] = []
 
         status_set = {s.lower() for s in status_filter} if status_filter else None
+        sev_set = {s.lower() for s in severity_filter} if severity_filter else None
 
         with LOG.context(op="extract_fix", file=self.xccdf.name):
             LOG.i("Extracting fix information")
@@ -301,7 +314,7 @@ class FixExt:
 
             self.stats["total_groups"] = len(groups)
             
-            # Enhanced Status Filter Logic
+            # --- Setup Filtering ---
             is_all = False
             if status_filter:
                 status_set = {s.lower().strip() for s in status_filter}
@@ -310,10 +323,38 @@ class FixExt:
             else:
                 status_set = None
 
+            sev_set = {s.lower() for s in severity_filter} if severity_filter else None
+            
+            import re as _re
+            vid_inc_re = _re.compile(vid_include) if vid_include else None
+            vid_exc_re = _re.compile(_re.escape(vid_exclude)) if vid_exclude else None
+            # Actually, vid_exclude is usually a regex search too
+            if vid_exclude:
+                try:
+                    vid_exc_re = _re.compile(vid_exclude)
+                except _re.error:
+                    vid_exc_re = _re.compile(_re.escape(vid_exclude))
+            
+            vid_list_set = {v.strip().upper() for v in vid_list} if vid_list else None
+
             for idx, group in enumerate(groups, 1):
                 with suppress(ValueError, AttributeError, KeyError):
                     fix = self._parse_group(group)
                     if not fix:
+                        continue
+
+                    # VID List Filter
+                    if vid_list_set and fix.vid not in vid_list_set:
+                        continue
+                    
+                    # VID Regex Filters
+                    if vid_inc_re and not vid_inc_re.search(fix.vid):
+                        continue
+                    if vid_exc_re and vid_exc_re.search(fix.vid):
+                        continue
+
+                    # Severity filter
+                    if sev_set and fix.severity.lower() not in sev_set:
                         continue
 
                     # Universal Status Filter
@@ -326,20 +367,33 @@ class FixExt:
                     if include:
                         self.fixes.append(fix)
                         self.stats["with_fix"] += 1
+                        self.stats["by_severity"][fix.severity.lower()] += 1
                         if fix.fix_command:
                             self.stats["with_command"] += 1
+                        if fix.check_command:
+                            self.stats["with_check"] += 1
+                        if not fix.fix_command and not fix.check_command:
+                            self.stats["manual_review"].append(fix.vid)
                         self.stats["platforms"][fix.platform] += 1
 
-            filter_msg = ""
+            filter_msg = []
             if is_all:
-                filter_msg = " [ALL checks]"
+                filter_msg.append("ALL checks")
             elif status_filter:
-                filter_msg = f" [Filtered by: {', '.join(status_filter)}]"
+                filter_msg.append(f"Status: {', '.join(status_filter)}")
+            if severity_filter:
+                filter_msg.append(f"Severity: {', '.join(severity_filter)}")
+            if vid_list:
+                filter_msg.append(f"VID List: {len(vid_list)} items")
+            if vid_include:
+                filter_msg.append(f"Inc: {vid_include}")
+            
+            filter_str = f" [Filtered by: {' | '.join(filter_msg)}]" if filter_msg else ""
 
             LOG.i(
                 f"Extracted {len(self.fixes)} fixes "
                 f"({self.stats['with_command']} with actionable commands)"
-                f"{filter_msg}"
+                f"{filter_str}"
             )
             return self.fixes
 
@@ -489,19 +543,34 @@ class FixExt:
 
         platform = self._detect_platform(fix_text, fix_command)
 
+        # Enhance with structured description metadata
+        desc_node = find("description")
+        desc_text = text(desc_node) if desc_node is not None else ""
+        meta = XmlUtils.parse_description(desc_text)
+
+        check_node = find("check")
+        check_text_raw = ""
+        if check_node is not None:
+            ct = check_node.find("ns:check-content", self.ns) if self.ns else check_node.find("check-content")
+            check_text_raw = text(ct) if ct is not None else ""
+
         return Fix(
             vid=vid,
             rule_id=rule_id,
             severity=severity,
             title=title,
             group_title=group_title,
-            fix_text=fix_text,
+            fix_text=fix_text_raw,
             fix_command=fix_command,
             check_command=check_command,
             platform=platform,
             rule_version=rule_version,
             cci=cci_refs,
             legacy=legacy_refs,
+            discussion=meta.get("discussion", ""),
+            mitigation=meta.get("mitigation", ""),
+            check_text=check_text_raw,
+            false_positives=meta.get("false_positives", ""),
         )
 
     def _extract_markdown_patterns(
@@ -1298,127 +1367,116 @@ function Run-Check {
 
     def stats_summary(self) -> Dict[str, Any]:
         """
-        Get extraction statistics summary.
+        Get enhanced extraction statistics summary.
 
         Returns:
-            Dictionary with extraction statistics
+            Dictionary with extraction statistics including severity
+            breakdown, actionability metrics, and manual review list.
         """
+        manual_review = self.stats.get("manual_review", [])
         return {
             "total_groups": self.stats["total_groups"],
             "with_fix": self.stats["with_fix"],
             "with_command": self.stats["with_command"],
+            "with_check": self.stats.get("with_check", 0),
+            "with_both": sum(
+                1 for f in self.fixes if f.fix_command and f.check_command
+            ),
             "platforms": dict(self.stats["platforms"]),
-            "filtered": len(self.fixes)
+            "by_severity": dict(self.stats.get("by_severity", {})),
+            "manual_review_count": len(manual_review),
+            "manual_review_vids": manual_review[:50],
+            "filtered": len(self.fixes),
         }
 
-    # ═══ NEW: Evidence Collection Scripts ═══
-
-    def to_evidence_bash(self, path: Union[str, Path]) -> str:
+    def to_markdown(self, path: Union[str, Path]) -> str:
         """
-        Export checks to a Bash script that collects evidence and generates a JSON result.
-        """
-        path = Path(path)
-        script_parts = [
-            "#!/bin/bash",
-            "# Automated STIG Evidence Collection Script",
-            f"# Source: {self.xccdf.name}",
-            f"# Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            "",
-            "RESULTS_FILE=\"$(pwd)/evidence_results.json\"",
-            "echo \"{\" > \"$RESULTS_FILE\"",
-            "echo \"  \\\"meta\\\": {\", >> \"$RESULTS_FILE\"",
-            f"echo \"    \\\"source\\\": \\\"{self.xccdf.name}\\\",\", >> \"$RESULTS_FILE\"",
-            f"echo \"    \\\"timestamp\\\": \\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\",\", >> \"$RESULTS_FILE\"",
-            "echo \"    \\\"mode\\\": \\\"evidence_collection\\\"\", >> \"$RESULTS_FILE\"",
-            "echo \"  },\", >> \"$RESULTS_FILE\"",
-            "echo \"  \\\"results\\\": [\", >> \"$RESULTS_FILE\"",
-            ""
-        ]
+        Export fixes as a structured Markdown remediation runbook.
 
-        valid_fixes = [f for f in self.fixes if f.check_command]
-        for idx, fix in enumerate(valid_fixes):
-            script_parts.append(f"echo \"    [#] Collecting evidence for {fix.vid}...\"")
-            script_parts.append("OUTPUT=$(timeout 30s " + fix.check_command + " 2>&1)")
-            script_parts.append("EXIT_CODE=$?")
-            script_parts.append("OK=\"false\"")
-            script_parts.append("[ $EXIT_CODE -eq 0 ] && OK=\"true\"")
-            
-            # Append result to JSON using a heredoc for safety
-            script_parts.append("cat <<EOF >> \"$RESULTS_FILE\"")
-            script_parts.append("    {")
-            script_parts.append(f"      \"vid\": \"{fix.vid}\",")
-            script_parts.append("      \"ok\": $OK,")
-            script_parts.append("      \"ts\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",")
-            script_parts.append("      \"output\": $(echo \"$OUTPUT\" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))' 2>/dev/null || echo '\"'\"$OUTPUT\"'\"')")
-            script_parts.append("    }$( [ " + str(idx) + " -eq " + str(len(valid_fixes)-1) + " ] || echo \",\" )")
-            script_parts.append("EOF")
-            script_parts.append("")
+        Organized by severity → platform → VID for team use.
 
-        script_parts.append("echo \"  ]\" >> \"$RESULTS_FILE\"")
-        script_parts.append("echo \"}\" >> \"$RESULTS_FILE\"")
-        script_parts.append(f"echo \"[COMPLETED] Evidence saved to $RESULTS_FILE\"")
+        Args:
+            path: Output file path.
 
-        with open(path, "w", encoding="utf-8", newline="\n") as f:
-            f.write("\n".join(script_parts))
-        
-        try:
-            os.chmod(path, 0o755)
-        except (AttributeError, OSError):
-            pass
-
-        return str(path)
-
-    def to_evidence_powershell(self, path: Union[str, Path]) -> str:
-        """
-        Export checks to a PowerShell script that collects evidence and generates a JSON result.
+        Returns:
+            Path to the generated file.
         """
         path = Path(path)
-        script_parts = [
-            "<#",
-            "Automated STIG Evidence Collection Script (PowerShell)",
-            f"Source: {self.xccdf.name}",
-            f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            "#> ",
+        lines = [
+            f"# STIG Remediation Runbook",
+            f"",
+            f"**Source:** `{self.xccdf.name}`  ",
+            f"**Generated:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}  ",
+            f"**Total Fixes:** {len(self.fixes)}  ",
+            f"**Actionable Commands:** {self.stats['with_command']}  ",
+            f"",
+            "---",
             "",
-            "$Results = @()",
-            "$ResultsPath = \"$PSScriptRoot\\evidence_results.json\"",
-            ""
         ]
 
-        valid_fixes = [f for f in self.fixes if f.check_command]
-        for fix in valid_fixes:
-            safe_vid = fix.vid.replace("'", "''")
-            safe_cmd = fix.check_command.replace("'", "''")
-            
-            script_parts.append(f"Write-Host \"[#] Collecting evidence for {fix.vid}...\" -ForegroundColor Cyan")
-            script_parts.append("$Output = \"\"")
-            script_parts.append("$Ok = $false")
-            script_parts.append("try {")
-            script_parts.append(f"    $Output = Invoke-Expression '{safe_cmd}' 2>&1 | Out-String")
-            script_parts.append("    if ($LASTEXITCODE -eq 0 -or $?) { $Ok = $true }")
-            script_parts.append("} catch {")
-            script_parts.append("    $Output = \"Error: $_\"")
-            script_parts.append("}")
-            script_parts.append("")
-            script_parts.append(" $Results += @{")
-            script_parts.append(f"    vid = '{fix.vid}'")
-            script_parts.append("    ok = $Ok")
-            script_parts.append("    ts = [DateTime]::UtcNow.ToString('o')")
-            script_parts.append("    output = $Output.Trim()")
-            script_parts.append(" }")
-            script_parts.append("")
+        # Group by severity then platform
+        by_sev: Dict[str, Dict[str, List[Fix]]] = {}
+        for fix in self.fixes:
+            sev = fix.severity.upper()
+            plat = fix.platform
+            if sev not in by_sev:
+                by_sev[sev] = {}
+            if plat not in by_sev[sev]:
+                by_sev[sev][plat] = []
+            by_sev[sev][plat].append(fix)
 
-        script_parts.append("$Payload = @{")
-        script_parts.append(f"    meta = @{{ source = '{self.xccdf.name}'; mode = 'evidence_collection'; timestamp = [DateTime]::UtcNow.ToString('o') }}")
-        script_parts.append("    results = $Results")
-        script_parts.append("}")
-        script_parts.append("$Payload | ConvertTo-Json -Depth 10 | Out-File -FilePath $ResultsPath -Encoding UTF8")
-        script_parts.append("Write-Host \"`n[COMPLETED] Evidence saved to $ResultsPath\" -ForegroundColor Green")
+        sev_order = ["HIGH", "MEDIUM", "LOW"]
+        for sev in sev_order:
+            if sev not in by_sev:
+                continue
+            cat = {"HIGH": "I", "MEDIUM": "II", "LOW": "III"}.get(sev, "?")
+            total_in_sev = sum(len(v) for v in by_sev[sev].values())
+            lines.append(f"## CAT {cat} — {sev} ({total_in_sev} findings)")
+            lines.append("")
 
-        with open(path, "w", encoding="utf-8") as f:
-            f.write("\n".join(script_parts))
-            
+            for platform, fixes in sorted(by_sev[sev].items()):
+                lines.append(f"### Platform: {platform} ({len(fixes)} fixes)")
+                lines.append("")
+
+                for fix in fixes:
+                    status_tag = ""
+                    if self.statuses.get(fix.vid):
+                        status_tag = f" `{self.statuses[fix.vid]}`"
+                    lines.append(f"#### {fix.vid}{status_tag} — {fix.title[:100]}")
+                    lines.append("")
+
+                    if fix.fix_command:
+                        lines.append("**Fix Command:**")
+                        lines.append(f"```")
+                        lines.append(fix.fix_command)
+                        lines.append(f"```")
+                        lines.append("")
+
+                    if fix.check_command:
+                        lines.append("**Check Command:**")
+                        lines.append(f"```")
+                        lines.append(fix.check_command)
+                        lines.append(f"```")
+                        lines.append("")
+
+                    if not fix.fix_command and not fix.check_command:
+                        lines.append(f"**Manual Review Required**")
+                        lines.append("")
+                        if fix.fix_text:
+                            lines.append(f"> {fix.fix_text[:300]}")
+                            lines.append("")
+
+                    lines.append("- [ ] Completed")
+                    lines.append("")
+                    lines.append("---")
+                    lines.append("")
+
+        with FO.atomic(path) as handle:
+            handle.write("\n".join(lines))
+
+        LOG.i(f"Markdown runbook generated: {path} ({len(self.fixes)} fixes)")
         return str(path)
 
 
 __all__ = ["FixExt"]
+

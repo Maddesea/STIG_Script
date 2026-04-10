@@ -1,0 +1,438 @@
+{
+  "meta": {
+    "source": "C:\\Users\\Madden\\Desktop\\_Personal_GitHub_Repos\\STIG_Script\\STIGs\\U_SRG-STIG_Library_January_2026\\U_Cisco_IOS-XE_Switch_Y26M01_STIG\\U_Cisco_IOS-XE_Switch_L2S_V3R2_Manual_STIG\\U_Cisco_IOS-XE_Switch_L2S_STIG_V3R2_Manual-xccdf.xml",
+    "generated": "2026-04-10T17:17:55.951034+00:00",
+    "version": "8.1.0",
+    "stats": {
+      "total_groups": 22,
+      "with_fix": 22,
+      "with_command": 22,
+      "platforms": {
+        "network": 9,
+        "generic": 13
+      }
+    }
+  },
+  "fixes": [
+    {
+      "vid": "V-220649",
+      "rule_id": "SV-220649r863283_rule",
+      "severity": "high",
+      "title": "The Cisco switch must uniquely identify and authenticate all network-connected endpoint devices before establishing any connection.",
+      "group_title": "SRG-NET-000148-L2S-000015",
+      "fix_text": "Configure 802.1 x authentications on all host-facing access switch ports. To authenticate those devices that do not support 802.1x, MAC Authentication Bypass must be configured.\n\nStep 1: Configure the radius servers as shown in the example below:\n\nSW1(config)#radius server RADIUS_1\nSW1(config-radius-server)#address ipv4 10.1.22.3\nSW1(config-radius-server)#key xxxxxx\nSW1(config-radius-server)#exit\nSW1(config)#radius server RADIUS_2\nSW1(config-radius-server)#address ipv4 10.1.14.5\nSW1(config-radius-server)#key xxxxxx\nSW1(config-radius-server)#exit\n\nStep 2: Enable 802.1x authentication on the switch.\n\nSW1(config)#aaa new-model \nSW1(config)#aaa group server radius RADIUS_SERVERS\nSW1(config-sg-radius)#server name RADIUS_1\nSW1(config-sg-radius)#server name RADIUS_2\nSW1(config-sg-radius)#exit\nSW1(config)#aaa authentication dot1x default group RADIUS_SERVERS\nSW1(config)#dot1x system-auth-control\n\nStep 3: Enable 802.1x on all host-facing interfaces as shown in the example below:\n\nSW1(config)#int range g1/0 - 8\nSW1(config-if-range)#switchport mode access \nSW1(config-if-range)#authentication host-mode single-host \nSW1(config-if-range)#dot1x pae authenticator \nSW1(config-if-range)#authentication port-control auto \nSW1(config-if-range)#end \n\nNote: Single-host is the default. Host-mode multi-domain (for VoIP phone + PC) or multi-auth (multiple PCs connected to a hub) can be configured as alternatives.",
+      "fix_command": "802.1 x authentications on all host-facing access switch ports. To authenticate those devices that do not support 802.1x, MAC Authentication Bypass must be configured.",
+      "check_command": "if the switch configuration has 802.1x authentication implemented for all access switch ports connecting to LAN outlets (i.e., RJ-45 wall plates) or devices not located in the telecom room, wiring closets, or equipment rooms. MAC Authentication Bypass (MAB) must be configured on those switch ports connected to devices that do not support an 802.1x supplicant.",
+      "platform": "network",
+      "rule_version": "CISC-L2-000020",
+      "cci": [
+        "CCI-000778",
+        "CCI-001958"
+      ],
+      "legacy": [
+        "SV-110269",
+        "V-101165"
+      ]
+    },
+    {
+      "vid": "V-220650",
+      "rule_id": "SV-220650r539671_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must authenticate all VLAN Trunk Protocol (VTP) messages with a hash function using the most secured cryptographic algorithm available.",
+      "group_title": "SRG-NET-000168-L2S-000019",
+      "fix_text": "Configure the switch to authenticate all VLAN Trunk Protocol (VTP) messages with a hash function using a configured password as shown in the example below:\n\nSW1(config)#vtp password xxxxxxxxx",
+      "fix_command": "the switch to authenticate all VLAN Trunk Protocol (VTP) messages with a hash function using a configured password as shown in the example below:",
+      "check_command": ": VTP authenticates all messages using an MD5 hash that consists of the VTP version + The VTP Password + VTP Domain + VTP Configuration Revision.",
+      "platform": "generic",
+      "rule_version": "CISC-L2-000030",
+      "cci": [
+        "CCI-000803"
+      ],
+      "legacy": [
+        "SV-110271",
+        "V-101167"
+      ]
+    },
+    {
+      "vid": "V-220651",
+      "rule_id": "SV-220651r1107171_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must manage excess bandwidth to limit the effects of packet flooding types of denial-of-service (DoS) attacks.",
+      "group_title": "SRG-NET-000193-L2S-000020",
+      "fix_text": "Step 1: Configure class-maps to match on DSCP values as shown in the configuration example below:\n\nSW1(config-cmap)#class-map match-all C2_VOICE\nSW1(config-cmap)# match ip dscp 47\nSW1(config-cmap)#class-map match-all VOICE\nSW1(config-cmap)# match ip dscp ef\nSW1(config-cmap)#class-map match-all VIDEO\nSW1(config-cmap)# match ip dscp af41\nSW1(config)#class-map match-all PREFERRED_DATA\nSW1(config-cmap)# match ip dscp af33\nSW1(config-cmap)#exit\n\nStep 2: Configure a policy map to be applied to the core-layer-facing interface that reserves the bandwidth for each traffic type as shown in the example below:\n\nSW1(config)#policy-map QOS_POLICY_SWITCHPORT\nSW1(config-pmap-c)#class C2_VOICE\nSW1(config-pmap-c)# priority level 1 10\nSW1(config-pmap-c)#class VOICE\nSW1(config-pmap-c)# priority level 2 15\nSW1(config-pmap-c)#class VIDEO\nSW1(config-pmap-c)#bandwidth percent 25\nSW1(config-pmap-c)#class PREFERRED_DATA\nSW1(config-pmap-c)#bandwidth percent 25\nSW1(config-pmap-c)#class class-default\nSW1(config-pmap-c)#bandwidth percent 25\nSW1(config-pmap-c)#exit\nSW1(config-pmap)#exit\n\nStep 3: Apply the output service policy to the core-layer-facing interface as shown in the configuration example below:\n\nSW1(config)#int g1/1\nSW1(config-if)#service-policy output QOS_POLICY_SWITCHPORT\nSW1(config-if)#exit\nSW1(config)#int g1/2\nSW1(config-if)#service-policy output QOS_POLICY_SWITCHPORT\nSW1(config-if)#exit\nSW1(config)#int g1/3\nSW1(config-if)#service-policy output QOS_POLICY_SWITCHPORT\nSW1(config-if)#end.",
+      "fix_command": "2: Configure a policy map to be applied to the core-layer-facing interface that reserves the bandwidth for each traffic type as shown in the example below:",
+      "check_command": "1: Verify that the class-maps are configured to match on DSCP values as shown in the configuration example below:",
+      "platform": "network",
+      "rule_version": "CISC-L2-000040",
+      "cci": [
+        "CCI-001095",
+        "CCI-004866"
+      ],
+      "legacy": [
+        "SV-110273",
+        "V-101169"
+      ]
+    },
+    {
+      "vid": "V-220655",
+      "rule_id": "SV-220655r917683_rule",
+      "severity": "low",
+      "title": "The Cisco switch must have Root Guard enabled on all switch ports connecting to access layer switches.",
+      "group_title": "SRG-NET-000362-L2S-000021",
+      "fix_text": "Configure the switch to have Root Guard enabled on all ports connecting to access layer switches.\n\nSW1(config)#int range g0/0 - 9\nSW1(config-if-range)#spanning-tree guard root",
+      "fix_command": "the switch to have Root Guard enabled on all ports connecting to access layer switches.",
+      "check_command": "the switch topology as well as the configuration to verify that Root Guard is enabled on all switch ports connecting to access layer switches.",
+      "platform": "generic",
+      "rule_version": "CISC-L2-000090",
+      "cci": [
+        "CCI-002385"
+      ],
+      "legacy": [
+        "SV-110281",
+        "V-101177"
+      ]
+    },
+    {
+      "vid": "V-220656",
+      "rule_id": "SV-220656r856278_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must have BPDU Guard enabled on all user-facing or untrusted access switch ports.",
+      "group_title": "SRG-NET-000362-L2S-000022",
+      "fix_text": "Ensure that BPDU Guard is enabled on all user-facing or untrusted access switch ports as shown in the configuration example below:\n\nSW1(config)#int range g0/0 - 9\nSW1(config-if-range)#spanning-tree bpduguard enable\n\nNote: BPDU guard can also be enabled globally on all Port Fast-enabled ports by using the spanning-tree portfast bpduguard default command.",
+      "fix_command": ": BPDU guard can also be enabled globally on all Port Fast-enabled ports by using the spanning-tree portfast bpduguard default command.",
+      "check_command": "the switch configuration to verify that BPDU Guard is enabled on all user-facing or untrusted access switch ports as shown in the configuration example below:",
+      "platform": "generic",
+      "rule_version": "CISC-L2-000100",
+      "cci": [
+        "CCI-002385"
+      ],
+      "legacy": [
+        "SV-110283",
+        "V-101179"
+      ]
+    },
+    {
+      "vid": "V-220657",
+      "rule_id": "SV-220657r856279_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must have STP Loop Guard enabled.",
+      "group_title": "SRG-NET-000362-L2S-000023",
+      "fix_text": "Configure the switch to have STP Loop Guard enabled via the spanning-tree loopguard default global command.",
+      "fix_command": "the switch to have STP Loop Guard enabled via the spanning-tree loopguard default global command.",
+      "check_command": "the switch configuration to verify that STP Loop Guard is enabled as shown in the configuration example below:",
+      "platform": "generic",
+      "rule_version": "CISC-L2-000110",
+      "cci": [
+        "CCI-002385"
+      ],
+      "legacy": [
+        "SV-110285",
+        "V-101181"
+      ]
+    },
+    {
+      "vid": "V-220658",
+      "rule_id": "SV-220658r856280_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must have Unknown Unicast Flood Blocking (UUFB) enabled.",
+      "group_title": "SRG-NET-000362-L2S-000024",
+      "fix_text": "Configure the switch to have Unknown Unicast Flood Blocking (UUFB) enabled as shown in the configuration example below:\n\nSW1(config)#int range g0/0 - 9\nSW1(config-if-range)#switchport block unicast",
+      "fix_command": "the switch to have Unknown Unicast Flood Blocking (UUFB) enabled as shown in the configuration example below:",
+      "check_command": "the switch configuration to verify that UUFB is enabled on all access switch ports as shown in the configuration example below:",
+      "platform": "network",
+      "rule_version": "CISC-L2-000120",
+      "cci": [
+        "CCI-002385"
+      ],
+      "legacy": [
+        "SV-110287",
+        "V-101183"
+      ]
+    },
+    {
+      "vid": "V-220659",
+      "rule_id": "SV-220659r928999_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must have DHCP snooping for all user VLANs to validate DHCP messages from untrusted sources.",
+      "group_title": "SRG-NET-000362-L2S-000025",
+      "fix_text": "Configure the switch to have DHCP snooping for all user VLANs to validate DHCP messages from untrusted sources as shown in the example below: \n\nSW2(config)#ip dhcp snooping\nSW2(config)#ip dhcp snooping vlan 2,4-8,11",
+      "fix_command": "the switch to have DHCP snooping for all user VLANs to validate DHCP messages from untrusted sources as shown in the example below:",
+      "check_command": ": Switchports assigned to a user VLAN would have drops in the area where the user community would reside; hence, the \"untrusted\" term is used. Server and printer VLANs would not be applicable.",
+      "platform": "generic",
+      "rule_version": "CISC-L2-000130",
+      "cci": [
+        "CCI-002385"
+      ],
+      "legacy": [
+        "SV-110289",
+        "V-101185"
+      ]
+    },
+    {
+      "vid": "V-220660",
+      "rule_id": "SV-220660r929001_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must have IP Source Guard enabled on all user-facing or untrusted access switch ports.",
+      "group_title": "SRG-NET-000362-L2S-000026",
+      "fix_text": "Configure the switch to have IP Source Guard enabled on all user-facing or untrusted access switch ports.\n\nSW2(config)#int range g0/0 - 9\nSW2(config-if-range)#ip verify source",
+      "fix_command": "the switch to have IP Source Guard enabled on all user-facing or untrusted access switch ports.",
+      "check_command": ": The IP Source Guard feature depends on the entries in the DHCP snooping database or static IP-MAC-VLAN configuration commands to verify IP-to-MAC address bindings.",
+      "platform": "generic",
+      "rule_version": "CISC-L2-000140",
+      "cci": [
+        "CCI-002385"
+      ],
+      "legacy": [
+        "SV-110291",
+        "V-101187"
+      ]
+    },
+    {
+      "vid": "V-220661",
+      "rule_id": "SV-220661r929003_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must have Dynamic Address Resolution Protocol (ARP) Inspection (DAI) enabled on all user VLANs.",
+      "group_title": "SRG-NET-000362-L2S-000027",
+      "fix_text": "Configure the switch to have Dynamic Address Resolution Protocol (ARP) Inspection (DAI) enabled on all user VLANs as shown in the example below:\n\nSW2(config)#ip arp inspection vlan 2,4-8,11",
+      "fix_command": "the switch to have Dynamic Address Resolution Protocol (ARP) Inspection (DAI) enabled on all user VLANs as shown in the example below:",
+      "check_command": ": DAI depends on the entries in the DHCP snooping binding database to verify IP-to-MAC address bindings in incoming ARP requests and ARP responses.",
+      "platform": "generic",
+      "rule_version": "CISC-L2-000150",
+      "cci": [
+        "CCI-002385"
+      ],
+      "legacy": [
+        "SV-110293",
+        "V-101189"
+      ]
+    },
+    {
+      "vid": "V-220662",
+      "rule_id": "SV-220662r648766_rule",
+      "severity": "low",
+      "title": "The Cisco switch must have Storm Control configured on all host-facing switchports.",
+      "group_title": "SRG-NET-000512-L2S-000001",
+      "fix_text": "Configure storm control for each host-facing interface as shown in the example below:\n\nSW1(config)#int range g0/2 - 8 \nSW1(config-if-range)#storm-control unicast bps 62000000 \nSW1(config-if-range)#storm-control broadcast level bps 20000000 \n\nNote: The acceptable range is 10000000 -1000000000 for a gigabit Ethernet interface, and 100000000-10000000000 for a ten gigabit interface. Storm control is not supported on most FastEthernet interfaces.",
+      "fix_command": ": The acceptable range is 10000000 -1000000000 for a gigabit Ethernet interface, and 100000000-10000000000 for a ten gigabit interface. Storm control is not supported on most FastEthernet interfaces.",
+      "check_command": "the switch configuration to verify that storm control is enabled on all host-facing interfaces as shown in the example below:",
+      "platform": "network",
+      "rule_version": "CISC-L2-000160",
+      "cci": [
+        "CCI-000366"
+      ],
+      "legacy": [
+        "SV-110295",
+        "V-101191"
+      ]
+    },
+    {
+      "vid": "V-220663",
+      "rule_id": "SV-220663r929005_rule",
+      "severity": "low",
+      "title": "The Cisco switch must have IGMP or MLD Snooping configured on all VLANs.",
+      "group_title": "SRG-NET-000512-L2S-000002",
+      "fix_text": "Configure IGMP or MLD snooping for IPv4 and IPv6 multicast traffic respectively globally.\n\nSW1(config)#ip igmp snooping",
+      "fix_command": "IGMP or MLD snooping for IPv4 and IPv6 multicast traffic respectively globally.",
+      "check_command": "the switch configuration to verify that IGMP or MLD snooping has been configured for IPv4 and IPv6 multicast traffic respectively. Below is an example of the steps to verify that IGMP snooping is enabled for each VLAN.",
+      "platform": "generic",
+      "rule_version": "CISC-L2-000170",
+      "cci": [
+        "CCI-000366"
+      ],
+      "legacy": [
+        "SV-110297",
+        "V-101193"
+      ]
+    },
+    {
+      "vid": "V-220664",
+      "rule_id": "SV-220664r539671_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must implement Rapid STP where VLANs span multiple switches with redundant links.",
+      "group_title": "SRG-NET-000512-L2S-000003",
+      "fix_text": "Configure Rapid STP or MSTP to be implemented at the access and distribution layers where VLANs span multiple switches as shown in the examples below:\n\nSW2(config)#spanning-tree mode rapid-pvst\n\nor \n\nSW1(config)#spanning-tree mode mst",
+      "fix_command": "Rapid STP or MSTP to be implemented at the access and distribution layers where VLANs span multiple switches as shown in the examples below:",
+      "check_command": "cases where VLANs do not span multiple switches, it is a best practice to not implement STP. Avoiding the use of STP will provide the most deterministic and highly available network topology. If STP is required, then review the switch configuration to verify that Rapid STP has been implemented.",
+      "platform": "generic",
+      "rule_version": "CISC-L2-000180",
+      "cci": [
+        "CCI-000366"
+      ],
+      "legacy": [
+        "SV-110303",
+        "V-101199"
+      ]
+    },
+    {
+      "vid": "V-220665",
+      "rule_id": "SV-220665r539671_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must enable Unidirectional Link Detection (UDLD) to protect against one-way connections.",
+      "group_title": "SRG-NET-000512-L2S-000004",
+      "fix_text": "Configure the switch to enable Unidirectional Link Detection (UDLD) to protect against one-way connections.\n\nSW2(config)#udld enable\n\nor\n\nSW2(config)#int g0/1\nSW2(config-if)#udld port",
+      "fix_command": "the switch to enable Unidirectional Link Detection (UDLD) to protect against one-way connections.",
+      "check_command": "any of the switch ports have fiber optic interconnections with neighbors, review the switch configuration to verify that UDLD is enabled globally or on a per-interface basis as shown in the examples below:",
+      "platform": "generic",
+      "rule_version": "CISC-L2-000190",
+      "cci": [
+        "CCI-000366"
+      ],
+      "legacy": [
+        "SV-110305",
+        "V-101201"
+      ]
+    },
+    {
+      "vid": "V-220666",
+      "rule_id": "SV-220666r539671_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must have all trunk links enabled statically.",
+      "group_title": "SRG-NET-000512-L2S-000005",
+      "fix_text": "Configure the switch to enable trunk links statically as shown in the configuration below:\n\nSW2(config-if)#switchport trunk encapsulation dot1q \nSW2(config-if)#switchport mode trunk\nSW2(config-if)#switchport nonegotiate",
+      "fix_command": "the switch to enable trunk links statically as shown in the configuration below:",
+      "check_command": "default, Dynamic Trunking Protocol (DTP) is enabled on all Cisco switches. Review the switch configuration to verify that trunk links will not form trunk via negotiation as shown in the example below:",
+      "platform": "network",
+      "rule_version": "CISC-L2-000200",
+      "cci": [
+        "CCI-000366"
+      ],
+      "legacy": [
+        "SV-110307",
+        "V-101203"
+      ]
+    },
+    {
+      "vid": "V-220667",
+      "rule_id": "SV-220667r991904_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must have all disabled switch ports assigned to an unused VLAN.",
+      "group_title": "SRG-NET-000512-L2S-000007",
+      "fix_text": "Assign all switch ports not in use to an inactive VLAN.\n\nStep 1: Assign the disabled interfaces to an inactive VLAN.\n\nSW3(config)#int range g0/0 – 9\nSW3(config-if-range)# switchport access vlan 999\n\nStep 2: Configure trunk links to not allow traffic from the inactive VLAN.\n\nSW3(config)#int g1/1\nSW3(config-if)#switchport trunk allowed vlan except 999",
+      "fix_command": "2: Configure trunk links to not allow traffic from the inactive VLAN.",
+      "check_command": "1: Review the switch configurations and examine all access switch ports. Each access switch port not in use should have membership to an inactive VLAN.",
+      "platform": "network",
+      "rule_version": "CISC-L2-000210",
+      "cci": [
+        "CCI-004891"
+      ],
+      "legacy": [
+        "SV-110309",
+        "V-101205"
+      ]
+    },
+    {
+      "vid": "V-220668",
+      "rule_id": "SV-220668r991905_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must not have the default VLAN assigned to any host-facing switch ports.",
+      "group_title": "SRG-NET-000512-L2S-000008",
+      "fix_text": "Remove the assignment of the default VLAN from all access switch ports.",
+      "fix_command": "the assignment of the default VLAN from all access switch ports.",
+      "check_command": "the switch configurations and verify that no access switch ports have been assigned membership to the default VLAN (i.e., VLAN 1). VLAN assignments can be verified via the show vlan command.",
+      "platform": "generic",
+      "rule_version": "CISC-L2-000220",
+      "cci": [
+        "CCI-004891"
+      ],
+      "legacy": [
+        "SV-110311",
+        "V-101207"
+      ]
+    },
+    {
+      "vid": "V-220669",
+      "rule_id": "SV-220669r991906_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must have the default VLAN pruned from all trunk ports that do not require it.",
+      "group_title": "SRG-NET-000512-L2S-000009",
+      "fix_text": "Prune VLAN 1 from any trunk links as necessary.\n\nSW1(config)#int g0/2\nSW1(config-if)#switchport trunk allowed vlan except 1\n\nVerify VLAN 1 is not allowed on the trunk link.\n\nSW1#show interfaces trunk\n\nPort Mode Encapsulation Status Native vlan\nGi0/1 on 802.1q trunking 1\nGi0/2 on 802.1q trunking 1\n\nPort Vlans allowed on trunk\nGi0/1 1-998,1000-4094\nGi0/2 2-4094",
+      "fix_command": "VLAN 1 from any trunk links as necessary.",
+      "check_command": "the default VLAN is not pruned from trunk links that should not be transporting frames for the VLAN, this is a finding.",
+      "platform": "network",
+      "rule_version": "CISC-L2-000230",
+      "cci": [
+        "CCI-004891"
+      ],
+      "legacy": [
+        "SV-110313",
+        "V-101209"
+      ]
+    },
+    {
+      "vid": "V-220670",
+      "rule_id": "SV-220670r991907_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must not use the default VLAN for management traffic.",
+      "group_title": "SRG-NET-000512-L2S-000010",
+      "fix_text": "Configure the switch for management access to use a VLAN other than the default VLAN.\n\nSW1(config)#int vlan 22\nSW1(config-if)#ip add 10.1.22.3 255.255.255.0\nSW1(config-if)#no shut",
+      "fix_command": "the switch for management access to use a VLAN other than the default VLAN.",
+      "check_command": "Review the switch configuration and verify that the default VLAN is not used to access the switch for management.",
+      "platform": "generic",
+      "rule_version": "CISC-L2-000240",
+      "cci": [
+        "CCI-004931"
+      ],
+      "legacy": [
+        "SV-110315",
+        "V-101211"
+      ]
+    },
+    {
+      "vid": "V-220671",
+      "rule_id": "SV-220671r991908_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must have all user-facing or untrusted ports configured as access switch ports.",
+      "group_title": "SRG-NET-000512-L2S-000011",
+      "fix_text": "Disable trunking on all user-facing or untrusted switch ports.\n\nSW1(config)#int g0/6\nSW1(config-if)#switchport mode access\nSW1(config-if)#end",
+      "fix_command": "trunking on all user-facing or untrusted switch ports.",
+      "check_command": "the switch configurations and examine all user-facing or untrusted switchports. The example below depicts both access and trunk ports.",
+      "platform": "network",
+      "rule_version": "CISC-L2-000250",
+      "cci": [
+        "CCI-004891"
+      ],
+      "legacy": [
+        "SV-110317",
+        "V-101213"
+      ]
+    },
+    {
+      "vid": "V-220672",
+      "rule_id": "SV-220672r991909_rule",
+      "severity": "medium",
+      "title": "The Cisco switch must have the native VLAN assigned to an ID other than the default VLAN for all 802.1q trunk links.",
+      "group_title": "SRG-NET-000512-L2S-000012",
+      "fix_text": "To ensure the integrity of the trunk link and prevent unauthorized access, the ID of the native VLAN of the trunk port must be changed from the default VLAN (i.e., VLAN 1) to its own unique VLAN ID. \n\nSW1(config)#int g0/1\nSW1(config-if)#switchport trunk native vlan 44\n\nNote: The native VLAN ID must be the same on both ends of the trunk link; otherwise, traffic could accidentally leak between broadcast domains.",
+      "fix_command": "ensure the integrity of the trunk link and prevent unauthorized access, the ID of the native VLAN of the trunk port must be changed from the default VLAN (i.e., VLAN 1) to its own unique VLAN ID.",
+      "check_command": ": An alternative to configuring a dedicated native VLAN is to ensure that all native VLAN traffic is tagged. This will mitigate the risk of VLAN hopping since there will always be an outer tag for native traffic as it traverses an 802.1q trunk link.",
+      "platform": "network",
+      "rule_version": "CISC-L2-000260",
+      "cci": [
+        "CCI-004891"
+      ],
+      "legacy": [
+        "SV-110319",
+        "V-101215"
+      ]
+    },
+    {
+      "vid": "V-220673",
+      "rule_id": "SV-220673r991910_rule",
+      "severity": "low",
+      "title": "The Cisco switch must not have any switchports assigned to the native VLAN.",
+      "group_title": "SRG-NET-000512-L2S-000013",
+      "fix_text": "Configure all access switch ports to a VLAN other than the native VLAN.",
+      "fix_command": "all access switch ports to a VLAN other than the native VLAN.",
+      "check_command": "the switch configurations and examine all access switch ports. Verify that they do not belong to the native VLAN as shown in the example below:",
+      "platform": "generic",
+      "rule_version": "CISC-L2-000270",
+      "cci": [
+        "CCI-004891"
+      ],
+      "legacy": [
+        "SV-110321",
+        "V-101217"
+      ]
+    }
+  ]
+}

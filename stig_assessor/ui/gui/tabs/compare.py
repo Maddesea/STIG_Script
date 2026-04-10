@@ -85,6 +85,62 @@ def build_compare_tab(app, frame):
     actions_frame = ttk.Frame(frame)
     actions_frame.pack(fill="x", pady=GUI_PADDING)
 
+    ttk.Label(actions_frame, text="Filter View:").pack(side="left", padx=(0, GUI_PADDING))
+    app._diff_filter_var = tk.StringVar(value="All Differences")
+    cb = ttk.Combobox(
+        actions_frame, 
+        textvariable=app._diff_filter_var,
+        values=["All Differences", "Only Status Changes", "Only Details/Comments", "Only Rules Added/Removed"],
+        state="readonly",
+        width=25
+    )
+    cb.pack(side="left", padx=(0, GUI_PADDING_LARGE))
+
+    def _render_diff_tree():
+        if not hasattr(app, "_diff_full_data"): return
+        
+        results = app._diff_full_data
+        filter_mode = app._diff_filter_var.get()
+        
+        for item in app.diff_tree.get_children():
+            app.diff_tree.delete(item)
+            
+        # Populate Tree
+        for ch in results.get("changes", []):
+            vid = ch.get("vid")
+            for df in ch.get("differences", []):
+                field = df.get("field", "status")
+                
+                # Apply filter
+                if filter_mode == "Only Status Changes" and field != "status":
+                    continue
+                if filter_mode == "Only Details/Comments" and field == "status":
+                    continue
+                if filter_mode == "Only Rules Added/Removed":
+                    continue
+                    
+                val_from = df.get("from", "")
+                val_to = df.get("to", "")
+                
+                disp_from = str(val_from).replace("\n", " ")[:100]
+                disp_to = str(val_to).replace("\n", " ")[:100]
+                
+                tags = []
+                if field == "status":
+                    if val_to == "NotAFinding": tags.append("success")
+                    elif val_to == "Open": tags.append("danger")
+
+                app.diff_tree.insert("", "end", values=(vid, field.replace("_", " ").title(), disp_from, disp_to), tags=tags)
+
+        # Added/Removed
+        if filter_mode in ["All Differences", "Only Rules Added/Removed"]:
+            for vid in results.get("added", []):
+                app.diff_tree.insert("", "end", values=(vid, "Rule", "(Not in Baseline)", "ADDED TO CHECKLIST"), tags=("success",))
+            for vid in results.get("removed", []):
+                app.diff_tree.insert("", "end", values=(vid, "Rule", "PRESENT IN BASELINE", "(Removed from Target)"), tags=("danger",))
+                
+    cb.bind("<<ComboboxSelected>>", lambda e: _render_diff_tree())
+
     def _do_diff_tab():
         if not app.diff_ckl1.get() or not app.diff_ckl2.get():
             messagebox.showerror("Error", "Please provide two checklists for comparison.")
@@ -100,42 +156,13 @@ def build_compare_tab(app, frame):
                 messagebox.showerror("Diff Error", str(results))
                 return
             
-            # Clear existing
-            for item in app.diff_tree.get_children():
-                app.diff_tree.delete(item)
-            
             app._diff_full_data = results # Store for detailed view
             s = results.get("summary", {})
             app.diff_summary_labels["changes"].set(str(s.get("changed", 0)))
             app.diff_summary_labels["added"].set(str(s.get("only_in_comparison", 0)))
             app.diff_summary_labels["removed"].set(str(s.get("only_in_baseline", 0)))
 
-            # Populate Tree
-            for ch in results.get("changes", []):
-                vid = ch.get("vid")
-                title = ch.get("rule_title", "")
-                for df in ch.get("differences", []):
-                    field = df.get("field", "status")
-                    val_from = df.get("from", "")
-                    val_to = df.get("to", "")
-                    
-                    # Truncate for tree display
-                    disp_from = str(val_from).replace("\n", " ")[:100]
-                    disp_to = str(val_to).replace("\n", " ")[:100]
-                    
-                    tags = []
-                    if field == "status":
-                        if val_to == "NotAFinding": tags.append("success")
-                        elif val_to == "Open": tags.append("danger")
-
-                    app.diff_tree.insert("", "end", values=(vid, field.replace("_", " ").title(), disp_from, disp_to), tags=tags)
-
-            # Added/Removed
-            for vid in results.get("added", []):
-                app.diff_tree.insert("", "end", values=(vid, "Rule", "(Not in Baseline)", "ADDED TO CHECKLIST"), tags=("success",))
-            for vid in results.get("removed", []):
-                app.diff_tree.insert("", "end", values=(vid, "Rule", "PRESENT IN BASELINE", "(Removed from Target)"), tags=("danger",))
-
+            _render_diff_tree()
             app.status_var.set(f"Diff complete. {s.get('changed', 0)} changes identified.")
 
         app._async(work, done)
@@ -163,6 +190,23 @@ def build_compare_tab(app, frame):
         actions_frame, text="🌐 Export HTML Diff", command=_export_html_diff
     ).pack(side="left", padx=GUI_PADDING)
 
+    def _export_csv_diff():
+        if not app.diff_tree.get_children():
+            return
+        out = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV Files", "*.csv")])
+        if not out: return
+        import csv
+        with open(out, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(["Vulnerability ID", "Field", "Baseline Value", "Target Value"])
+            for item in app.diff_tree.get_children():
+                writer.writerow(app.diff_tree.item(item)["values"])
+        messagebox.showinfo("Export Success", f"CSV Diff report saved to:\n{out}")
+
+    ttk.Button(
+        actions_frame, text="📊 Export CSV", command=_export_csv_diff
+    ).pack(side="left", padx=GUI_PADDING)
+
     # --- Treeview for Results ---
     tree_frame = ttk.Frame(frame)
     tree_frame.pack(fill="both", expand=True)
@@ -181,7 +225,7 @@ def build_compare_tab(app, frame):
     app.diff_tree.column("target", width=300)
 
     vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=app.diff_tree.yview)
-    hsb = ttk.Scrollbar(tree_frame, orient="horizontal", command=app.diff_tree.yview)
+    hsb = ttk.Scrollbar(tree_frame, orient="horizontal", command=app.diff_tree.xview)
     app.diff_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
     
     app.diff_tree.grid(row=0, column=0, sticky="nsew")
@@ -194,6 +238,80 @@ def build_compare_tab(app, frame):
     # Tag colors
     app.diff_tree.tag_configure("success", foreground="#28a745")
     app.diff_tree.tag_configure("danger", foreground="#dc3545")
+
+    # Cherry-pick Context Menu
+    ctx = tk.Menu(app.diff_tree, tearoff=0)
+    
+    def _cherry_pick(to_baseline=True):
+        selection = app.diff_tree.selection()
+        if not selection: return
+        item = app.diff_tree.item(selection[0])
+        vid = item["values"][0]
+        field = item["values"][1].lower().replace(" ", "_")
+        
+        # Need actual full values
+        real_baseline = str(item["values"][2])
+        real_target = str(item["values"][3])
+        if hasattr(app, "_diff_full_data"):
+            for ch in app._diff_full_data.get("changes", []):
+                if ch.get("vid") == vid:
+                    for df in ch.get("differences", []):
+                        if df.get("field") == field:
+                            real_baseline = str(df.get("from", ""))
+                            real_target = str(df.get("to", ""))
+                            break
+                    break
+        
+        try:
+            from stig_assessor.io.file_ops import FO
+            import xml.etree.ElementTree as ET
+            
+            dest_file = app.diff_ckl1.get() if to_baseline else app.diff_ckl2.get()
+            val_to_write = real_target if to_baseline else real_baseline
+            
+            tree = FO.parse_xml(dest_file)
+            root = tree.getroot()
+            changed = False
+            
+            tag_map = {"status": "STATUS", "finding_details": "FINDING_DETAILS", "comments": "COMMENTS"}
+            xml_tag = tag_map.get(field, None)
+            if not xml_tag:
+                messagebox.showerror("Error", f"Cannot cherry-pick field: {field}")
+                return
+                
+            for vuln in root.findall(".//VULN"):
+                found_vid = None
+                for attr_node in vuln.findall("STIG_DATA"):
+                    if attr_node.find("VULN_ATTRIBUTE") is not None and attr_node.find("VULN_ATTRIBUTE").text == "Vuln_Num":
+                        if attr_node.find("ATTRIBUTE_DATA") is not None:
+                            found_vid = attr_node.find("ATTRIBUTE_DATA").text
+                            break
+                if found_vid == vid:
+                    node = vuln.find(xml_tag)
+                    if node is not None: node.text = val_to_write
+                    else: ET.SubElement(vuln, xml_tag).text = val_to_write
+                    changed = True
+                    break
+                    
+            if changed:
+                FO.write_xml(tree, dest_file)
+                app.status_var.set(f"Cherry-picked {vid} {field} to {Path(dest_file).name}")
+                _do_diff_tab()
+        except Exception as e:
+            messagebox.showerror("Cherry-Pick Error", str(e))
+
+    ctx.add_command(label="⬅ Cherry-Pick Target to Baseline", command=lambda: _cherry_pick(to_baseline=True))
+    ctx.add_command(label="➡ Cherry-Pick Baseline to Target", command=lambda: _cherry_pick(to_baseline=False))
+
+    def _show_ctx(event):
+        item = app.diff_tree.identify_row(event.y)
+        if item:
+            app.diff_tree.selection_set(item)
+            vals = app.diff_tree.item(item)["values"]
+            if vals[1] != "Rule" and vals[2] != "(Not in Baseline)" and vals[3] != "(Removed from Target)":
+                ctx.tk_popup(event.x_root, event.y_root)
+                
+    app.diff_tree.bind("<Button-3>", _show_ctx)
 
     # --- Detailed Diff View ---
     def _show_detailed_diff(event=None):

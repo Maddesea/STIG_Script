@@ -32,7 +32,17 @@ def build_log_viewer_tab(app, frame):
             with open(log_file, "r", encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
                 tail = lines[-500:]
-                txt_area.insert(tk.END, "".join(tail))
+                for line in tail:
+                    tags = []
+                    if "[ERROR]" in line or " ERROR " in line:
+                        tags.append("ERROR")
+                    elif "[WARNING]" in line or " WARNING " in line:
+                        tags.append("WARNING")
+                    elif "[INFO]" in line or " INFO " in line:
+                        tags.append("INFO")
+                    elif "[DEBUG]" in line or " DEBUG " in line:
+                        tags.append("DEBUG")
+                    txt_area.insert(tk.END, line, tags)
             txt_area.see(tk.END)
         except Exception as e:
             txt_area.insert(tk.END, f"Error reading logs: {e}")
@@ -64,6 +74,7 @@ def build_log_viewer_tab(app, frame):
     txt_area.tag_configure("ERROR", foreground="#f85149")
     txt_area.tag_configure("WARNING", foreground="#d29922")
     txt_area.tag_configure("INFO", foreground="#58a6ff")
+    txt_area.tag_configure("DEBUG", foreground="#8b949e")
 
     # Initial load
     _refresh_logs()

@@ -75,15 +75,12 @@ def build_repair_tab(app, frame):
             app.repair_txt.config(state="normal")
             app.repair_txt.delete("1.0", tk.END)
             if isinstance(result, Exception):
-                app.repair_txt.insert(
-                    tk.END, f"[ERROR] Integrity Check Failed:\n{result}"
-                )
+                app.repair_txt.insert(tk.END, "[ERROR] Integrity Check Failed:\n", "ERROR")
+                app.repair_txt.insert(tk.END, f"{result}\n")
                 messagebox.showerror("Error", str(result))
             else:
-                app.repair_txt.insert(
-                    tk.END,
-                    f"[SUCCESS] Integrity Verification Complete\n\nChecksum (SHA3-256):\n{result}\n\nThis checksum proves the file has not been tampered with since creation.",
-                )
+                app.repair_txt.insert(tk.END, "[SUCCESS] Integrity Verification Complete\n\n", "SUCCESS")
+                app.repair_txt.insert(tk.END, f"Checksum (SHA3-256):\n{result}\n\nThis checksum proves the file has not been tampered with since creation.\n")
             app.repair_txt.config(state="disabled")
 
         app.status_var.set("Verifying...")
@@ -113,7 +110,8 @@ def build_repair_tab(app, frame):
             app.repair_txt.config(state="normal")
             app.repair_txt.delete("1.0", tk.END)
             if isinstance(result, Exception):
-                app.repair_txt.insert(tk.END, f"[ERROR] Repair Failed:\n{result}")
+                app.repair_txt.insert(tk.END, "[ERROR] Repair Failed:\n", "ERROR")
+                app.repair_txt.insert(tk.END, f"{result}\n")
                 messagebox.showerror("Repair Failed", str(result))
             else:
                 fixed_lines = result.get("details", [])
@@ -122,13 +120,15 @@ def build_repair_tab(app, frame):
                 if not fixed_lines:
                     app.repair_txt.insert(
                         tk.END,
-                        f"No structural issues found in {Path(ckl_path).name}.\nThe file appears normal.",
+                        f"No structural issues found in {Path(ckl_path).name}.\nThe file appears normal.\n",
+                        "INFO"
                     )
                     app.status_var.set("✔ Checklist is structurally sound.")
                 else:
                     app.repair_txt.insert(
                         tk.END,
                         f"[SUCCESS] Repaired {len(fixed_lines)} anomalies in {Path(ckl_path).name}\n\nDetails:\n",
+                        "SUCCESS"
                     )
                     for msg in fixed_lines:
                         app.repair_txt.insert(tk.END, f"- {msg}\n")
@@ -155,8 +155,15 @@ def build_repair_tab(app, frame):
 
     app.repair_txt = ScrolledText(frame, font=GUI_FONT_MONO, height=15)
     app.repair_txt.pack(fill="both", expand=True)
+
+    # Configure color tags
+    app.repair_txt.tag_configure("ERROR", foreground="#f85149")
+    app.repair_txt.tag_configure("SUCCESS", foreground="#3fb950")
+    app.repair_txt.tag_configure("INFO", foreground="#58a6ff")
+
     app.repair_txt.insert(
         "1.0",
         "Select a CKL file to verify its checksum or repair structural issues.",
+        "INFO"
     )
     app.repair_txt.config(state="disabled")
