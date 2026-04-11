@@ -4679,3 +4679,418 @@ UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 
 [2026-04-10 22:48:20] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
 [2026-04-10 23:12:13] [INFO    ] Loaded 3 boilerplate templates
 [2026-04-10 23:12:16] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-11 08:07:29] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-11 08:10:38] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-11 08:10:44] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-11 08:10:44] [INFO    ] [op=extract_fix, file=dummy_xccdf.xml] Extracting fix information
+[2026-04-11 08:10:44] [WARNING ] [op=extract_fix, file=dummy_xccdf.xml] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:10:44] [INFO    ] [op=extract_fix, file=dummy_xccdf.xml] Extracted 2 fixes (2 with actionable commands) [Filtered by: Status: Open, Not_Reviewed]
+[2026-04-11 08:10:44] [INFO    ] Fixes exported to JSON: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\fixes_test\fixes.json
+[2026-04-11 08:10:44] [INFO    ] Fixes exported to CSV: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\fixes_test\fixes.csv
+[2026-04-11 08:10:44] [INFO    ] Bash remediation script generated: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\fixes_test\remediate.sh (2 fixes)
+[2026-04-11 08:10:44] [INFO    ] PowerShell remediation script generated: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\fixes_test\Remediate.ps1 (1 fixes)
+[2026-04-11 08:10:44] [INFO    ] Ansible remediation playbook generated: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\fixes_test\remediate.yml (2 fixes)
+[2026-04-11 08:10:45] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-11 08:10:45] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:10:45] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-11 08:10:45] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:10:45] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:10:53] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-11 08:10:53] [INFO    ] [op=load_fix_results, file=dummy_results.json] Loading remediation results JSON
+[2026-04-11 08:10:53] [INFO    ] [op=load_fix_results, file=dummy_results.json] Loaded 2 unique results from 2 total entries (skipped 0)
+[2026-04-11 08:10:53] [INFO    ] [op=apply_results, file=MYASSET_dummy_xccdf.ckl] Applying remediation results to checklist (2 vulns)
+[2026-04-11 08:10:53] [WARNING ] [op=apply_results, file=MYASSET_dummy_xccdf.ckl] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:10:53] [INFO    ] [op=apply_results, file=MYASSET_dummy_xccdf.ckl] Checklist updated and saved to C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\MYASSET_updated_2.ckl
+[2026-04-11 08:11:00] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-11 08:11:00] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-11 08:11:00] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:25] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmpdxua7a_v\test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpdxua7a_v\evidence\V-123456\20260411_131526_test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-789012] Importing evidence for V-789012: C:\Users\Madden\AppData\Local\Temp\tmpdxua7a_v\test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-789012] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpdxua7a_v\evidence\V-789012\20260411_131526_test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=export_evidence] Exporting evidence to C:\Users\Madden\AppData\Local\Temp\tmpdxua7a_v\export
+[2026-04-11 08:15:26] [INFO    ] [op=export_evidence] Exported 2 evidence files
+[2026-04-11 08:15:26] [INFO    ] [op=export_evidence] Exporting evidence to C:\Users\Madden\AppData\Local\Temp\tmpvaknufrj\export
+[2026-04-11 08:15:26] [INFO    ] [op=export_evidence] Exported 0 evidence files
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmppkcrozy9\test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmppkcrozy9\evidence\V-123456\20260411_131526_test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmppkcrozy9\test3.txt
+[2026-04-11 08:15:26] [WARNING ] [op=import_evidence, vid=V-123456] Duplicate evidence detected (by hash), skipping copy
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmpuqeckb2h\test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpuqeckb2h\evidence\V-123456\20260411_131526_test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-789012] Importing evidence for V-789012: C:\Users\Madden\AppData\Local\Temp\tmpuqeckb2h\test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-789012] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpuqeckb2h\evidence\V-789012\20260411_131526_test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmpvrvmhvcf\test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpvrvmhvcf\evidence\V-123456\20260411_131526_test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmpvrvmhvcf\test1.txt
+[2026-04-11 08:15:26] [WARNING ] [op=import_evidence, vid=V-123456] Duplicate evidence detected (by hash), skipping copy
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmp73huym0j\test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmp73huym0j\evidence\V-123456\20260411_131526_test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmpfo8zszfn\test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpfo8zszfn\evidence\V-123456\20260411_131526_test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmpfo8zszfn\test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpfo8zszfn\evidence\V-123456\20260411_131526_test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmpyot44vux\test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpyot44vux\evidence\V-123456\20260411_131526_test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-789012] Importing evidence for V-789012: C:\Users\Madden\AppData\Local\Temp\tmpyot44vux\test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-789012] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpyot44vux\evidence\V-789012\20260411_131526_test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=package_evidence] Packaging evidence into C:\Users\Madden\AppData\Local\Temp\tmpyot44vux\evidence.zip
+[2026-04-11 08:15:26] [INFO    ] [op=package_evidence] Created ZIP archive with 3 files
+[2026-04-11 08:15:26] [INFO    ] [op=package_evidence] Evidence package created: C:\Users\Madden\AppData\Local\Temp\tmpyot44vux\evidence.zip
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence_package, file=evidence.zip] Importing evidence package
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, file=evidence.zip, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmpe8b63r9i\evidence\V-123456\20260411_131526_test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, file=evidence.zip, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpyot44vux\evidence2\V-123456\20260411_131526_20260411_131526_test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, file=evidence.zip, vid=V-789012] Importing evidence for V-789012: C:\Users\Madden\AppData\Local\Temp\tmpe8b63r9i\evidence\V-789012\20260411_131526_test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, file=evidence.zip, vid=V-789012] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpyot44vux\evidence2\V-789012\20260411_131526_20260411_131526_test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence_package, file=evidence.zip] Imported 2 evidence files from package
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence_package, file=malicious.zip] Importing evidence package
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence_package, file=malicious.zip] Importing evidence package
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmp2x187scz\large.bin
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Computing hash for large file (11534336 bytes)...
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmp2x187scz\evidence\V-123456\20260411_131526_large.bin
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmpfa2zi6q0\test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpfa2zi6q0\evidence\V-123456\20260411_131526_test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-789012] Importing evidence for V-789012: C:\Users\Madden\AppData\Local\Temp\tmpfa2zi6q0\test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-789012] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpfa2zi6q0\evidence\V-789012\20260411_131526_test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=package_evidence] Packaging evidence into C:\Users\Madden\AppData\Local\Temp\tmpfa2zi6q0\evidence.zip
+[2026-04-11 08:15:26] [INFO    ] [op=package_evidence] Created ZIP archive with 3 files
+[2026-04-11 08:15:26] [INFO    ] [op=package_evidence] Evidence package created: C:\Users\Madden\AppData\Local\Temp\tmpfa2zi6q0\evidence.zip
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmphwmea51q\test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmphwmea51q\evidence\V-123456\20260411_131526_test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmpha7ahjwf\test file (copy) #1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpha7ahjwf\evidence\V-123456\20260411_131526_test_file__copy___1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmpmgbsh_43\test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpmgbsh_43\evidence\V-123456\20260411_131526_test1.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Importing evidence for V-123456: C:\Users\Madden\AppData\Local\Temp\tmpmgbsh_43\test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-123456] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpmgbsh_43\evidence\V-123456\20260411_131526_test2.txt
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-789012] Importing evidence for V-789012: C:\Users\Madden\AppData\Local\Temp\tmpmgbsh_43\screenshot.png
+[2026-04-11 08:15:26] [INFO    ] [op=import_evidence, vid=V-789012] Evidence imported to C:\Users\Madden\AppData\Local\Temp\tmpmgbsh_43\evidence\V-789012\20260411_131526_screenshot.png
+[2026-04-11 08:15:26] [WARNING ] Failed to add history for : validation error: Empty vulnerability ID
+[2026-04-11 08:15:26] [INFO    ] Exported history for 0 vulnerabilities
+[2026-04-11 08:15:26] [INFO    ] Exported history for 2 vulnerabilities
+[2026-04-11 08:15:26] [INFO    ] Imported 1 history entries
+[2026-04-11 08:15:26] [INFO    ] Exported history for 1 vulnerabilities
+[2026-04-11 08:15:26] [INFO    ] Imported 2 history entries
+[2026-04-11 08:15:26] [WARNING ] Invalid severity 'invalidseverity', defaulting to 'medium'
+[2026-04-11 08:15:27] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:27] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:27] [INFO    ] [op=load_fix_results, file=test_results.json] Loading remediation results JSON
+[2026-04-11 08:15:27] [INFO    ] [op=load_fix_results, file=test_results.json] Loaded 1 unique results from 1 total entries (skipped 0)
+[2026-04-11 08:15:27] [INFO    ] [op=apply_results, file=out_create.ckl] Applying remediation results to checklist (1 vulns)
+[2026-04-11 08:15:27] [WARNING ] [op=apply_results, file=out_create.ckl] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:27] [INFO    ] [op=apply_results, file=out_create.ckl] Checklist updated and saved to C:\Users\Madden\AppData\Local\Temp\stig_e2e_test_jlff81zv\out_updated.ckl
+[2026-04-11 08:15:27] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:27] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:27] [INFO    ] Auto-resolved output path: C:\Users\Madden\AppData\Local\Temp\stig_e2e_test_jlff81zv\SMART_TEST_test_benchmark.ckl
+[2026-04-11 08:15:27] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:27] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:28] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:28] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:29] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:29] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:29] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:29] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:29] [INFO    ] Restored from backup: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\.stig_home\.stig_assessor\backups\test_20260411_131529_704579.txt.bak
+[2026-04-11 08:15:29] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:29] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:29] [INFO    ] Created ZIP archive with 2 files
+[2026-04-11 08:15:29] [WARNING ] Skipping nonexistent1.txt: Not found: C:\Users\Madden\AppData\Local\Temp\tmpx3mo0aqw\nonexistent1.txt
+[2026-04-11 08:15:29] [WARNING ] Skipping nonexistent2.txt: Not found: C:\Users\Madden\AppData\Local\Temp\tmpx3mo0aqw\nonexistent2.txt
+[2026-04-11 08:15:29] [WARNING ] Skipping invalid.txt: Not found: C:\Users\Madden\AppData\Local\Temp\tmpr9ddhdnr\nonexistent.txt
+[2026-04-11 08:15:29] [INFO    ] Created ZIP archive with 1 files
+[2026-04-11 08:15:29] [INFO    ] Created ZIP archive with 1 files
+[2026-04-11 08:15:29] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:29] [INFO    ] Created ZIP archive with 2 files
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:30] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [INFO    ] [op=load_fix_results, file=results.json] Loading remediation results JSON
+[2026-04-11 08:15:31] [INFO    ] [op=load_fix_results, file=results.json] Loaded 1000 unique results from 1000 total entries (skipped 0)
+[2026-04-11 08:15:31] [INFO    ] [op=apply_results, file=large_1000.ckl] Applying remediation results to checklist (1000 vulns)
+[2026-04-11 08:15:31] [WARNING ] [op=apply_results, file=large_1000.ckl] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:31] [INFO    ] [op=apply_results, file=large_1000.ckl] Checklist updated and saved to C:\Users\Madden\AppData\Local\Temp\bench_nrj7ou9w\large_1000_updated.ckl
+[2026-04-11 08:15:32] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:33] [INFO    ] [op=extract_fix, file=test_benchmark.xml] Extracting fix information
+[2026-04-11 08:15:33] [WARNING ] [op=extract_fix, file=test_benchmark.xml] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:33] [INFO    ] [op=extract_fix, file=test_benchmark.xml] Extracted 1 fixes (1 with actionable commands)
+[2026-04-11 08:15:33] [INFO    ] [op=extract_fix, file=test_benchmark.xml] Extracting fix information
+[2026-04-11 08:15:33] [WARNING ] [op=extract_fix, file=test_benchmark.xml] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:33] [INFO    ] [op=extract_fix, file=test_benchmark.xml] Extracted 1 fixes (1 with actionable commands)
+[2026-04-11 08:15:33] [INFO    ] Bash remediation script generated: C:\Users\Madden\AppData\Local\Temp\tmpnwr14joj\out.sh (1 fixes)
+[2026-04-11 08:15:33] [INFO    ] [op=extract_fix, file=test_benchmark.xml] Extracting fix information
+[2026-04-11 08:15:33] [WARNING ] [op=extract_fix, file=test_benchmark.xml] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:33] [INFO    ] [op=extract_fix, file=test_benchmark.xml] Extracted 1 fixes (1 with actionable commands)
+[2026-04-11 08:15:33] [INFO    ] Fixes exported to CSV: C:\Users\Madden\AppData\Local\Temp\tmp1fbwr073\out.csv
+[2026-04-11 08:15:33] [INFO    ] [op=extract_fix, file=test_benchmark.xml] Extracting fix information
+[2026-04-11 08:15:33] [WARNING ] [op=extract_fix, file=test_benchmark.xml] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:33] [INFO    ] [op=extract_fix, file=test_benchmark.xml] Extracted 1 fixes (1 with actionable commands)
+[2026-04-11 08:15:33] [INFO    ] Fixes exported to JSON: C:\Users\Madden\AppData\Local\Temp\tmpcwd80xot\out.json
+[2026-04-11 08:15:33] [INFO    ] [op=extract_fix, file=test_benchmark.xml] Extracting fix information
+[2026-04-11 08:15:33] [WARNING ] [op=extract_fix, file=test_benchmark.xml] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:33] [INFO    ] [op=extract_fix, file=test_benchmark.xml] Extracted 1 fixes (1 with actionable commands)
+[2026-04-11 08:15:33] [INFO    ] PowerShell remediation script generated: C:\Users\Madden\AppData\Local\Temp\tmp7i5h94gd\out.ps1 (1 fixes)
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_alt_0.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_alt_0.json] Loaded 1 unique results from 1 total entries (skipped 0)
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_alt_1.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_alt_1.json] Loaded 1 unique results from 1 total entries (skipped 0)
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_alt_2.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_alt_2.json] Loaded 1 unique results from 1 total entries (skipped 0)
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_array.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_array.json] Loaded 2 unique results from 2 total entries (skipped 0)
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_dedup.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_dedup.json] Loaded 1 unique results from 2 total entries (skipped 0)
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_empty.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [WARNING ] [op=load_fix_results, file=results_empty.json] No entries found in results file
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=invalid.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_multisystem.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_multisystem.json] Detected multi-system format
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_multisystem.json] Loaded 2 unique results from 2 total entries (skipped 0)
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_object.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_object.json] Loaded 1 unique results from 1 total entries (skipped 0)
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_single.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=results_single.json] Loaded 1 unique results from 1 total entries (skipped 0)
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=unrecognized.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=batch1.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=batch1.json] Loaded 1 unique results from 1 total entries (skipped 0)
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=batch2.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=batch2.json] Loaded 1 unique results from 1 total entries (skipped 0)
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=old.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=old.json] Loaded 1 unique results from 1 total entries (skipped 0)
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=new.json] Loading remediation results JSON
+[2026-04-11 08:15:33] [INFO    ] [op=load_fix_results, file=new.json] Loaded 1 unique results from 1 total entries (skipped 0)
+[2026-04-11 08:15:33] [ERROR   ] Failed to load boilerplate: Expecting value: line 1 column 1 (char 0)
+[2026-04-11 08:15:33] [INFO    ] No boilerplate file found, using defaults
+[2026-04-11 08:15:33] [INFO    ] Migrated legacy string boilerplates to dictionary format.
+[2026-04-11 08:15:33] [INFO    ] Loaded 1 boilerplate templates
+[2026-04-11 08:15:33] [INFO    ] Migrated legacy string boilerplates to dictionary format.
+[2026-04-11 08:15:33] [INFO    ] Loaded 1 boilerplate templates
+[2026-04-11 08:15:33] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:33] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:34] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:34] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:34] [ERROR   ] XML parse error: no element found: line 1, column 23
+[2026-04-11 08:15:34] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:34] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:34] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:34] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:34] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:34] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-11 08:15:34] [WARNING ] Invalid severity 'invalid', defaulting to 'medium'
+[2026-04-11 08:15:34] [WARNING ] Invalid severity 'critical', defaulting to 'medium'
