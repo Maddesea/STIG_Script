@@ -1,3 +1,0 @@
-Vuln_ID,Rule_ID,Severity,Title,Group_Title,Platform,Has_Fix_Command,Has_Check_Command,Fix_Command,Check_Command,CCI
-V-123456,SV-123456r1_rule,medium,Test Rule Title,Test Vulnerability,linux,Yes,Yes,systemctl enable test.service,content here,CCI-000001
-V-234567,SV-234567r1_rule,high,Second Rule,Another Vulnerability,generic,Yes,No,fix available,,CCI-000002

@@ -1881,3 +1881,107 @@ function wireAssessmentEditor() {
     });
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   BULK OPERATIONS
+   ═══════════════════════════════════════════════════════════════════ */
+
+function wireBulkOps() {
+    let bulkB64 = null;
+    let bulkFilename = '';
+
+    const formCard = document.getElementById('bulk-form-card');
+
+    // Show the form card after a file is uploaded
+    document.getElementById('bulk-ckl-file')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        bulkFilename = file.name;
+        bulkB64 = await toBase64(file);
+        if (formCard) formCard.classList.remove('hidden');
+    });
+
+    // Preview
+    document.getElementById('btn-preview-bulk')?.addEventListener('click', async () => {
+        if (!bulkB64) { showToast('Upload a checklist first.', 'error'); return; }
+
+        const statusFilter = Array.from(document.querySelectorAll('.bulk-status-cb:checked')).map(cb => cb.value);
+        const payload = {
+            ckl_b64: bulkB64,
+            filename: bulkFilename,
+            severity: document.getElementById('bulk-severity')?.value || '',
+            regex_vid: document.getElementById('bulk-regex')?.value || '',
+            status_filter: statusFilter.length ? statusFilter : null,
+            new_status: document.getElementById('bulk-status')?.value || 'NotAFinding',
+            new_comment: document.getElementById('bulk-comment')?.value || '',
+            new_finding: document.getElementById('bulk-finding')?.value || '',
+            append_comment: document.getElementById('bulk-append')?.checked || false,
+            append_finding: document.getElementById('bulk-append')?.checked || false,
+            preview: true
+        };
+
+        const btn = document.getElementById('btn-preview-bulk');
+        const res = await postApi('/api/v1/bulk_edit', payload, btn, 'Previewing Bulk Edit…');
+
+        if (res.status === 'success') {
+            const d = res.data || {};
+            const previewDiv = document.getElementById('bulk-preview-results');
+            if (previewDiv) {
+                previewDiv.classList.remove('hidden');
+                document.getElementById('bulk-preview-count').textContent = d.updates || 0;
+                const listEl = document.getElementById('bulk-preview-list');
+                if (listEl) {
+                    const vids = d.affected_vids || [];
+                    listEl.textContent = vids.length ? vids.join(', ') : 'No matching vulnerabilities.';
+                }
+            }
+            showToast(`Preview: ${d.updates || 0} VIDs would be affected.`, 'success');
+        }
+    });
+
+    // Execute
+    document.getElementById('btn-run-bulk')?.addEventListener('click', async () => {
+        if (!bulkB64) { showToast('Upload a checklist first.', 'error'); return; }
+
+        const statusFilter = Array.from(document.querySelectorAll('.bulk-status-cb:checked')).map(cb => cb.value);
+        const payload = {
+            ckl_b64: bulkB64,
+            filename: bulkFilename,
+            severity: document.getElementById('bulk-severity')?.value || '',
+            regex_vid: document.getElementById('bulk-regex')?.value || '',
+            status_filter: statusFilter.length ? statusFilter : null,
+            new_status: document.getElementById('bulk-status')?.value || 'NotAFinding',
+            new_comment: document.getElementById('bulk-comment')?.value || '',
+            new_finding: document.getElementById('bulk-finding')?.value || '',
+            append_comment: document.getElementById('bulk-append')?.checked || false,
+            append_finding: document.getElementById('bulk-append')?.checked || false,
+            preview: false
+        };
+
+        const btn = document.getElementById('btn-run-bulk');
+        const res = await postApi('/api/v1/bulk_edit', payload, btn, 'Executing Bulk Edit…');
+
+        if (res.status === 'success') {
+            const d = res.data || {};
+            bulkB64 = d.ckl_b64 || bulkB64;
+            bulkFilename = d.filename || bulkFilename;
+
+            showModal('Bulk Edit Complete',
+                res.message || `Updated ${d.updates || 0} vulnerabilities.`,
+                statBox(d.updates || 0, 'Updated', 'success'),
+                d.ckl_b64, d.filename);
+
+            const dlBtn = document.getElementById('btn-dl-bulk');
+            if (dlBtn) dlBtn.classList.remove('hidden');
+
+            showToast(`Bulk edit applied to ${d.updates || 0} VIDs!`, 'success');
+        }
+    });
+
+    // Download
+    document.getElementById('btn-dl-bulk')?.addEventListener('click', () => {
+        if (!bulkB64) return;
+        downloadB64(bulkB64, bulkFilename);
+        showToast('Updated checklist downloaded!', 'success');
+    });
+}
