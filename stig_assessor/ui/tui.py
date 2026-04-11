@@ -4,7 +4,11 @@ Provides a completely headless, interactive curses-based UI for sysadmins
 operating in air-gapped terminal environments.
 """
 
-import curses  # pylint: disable=import-error
+try:
+    import curses  # pylint: disable=import-error
+except ImportError:
+    curses = None
+
 # pylint: disable=no-member
 import json
 import os
@@ -379,6 +383,12 @@ class AssessorTUI:
 
 def start_tui():
     """Bootstrap wrapper for the curses UI."""
+    if curses is None:
+        print("ERROR: Terminal UI (curses) is not available on this system.")
+        print("If you are on Windows, you must install 'windows-curses' to use the TUI:")
+        print("  pip install windows-curses")
+        sys.exit(1)
+
     try:
         curses.wrapper(lambda stdscr: AssessorTUI(stdscr).run())
     except curses.error as e:

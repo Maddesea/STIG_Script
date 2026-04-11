@@ -1,0 +1,3 @@
+Control Number,Vulnerability Description,Severity,Status,Comments,Checklist Name
+V-123456,Test Rule Title,MEDIUM,Not_Reviewed,,MYASSET_dummy_xccdf.ckl
+V-234567,Second Rule,HIGH,Not_Reviewed,,MYASSET_dummy_xccdf.ckl

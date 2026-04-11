@@ -509,3 +509,150 @@
 [2026-04-11 11:07:45] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Strategy: newest_wins | Protect: none
 [2026-04-11 11:07:45] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merge summary: 100 updated, 0 unchanged, 0 protected
 [2026-04-11 11:07:45] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merged checklist saved to C:\Users\Madden\AppData\Local\Temp\bench_bt0307xl\merge_10_out.ckl
+[2026-04-11 14:07:54] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-11 14:07:54] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-11 14:07:54] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] STIG version: 1
+[2026-04-11 14:07:54] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-11 14:07:54] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Processed: 1 | Skipped: 0
+[2026-04-11 14:07:55] [INFO    ] [op=merge_advanced, base=out_create.ckl, histories=1] Advanced merge: 1 checklist(s) into out_create.ckl
+[2026-04-11 14:07:55] [INFO    ] [op=merge_advanced, base=out_create.ckl, histories=1] Advanced merge: 1 updated, 0 unchanged, 0 filtered out
+[2026-04-11 14:07:55] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-11 14:07:55] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-11 14:07:55] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] STIG version: 1
+[2026-04-11 14:07:55] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-11 14:07:55] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Processed: 1 | Skipped: 0
+[2026-04-11 14:07:55] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-11 14:07:55] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-11 14:07:55] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] STIG version: 1
+[2026-04-11 14:07:55] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-11 14:07:55] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] Processed: 1 | Skipped: 0
+[2026-04-11 14:07:56] [INFO    ] Bulk edited 2 vulnerabilities
+[2026-04-11 14:07:56] [INFO    ] Bulk edited 1 vulnerabilities
+[2026-04-11 14:07:57] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merging 99 checklist(s) into base large_100.ckl
+[2026-04-11 14:07:57] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Strategy: newest_wins | Protect: none
+[2026-04-11 14:07:57] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merge summary: 100 updated, 0 unchanged, 0 protected
+[2026-04-11 14:07:57] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merged checklist saved to C:\Users\Madden\AppData\Local\Temp\bench_1ve07j7v\merge_100_out.ckl
+[2026-04-11 14:07:57] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merging 9 checklist(s) into base large_100.ckl
+[2026-04-11 14:07:57] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Strategy: newest_wins | Protect: none
+[2026-04-11 14:07:57] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merge summary: 100 updated, 0 unchanged, 0 protected
+[2026-04-11 14:07:57] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merged checklist saved to C:\Users\Madden\AppData\Local\Temp\bench_z7ouf1b2\merge_10_out.ckl
+[2026-04-11 14:09:40] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-11 14:09:40] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-11 14:09:40] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] STIG version: 1
+[2026-04-11 14:09:40] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-11 14:09:40] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Processed: 1 | Skipped: 0
+[2026-04-11 14:09:40] [INFO    ] [op=merge_advanced, base=out_create.ckl, histories=1] Advanced merge: 1 checklist(s) into out_create.ckl
+[2026-04-11 14:09:40] [INFO    ] [op=merge_advanced, base=out_create.ckl, histories=1] Advanced merge: 1 updated, 0 unchanged, 0 filtered out
+[2026-04-11 14:09:40] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-11 14:09:40] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-11 14:09:40] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] STIG version: 1
+[2026-04-11 14:09:40] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-11 14:09:40] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Processed: 1 | Skipped: 0
+[2026-04-11 14:09:41] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-11 14:09:41] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-11 14:09:41] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] STIG version: 1
+[2026-04-11 14:09:41] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-11 14:09:41] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] Processed: 1 | Skipped: 0
+[2026-04-11 14:09:41] [INFO    ] Bulk edited 2 vulnerabilities
+[2026-04-11 14:09:41] [INFO    ] Bulk edited 1 vulnerabilities
+[2026-04-11 14:09:42] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merging 99 checklist(s) into base large_100.ckl
+[2026-04-11 14:09:42] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Strategy: newest_wins | Protect: none
+[2026-04-11 14:09:43] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merge summary: 100 updated, 0 unchanged, 0 protected
+[2026-04-11 14:09:43] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merged checklist saved to C:\Users\Madden\AppData\Local\Temp\bench_hxjpbwnn\merge_100_out.ckl
+[2026-04-11 14:09:43] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merging 9 checklist(s) into base large_100.ckl
+[2026-04-11 14:09:43] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Strategy: newest_wins | Protect: none
+[2026-04-11 14:09:43] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merge summary: 100 updated, 0 unchanged, 0 protected
+[2026-04-11 14:09:43] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merged checklist saved to C:\Users\Madden\AppData\Local\Temp\bench_0sw3qf4c\merge_10_out.ckl
+[2026-04-11 14:11:06] [INFO    ] [op=xccdf_to_ckl, asset=TESTASSET, file=dummy_xccdf.xml] Converting XCCDF to CKL
+[2026-04-11 14:11:06] [INFO    ] [op=xccdf_to_ckl, asset=TESTASSET, file=dummy_xccdf.xml] STIG title: Test STIG Benchmark
+[2026-04-11 14:11:06] [INFO    ] [op=xccdf_to_ckl, asset=TESTASSET, file=dummy_xccdf.xml] STIG version: 1
+[2026-04-11 14:11:06] [INFO    ] [op=xccdf_to_ckl, asset=TESTASSET, file=dummy_xccdf.xml] Processing 2 vulnerabilities
+[2026-04-11 14:11:06] [INFO    ] [op=xccdf_to_ckl, asset=TESTASSET, file=dummy_xccdf.xml] Processed: 2 | Skipped: 0
+[2026-04-11 14:11:07] [INFO    ] [op=generate_stats, file=MYASSET_dummy_xccdf.ckl] Generating statistics for C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\MYASSET_dummy_xccdf.ckl
+[2026-04-11 14:11:21] [INFO    ] [op=diff, ckl1=MYASSET_updated.ckl, ckl2=MYASSET_updated_2.ckl] Comparing MYASSET_updated.ckl vs MYASSET_updated_2.ckl
+[2026-04-11 14:11:25] [INFO    ] [op=verify_integrity, file=MYASSET_dummy_xccdf.ckl] Verifying integrity of C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\MYASSET_dummy_xccdf.ckl
+[2026-04-11 15:44:20] [INFO    ] [op=repair, file=MYASSET_dummy_xccdf.ckl] Repairing checklist: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\MYASSET_dummy_xccdf.ckl
+[2026-04-11 15:44:21] [INFO    ] Repaired checklist written to C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\.stig_home\test_repaired.ckl
+[2026-04-11 15:44:21] [INFO    ] Repairs applied: 0
+[2026-04-11 15:44:25] [INFO    ] [op=generate_stats, file=MYASSET_dummy_xccdf.ckl] Generating statistics for C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\MYASSET_dummy_xccdf.ckl
+[2026-04-11 15:44:26] [INFO    ] [op=generate_stats, file=MYASSET_dummy_xccdf.ckl] Generating statistics for C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\MYASSET_dummy_xccdf.ckl
+[2026-04-11 15:44:26] [INFO    ] [op=generate_stats, file=MYASSET_dummy_xccdf.ckl] Generating statistics for C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\MYASSET_dummy_xccdf.ckl
+[2026-04-11 15:44:38] [INFO    ] [op=merge_advanced, base=MYASSET_dummy_xccdf.ckl, histories=1] Advanced merge: 1 checklist(s) into MYASSET_dummy_xccdf.ckl
+[2026-04-11 15:44:38] [INFO    ] [op=merge_advanced, base=MYASSET_dummy_xccdf.ckl, histories=1] Advanced merge: 2 updated, 0 unchanged, 0 filtered out
+[2026-04-11 15:44:40] [INFO    ] Bulk edit preview: 2 vulnerabilities would be affected
+[2026-04-11 15:44:41] [INFO    ] [op=xccdf_to_ckl, asset=TESTCKLB, file=dummy_xccdf.xml] Converting XCCDF to CKL
+[2026-04-11 15:44:41] [INFO    ] [op=xccdf_to_ckl, asset=TESTCKLB, file=dummy_xccdf.xml] STIG title: Test STIG Benchmark
+[2026-04-11 15:44:41] [INFO    ] [op=xccdf_to_ckl, asset=TESTCKLB, file=dummy_xccdf.xml] STIG version: 1
+[2026-04-11 15:44:41] [INFO    ] [op=xccdf_to_ckl, asset=TESTCKLB, file=dummy_xccdf.xml] Processing 2 vulnerabilities
+[2026-04-11 15:44:41] [INFO    ] [op=xccdf_to_ckl, asset=TESTCKLB, file=dummy_xccdf.xml] Processed: 2 | Skipped: 0
+[2026-04-11 15:45:54] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-11 15:45:54] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-11 15:45:54] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] STIG version: 1
+[2026-04-11 15:45:54] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-11 15:45:54] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Processed: 1 | Skipped: 0
+[2026-04-11 15:45:54] [INFO    ] [op=merge_advanced, base=out_create.ckl, histories=1] Advanced merge: 1 checklist(s) into out_create.ckl
+[2026-04-11 15:45:54] [INFO    ] [op=merge_advanced, base=out_create.ckl, histories=1] Advanced merge: 1 updated, 0 unchanged, 0 filtered out
+[2026-04-11 15:45:54] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-11 15:45:54] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-11 15:45:54] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] STIG version: 1
+[2026-04-11 15:45:54] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-11 15:45:54] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Processed: 1 | Skipped: 0
+[2026-04-11 15:45:55] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-11 15:45:55] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-11 15:45:55] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] STIG version: 1
+[2026-04-11 15:45:55] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-11 15:45:55] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] Processed: 1 | Skipped: 0
+[2026-04-11 15:45:56] [INFO    ] Bulk edited 2 vulnerabilities
+[2026-04-11 15:45:56] [INFO    ] Bulk edited 1 vulnerabilities
+[2026-04-11 15:45:57] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merging 99 checklist(s) into base large_100.ckl
+[2026-04-11 15:45:57] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Strategy: newest_wins | Protect: none
+[2026-04-11 15:45:58] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merge summary: 100 updated, 0 unchanged, 0 protected
+[2026-04-11 15:45:58] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merged checklist saved to C:\Users\Madden\AppData\Local\Temp\bench_vmql7104\merge_100_out.ckl
+[2026-04-11 15:45:58] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merging 9 checklist(s) into base large_100.ckl
+[2026-04-11 15:45:58] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Strategy: newest_wins | Protect: none
+[2026-04-11 15:45:58] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merge summary: 100 updated, 0 unchanged, 0 protected
+[2026-04-11 15:45:58] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merged checklist saved to C:\Users\Madden\AppData\Local\Temp\bench_9az3aca1\merge_10_out.ckl
+[2026-04-11 15:47:12] [INFO    ] [op=xccdf_to_ckl, asset=TESTASSET01, file=dummy_xccdf.xml] Converting XCCDF to CKL
+[2026-04-11 15:47:12] [INFO    ] [op=xccdf_to_ckl, asset=TESTASSET01, file=dummy_xccdf.xml] STIG title: Test STIG Benchmark
+[2026-04-11 15:47:12] [INFO    ] [op=xccdf_to_ckl, asset=TESTASSET01, file=dummy_xccdf.xml] STIG version: 1
+[2026-04-11 15:47:12] [INFO    ] [op=xccdf_to_ckl, asset=TESTASSET01, file=dummy_xccdf.xml] Processing 2 vulnerabilities
+[2026-04-11 15:47:12] [INFO    ] [op=xccdf_to_ckl, asset=TESTASSET01, file=dummy_xccdf.xml] Processed: 2 | Skipped: 0
+[2026-04-11 15:47:21] [INFO    ] [op=generate_stats, file=test_output.ckl] Generating statistics for C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\test_output.ckl
+[2026-04-11 15:47:23] [INFO    ] [op=verify_integrity, file=test_output.ckl] Verifying integrity of C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\test_output.ckl
+[2026-04-11 15:47:33] [INFO    ] [op=diff, ckl1=test_output.ckl, ckl2=MYASSET_dummy_xccdf.ckl] Comparing test_output.ckl vs MYASSET_dummy_xccdf.ckl
+[2026-04-11 15:47:37] [INFO    ] [op=repair, file=test_output.ckl] Repairing checklist: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\test_output.ckl
+[2026-04-11 15:47:37] [INFO    ] Repaired checklist written to C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\test_output_repaired.ckl
+[2026-04-11 15:47:37] [INFO    ] Repairs applied: 0
+[2026-04-11 15:47:50] [INFO    ] [op=merge_advanced, base=test_output.ckl, histories=1] Advanced merge: 1 checklist(s) into test_output.ckl
+[2026-04-11 15:47:50] [INFO    ] [op=merge_advanced, base=test_output.ckl, histories=1] Advanced merge: 2 updated, 0 unchanged, 0 filtered out
+[2026-04-11 15:47:50] [INFO    ] Bulk edit preview: 2 vulnerabilities would be affected
+[2026-04-11 15:47:51] [INFO    ] [op=generate_stats, file=test_output.ckl] Generating statistics for C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\test_output.ckl
+[2026-04-11 15:47:51] [INFO    ] [op=diff, ckl1=test_output.ckl, ckl2=MYASSET_dummy_xccdf.ckl] Comparing test_output.ckl vs MYASSET_dummy_xccdf.ckl
+[2026-04-11 15:47:51] [INFO    ] [op=diff, ckl1=test_output.ckl, ckl2=MYASSET_dummy_xccdf.ckl] Comparing test_output.ckl vs MYASSET_dummy_xccdf.ckl
+[2026-04-11 15:49:31] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-11 15:49:31] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-11 15:49:31] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] STIG version: 1
+[2026-04-11 15:49:31] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-11 15:49:31] [INFO    ] [op=xccdf_to_ckl, asset=E2E_SERVER, file=test_benchmark.xml] Processed: 1 | Skipped: 0
+[2026-04-11 15:49:31] [INFO    ] [op=merge_advanced, base=out_create.ckl, histories=1] Advanced merge: 1 checklist(s) into out_create.ckl
+[2026-04-11 15:49:31] [INFO    ] [op=merge_advanced, base=out_create.ckl, histories=1] Advanced merge: 1 updated, 0 unchanged, 0 filtered out
+[2026-04-11 15:49:31] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-11 15:49:31] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-11 15:49:31] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] STIG version: 1
+[2026-04-11 15:49:31] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-11 15:49:31] [INFO    ] [op=xccdf_to_ckl, asset=SMART_TEST, file=test_benchmark.xml] Processed: 1 | Skipped: 0
+[2026-04-11 15:49:32] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] Converting XCCDF to CKL
+[2026-04-11 15:49:32] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] STIG title: E2E STIG
+[2026-04-11 15:49:32] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] STIG version: 1
+[2026-04-11 15:49:32] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] Processing 1 vulnerabilities
+[2026-04-11 15:49:32] [INFO    ] [op=xccdf_to_ckl, asset=GUI_SERVER, file=test_benchmark.xml] Processed: 1 | Skipped: 0
+[2026-04-11 15:49:32] [INFO    ] Bulk edited 2 vulnerabilities
+[2026-04-11 15:49:32] [INFO    ] Bulk edited 1 vulnerabilities
+[2026-04-11 15:49:33] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merging 99 checklist(s) into base large_100.ckl
+[2026-04-11 15:49:33] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Strategy: newest_wins | Protect: none
+[2026-04-11 15:49:34] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merge summary: 100 updated, 0 unchanged, 0 protected
+[2026-04-11 15:49:34] [INFO    ] [op=merge, base=large_100.ckl, histories=99] Merged checklist saved to C:\Users\Madden\AppData\Local\Temp\bench_wqwb70y4\merge_100_out.ckl
+[2026-04-11 15:49:34] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merging 9 checklist(s) into base large_100.ckl
+[2026-04-11 15:49:34] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Strategy: newest_wins | Protect: none
+[2026-04-11 15:49:34] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merge summary: 100 updated, 0 unchanged, 0 protected
+[2026-04-11 15:49:34] [INFO    ] [op=merge, base=large_100.ckl, histories=9] Merged checklist saved to C:\Users\Madden\AppData\Local\Temp\bench_nk8xmwec\merge_10_out.ckl

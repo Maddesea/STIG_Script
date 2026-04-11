@@ -1495,31 +1495,6 @@ COMMON USE-CASES (Windows Operations):
             )
             return 0
 
-        if args.batch_convert:
-            batch_out = args.batch_out
-            if not batch_out:
-                batch_path = Path(args.batch_convert)
-                batch_out = str(batch_path.parent / f"{batch_path.name}_ckls")
-                LOG.i(f"Auto-resolved batch output directory: {batch_out}")
-
-            with Spinner(f"Batch converting directory '{args.batch_convert}'..."):
-                result = proc.batch_convert(
-                    args.batch_convert,
-                    batch_out,
-                    asset_prefix=args.batch_asset_prefix,
-                    apply_boilerplate=(
-                        args.apply_boilerplate
-                        if hasattr(args, "apply_boilerplate")
-                        else False
-                    ),
-                )
-            print(
-                format_color(
-                    json.dumps(result, indent=2, ensure_ascii=False),
-                    "green" if result.get("failures", 0) == 0 else "yellow",
-                )
-            )
-            return 0 if result.get("failures", 0) == 0 else 2
 
         if args.verify_integrity:
             result = proc.verify_integrity(args.verify_integrity)
@@ -1573,31 +1548,7 @@ COMMON USE-CASES (Windows Operations):
             )
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0
-            
-        if args.fleet_stats:
-            from stig_assessor.processor.fleet_stats import FleetStats
 
-            target = Path(args.fleet_stats)
-            fs = FleetStats()
-            with Spinner(f"Analyzing fleet compliance in {target}...") as spinner:
-                if target.is_file() and target.suffix.lower() == ".zip":
-                    stats = fs.process_zip(target)
-                else:
-                    stats = fs.process_directory(target)
-
-            stats_out = args.stats_out or "fleet_compliance_stats.json"
-            out_path = Path(stats_out)
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(out_path, "w", encoding="utf-8") as f:
-                json.dump(stats, f, indent=2, ensure_ascii=False)
-
-            print(
-                format_color(
-                    f"Fleet compliance report for {stats.get('total_assets', 0)} assets saved to {out_path}",
-                    "green",
-                )
-            )
-            return 0
 
         if args.export_poam:
             poam_str = proc.export_poam(args.export_poam)

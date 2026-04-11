@@ -4,28 +4,28 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 :root {
-    /* ── Core Palette ── */
-    --bg-main: #02040a;
-    --bg-surface: #0d1117;
-    --bg-glass: rgba(13, 17, 23, 0.75);
-    --bg-glass-strong: rgba(13, 17, 23, 0.90);
-    --bg-elevated: rgba(22, 27, 34, 0.9);
-    --bg-hover: rgba(48, 54, 61, 0.6);
-    --bg-input: rgba(1, 4, 9, 0.8);
+    /* ── Core Palette (Premium Air-Gapped Dark) ── */
+    --bg-main: #07090F;
+    --bg-surface: #0E131E;
+    --bg-glass: rgba(14, 19, 30, 0.75);
+    --bg-glass-strong: rgba(14, 19, 30, 0.92);
+    --bg-elevated: rgba(20, 26, 40, 0.95);
+    --bg-hover: rgba(59, 130, 246, 0.15);
+    --bg-input: rgba(6, 8, 13, 0.85);
 
     /* ── Typography ── */
-    --tx-main: #f0f6fc;
-    --tx-secondary: #c9d1d9;
-    --tx-muted: #8b949e;
-    --tx-dim: #6e7681;
+    --tx-main: #f8fafc;
+    --tx-secondary: #cbd5e1;
+    --tx-muted: #94a3b8;
+    --tx-dim: #64748b;
 
     /* ── Accent Colors ── */
     --ac-primary: #3b82f6;
-    --ac-primary-dim: rgba(59, 130, 246, 0.2);
-    --ac-secondary: #a855f7;
-    --ac-accent: #ec4899;
-    --ac-success: #22c55e;
-    --ac-danger: #ef4444;
+    --ac-primary-dim: rgba(59, 130, 246, 0.25);
+    --ac-secondary: #8b5cf6;
+    --ac-accent: #f43f5e;
+    --ac-success: #10b981;
+    --ac-danger: #f43f5e;
     --ac-warn: #eab308;
     --ac-info: #0ea5e9;
 
@@ -40,14 +40,14 @@
     --status-nr-bg: rgba(234, 179, 8, 0.15);
 
     /* ── Borders & Shadows ── */
-    --border-default: rgba(255, 255, 255, 0.15);
-    --border-subtle: rgba(255, 255, 255, 0.08);
-    --border-input: rgba(255, 255, 255, 0.2);
+    --border-default: rgba(255, 255, 255, 0.1);
+    --border-subtle: rgba(255, 255, 255, 0.05);
+    --border-input: rgba(255, 255, 255, 0.15);
     --border-active: rgba(59, 130, 246, 0.65);
-    --shadow-sm: 0 4px 12px rgba(0,0,0,0.5);
-    --shadow-md: 0 8px 24px rgba(0,0,0,0.6);
-    --shadow-lg: 0 16px 40px rgba(0,0,0,0.8);
-    --shadow-glow: 0 0 40px rgba(59, 130, 246, 0.4);
+    --shadow-sm: 0 4px 14px rgba(0,0,0,0.4);
+    --shadow-md: 0 8px 24px rgba(0,0,0,0.5);
+    --shadow-lg: 0 16px 40px rgba(0,0,0,0.7);
+    --shadow-glow: 0 0 32px rgba(59, 130, 246, 0.35);
 
     /* ── Layout ── */
     --sidebar-width: 270px;
@@ -59,8 +59,8 @@
     --radius-xl: 26px;
 
     /* ── Typography ── */
-    --font-stack: 'Inter', 'Segoe UI', 'Roboto', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
-    --font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
+    --font-stack: 'Inter', 'Segoe UI', 'Roboto', 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
 }
 
 *, *::before, *::after {
@@ -79,13 +79,13 @@ body {
     letter-spacing: 0.2px;
     -webkit-font-smoothing: antialiased;
     background-image:
-        radial-gradient(circle at 15% 0%, rgba(59, 130, 246, 0.25) 0%, transparent 50%),
-        radial-gradient(circle at 85% 100%, rgba(168, 85, 247, 0.20) 0%, transparent 50%),
-        radial-gradient(circle at 50% 50%, rgba(236, 72, 153, 0.10) 0%, transparent 60%);
+        radial-gradient(circle at 15% 0%, rgba(59, 130, 246, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 85% 100%, rgba(139, 92, 246, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 50% 50%, rgba(244, 63, 94, 0.08) 0%, transparent 70%);
     background-size: 200% 200%;
     background-attachment: fixed;
-    animation: breathingGlow 18s ease-in-out infinite alternate;
-    transition: background-color 0.4s ease;
+    animation: breathingGlow 24s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+    transition: background-color 0.5s ease;
 }
 
 @keyframes breathingGlow {
@@ -403,11 +403,11 @@ body {
     border-radius: var(--radius-lg);
     padding: 24px;
     position: relative;
-    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
     overflow: hidden;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     animation: cardStagger 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -431,9 +431,9 @@ body {
     pointer-events: none;
 }
 .card:hover {
-    border-color: rgba(59, 130, 246, 0.5);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6), var(--shadow-glow);
-    transform: translateY(-6px) scale(1.006);
+    border-color: rgba(59, 130, 246, 0.45);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.4), var(--shadow-glow);
+    transform: translateY(-4px) scale(1.004);
 }
 .card:hover::before {
     opacity: 1;
