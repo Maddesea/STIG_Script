@@ -155,7 +155,7 @@ Runtime directories (created in ~/.stig_assessor/):
 
 ### 1. Create CKL from XCCDF
 ```bash
-python -m stig_assessor.ui.cli --create \
+python -m stig_assessor --create \
   --xccdf /path/to/benchmark.xml \
   --asset "SERVER-01" \
   --out /path/to/output.ckl \
@@ -170,7 +170,7 @@ python -m stig_assessor.ui.cli --create \
 
 ### 2. Merge Checklists
 ```bash
-python -m stig_assessor.ui.cli --merge \
+python -m stig_assessor --merge \
   --base current.ckl \
   --histories old1.ckl old2.ckl old3.ckl \
   --merge-out merged.ckl
@@ -180,7 +180,7 @@ python -m stig_assessor.ui.cli --merge \
 
 ### 3. Extract Fixes
 ```bash
-python -m stig_assessor.ui.cli --extract benchmark.xml \
+python -m stig_assessor --extract benchmark.xml \
   --outdir ./fixes \
   --script-dry-run  # Optional: generates dry-run scripts
 ```
@@ -191,7 +191,7 @@ python -m stig_assessor.ui.cli --extract benchmark.xml \
 
 ### 4. Apply Remediation Results
 ```bash
-python -m stig_assessor.ui.cli --apply-results results.json \
+python -m stig_assessor --apply-results results.json \
   --checklist current.ckl \
   --results-out updated.ckl
 ```
@@ -201,15 +201,15 @@ python -m stig_assessor.ui.cli --apply-results results.json \
 ### 5. Evidence Management
 ```bash
 # Import evidence
-python -m stig_assessor.ui.cli --import-evidence V-123456 /path/to/screenshot.png \
+python -m stig_assessor --import-evidence V-123456 /path/to/screenshot.png \
   --evidence-desc "System configuration screenshot" \
   --evidence-cat "config"
 
 # Export all evidence
-python -m stig_assessor.ui.cli --export-evidence /path/to/output_dir
+python -m stig_assessor --export-evidence /path/to/output_dir
 
 # Package evidence
-python -m stig_assessor.ui.cli --package-evidence evidence_package.zip
+python -m stig_assessor --package-evidence evidence_package.zip
 ```
 
 ---
@@ -389,7 +389,7 @@ pattern = re.compile(r'new_pattern', re.MULTILINE)
 
 ### Enable Verbose Logging
 ```bash
-python -m stig_assessor.ui.cli --verbose [command]
+python -m stig_assessor --verbose [command]
 ```
 Logs written to: `~/.stig_assessor/logs/stig_assessor.log`
 
@@ -556,10 +556,10 @@ python -m pytest tests/test_performance/ -v --benchmark-only
 
 ```bash
 # Old way
-python STIG_Script.py --create --xccdf benchmark.xml --out output.ckl
+python -m stig_assessor --create --xccdf benchmark.xml --out output.ckl
 
 # New way (when modular version is deployed)
-python -m stig_assessor.ui.cli --create --xccdf benchmark.xml --out output.ckl
+python -m stig_assessor --create --xccdf benchmark.xml --out output.ckl
 ```
 
 ### Migration Resources
@@ -603,7 +603,7 @@ Based on repository history:
 
 ### Before Committing
 1. Test basic workflows (create, merge, extract, apply)
-2. Verify no syntax errors: `python -m stig_assessor.ui.cli --version`
+2. Verify no syntax errors: `python -m stig_assessor --version`
 3. Run validation on sample output
 4. Update version/build date if significant changes
 

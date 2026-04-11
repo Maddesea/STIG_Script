@@ -9,6 +9,10 @@ import logging
 import re
 import shutil
 import sys
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 import threading
 import time
 import zipfile
@@ -21,6 +25,7 @@ from stig_assessor.core.deps import Deps
 from stig_assessor.core.logging import LOG
 from stig_assessor.core.state import GlobalState
 from stig_assessor.evidence.manager import EvidenceMgr
+from stig_assessor.exceptions import ParseError, ValidationError
 from stig_assessor.io.file_ops import FO
 from stig_assessor.processor.processor import Proc
 from stig_assessor.remediation.extractor import FixExt

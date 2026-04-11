@@ -24,7 +24,7 @@ if exist "%~dp0python\python.exe" (
 echo Starting STIG Assessor Web Server on http://127.0.0.1:8080 ...
 echo Press Ctrl+C to stop the server.
 echo.
-%PYTHON% -m stig_assessor.ui.cli --web
+%PYTHON% -m stig_assessor --web
 if errorlevel 1 (
     echo.
     echo ERROR: Failed to launch the Web Interface. Please check errors above.

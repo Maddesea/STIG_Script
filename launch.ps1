@@ -107,18 +107,18 @@ Write-Host "Using Python: $Python" -ForegroundColor Cyan
 switch ($Mode) {
     'gui' {
         Write-Host "Starting STIG Assessor GUI..." -ForegroundColor Green
-        & "$Python" -m stig_assessor.ui.cli --gui
+        & "$Python" -m stig_assessor --gui
     }
     'web' {
         Write-Host "Starting STIG Assessor Web Server on http://127.0.0.1:8080 ..." -ForegroundColor Green
         Write-Host "Press Ctrl+C to stop." -ForegroundColor Yellow
-        & "$Python" -m stig_assessor.ui.cli --web
+        & "$Python" -m stig_assessor --web
     }
     'cli' {
         if ($Arguments) {
-            & "$Python" -m stig_assessor.ui.cli $Arguments.Split(' ')
+            & "$Python" -m stig_assessor $Arguments.Split(' ')
         } else {
-            & "$Python" -m stig_assessor.ui.cli --help
+            & "$Python" -m stig_assessor --help
         }
     }
 }

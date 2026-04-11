@@ -778,7 +778,7 @@ class BP:
     # ═══ ENHANCED: Apply boilerplates to a full checklist ═══
     def apply_to_checklist(
         self,
-        root: ET.Element,
+        root: Element,
         *,
         status_filter: Optional[List[str]] = None,
         severity_filter: Optional[List[str]] = None,

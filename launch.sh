@@ -79,18 +79,18 @@ echo "Using Python: $(which $PYTHON_CMD 2>/dev/null || echo $PYTHON_CMD)"
 case $MODE in
     gui)
         echo "Starting STIG Assessor GUI..."
-        $PYTHON_CMD -m stig_assessor.ui.cli --gui
+        $PYTHON_CMD -m stig_assessor --gui
         ;;
     web)
         echo "Starting STIG Assessor Web Server on http://127.0.0.1:8080 ..."
         echo "Press Ctrl+C to stop."
-        $PYTHON_CMD -m stig_assessor.ui.cli --web
+        $PYTHON_CMD -m stig_assessor --web
         ;;
     cli)
         if [ -n "$ARGS" ]; then
-            $PYTHON_CMD -m stig_assessor.ui.cli $ARGS
+            $PYTHON_CMD -m stig_assessor $ARGS
         else
-            $PYTHON_CMD -m stig_assessor.ui.cli --help
+            $PYTHON_CMD -m stig_assessor --help
         fi
         ;;
     *)

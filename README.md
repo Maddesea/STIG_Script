@@ -36,13 +36,13 @@ git clone https://github.com/Maddesea/STIG_Script.git
 cd STIG_Script
 
 # Run the GUI
-python -m stig_assessor.ui.cli --gui
+python -m stig_assessor --gui
 
 # Run the Web UI
-python -m stig_assessor.ui.cli --web
+python -m stig_assessor --web
 
 # Check help
-python -m stig_assessor.ui.cli --help
+python -m stig_assessor --help
 ```
 
 ---

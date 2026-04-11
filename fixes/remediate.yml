@@ -1,0 +1,25 @@
+---
+# Auto-generated STIG Remediation Playbook
+# Generated: 2026-04-11 03:47:09 UTC
+# Mode: LIVE
+
+- name: Validate and Remediate STIG Findings
+  hosts: all
+  become: yes
+  tasks:
+    - name: "[1/2] V-123456 - Test Rule Title"
+      ansible.builtin.shell: |
+        systemctl enable test.service
+      register: stig_fix_v_123456
+      ignore_errors: true
+      tags:
+        - v-123456
+
+    - name: "[2/2] V-234567 - Second Rule"
+      ansible.builtin.shell: |
+        fix available
+      register: stig_fix_v_234567
+      ignore_errors: true
+      tags:
+        - v-234567
+

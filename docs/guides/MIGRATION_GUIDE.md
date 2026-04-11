@@ -40,7 +40,7 @@ The modular version provides a backward-compatible wrapper. All your existing sc
 
 ```bash
 # Old way (still works)
-python STIG_Script.py --create --xccdf benchmark.xml --out output.ckl
+stig-assessor --create --xccdf benchmark.xml --out output.ckl
 
 # New way (same result)
 python -m stig_assessor.cli --create --xccdf benchmark.xml --out output.ckl
@@ -54,7 +54,7 @@ Launch the GUI the same way:
 
 ```bash
 # Old way
-python STIG_Script.py
+stig-assessor
 
 # New way
 python -m stig_assessor.ui.gui
@@ -102,7 +102,7 @@ proc.xccdf_to_ckl(xccdf, output, "SERVER-01", "192.168.1.1", "00:11:22:33:44:55"
 Check your current version:
 
 ```bash
-python STIG_Script.py --version
+stig-assessor --version
 # Should show: STIG Assessor v7.0.0 (Build 2025-10-28)
 ```
 
@@ -169,7 +169,7 @@ python -m stig_assessor.cli --create \
 **Old Script (`assess.sh`):**
 ```bash
 #!/bin/bash
-python STIG_Script.py --create \
+stig-assessor --create \
     --xccdf benchmarks/RHEL_8.xml \
     --out checklists/rhel8_$(date +%F).ckl \
     --asset $HOSTNAME \
@@ -181,7 +181,7 @@ python STIG_Script.py --create \
 ```bash
 #!/bin/bash
 # Option 1: Use backward-compatible wrapper
-python STIG_Script.py --create \
+stig-assessor --create \
     --xccdf benchmarks/RHEL_8.xml \
     --out checklists/rhel8_$(date +%F).ckl \
     --asset $HOSTNAME \
@@ -467,7 +467,7 @@ Update any scripts to use old version:
 python -m stig_assessor.cli --create ...
 
 # Back to this:
-python STIG_Script.py --create ...
+stig-assessor --create ...
 ```
 
 ---

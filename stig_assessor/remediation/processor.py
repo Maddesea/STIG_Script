@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Tuple, Union
 from stig_assessor.core.config import Cfg
 from stig_assessor.core.constants import Status
 from stig_assessor.core.logging import LOG
-from stig_assessor.exceptions import ParseError
+from stig_assessor.exceptions import ParseError, FileError
 from stig_assessor.io.file_ops import FO
 from stig_assessor.remediation.models import FixResult
 # Import from modular package

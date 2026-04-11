@@ -4631,3 +4631,49 @@
 [2026-04-10 13:46:58] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
 [2026-04-10 13:46:58] [WARNING ] Invalid severity 'invalid', defaulting to 'medium'
 [2026-04-10 13:46:58] [WARNING ] Invalid severity 'critical', defaulting to 'medium'
+[2026-04-10 22:44:34] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-10 22:45:02] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-10 22:45:02] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-10 22:45:47] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-10 22:45:59] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-10 22:46:39] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-10 22:46:39] [INFO    ] Auto-resolved output path: MYASSET_dummy_xccdf.ckl
+[2026-04-10 22:46:39] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-10 22:46:39] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-10 22:46:45] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-10 22:46:45] [INFO    ] [op=extract_fix, file=dummy_xccdf.xml] Extracting fix information
+[2026-04-10 22:46:45] [WARNING ] [op=extract_fix, file=dummy_xccdf.xml] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-10 22:46:45] [INFO    ] [op=extract_fix, file=dummy_xccdf.xml] Extracted 2 fixes (2 with actionable commands) [Filtered by: Status: Open, Not_Reviewed]
+[2026-04-10 22:46:45] [INFO    ] Fixes exported to JSON: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\fixes\fixes.json
+[2026-04-10 22:46:45] [INFO    ] Fixes exported to CSV: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\fixes\fixes.csv
+[2026-04-10 22:47:09] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-10 22:47:09] [INFO    ] [op=extract_fix, file=dummy_xccdf.xml] Extracting fix information
+[2026-04-10 22:47:09] [WARNING ] [op=extract_fix, file=dummy_xccdf.xml] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-10 22:47:09] [INFO    ] [op=extract_fix, file=dummy_xccdf.xml] Extracted 2 fixes (2 with actionable commands) [Filtered by: Status: Open, Not_Reviewed]
+[2026-04-10 22:47:09] [INFO    ] Fixes exported to JSON: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\fixes\fixes.json
+[2026-04-10 22:47:09] [INFO    ] Fixes exported to CSV: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\fixes\fixes.csv
+[2026-04-10 22:47:09] [INFO    ] Bash remediation script generated: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\fixes\remediate.sh (2 fixes)
+[2026-04-10 22:47:09] [INFO    ] PowerShell remediation script generated: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\fixes\Remediate.ps1 (1 fixes)
+[2026-04-10 22:47:09] [INFO    ] Ansible remediation playbook generated: C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\fixes\remediate.yml (2 fixes)
+[2026-04-10 22:47:28] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-10 22:47:28] [INFO    ] [op=load_fix_results, file=dummy_results.json] Loading remediation results JSON
+[2026-04-10 22:47:28] [INFO    ] [op=load_fix_results, file=dummy_results.json] Loaded 2 unique results from 2 total entries (skipped 0)
+[2026-04-10 22:47:28] [INFO    ] [op=apply_results, file=MYASSET_dummy_xccdf.ckl] Applying remediation results to checklist (2 vulns)
+[2026-04-10 22:47:28] [WARNING ] [op=apply_results, file=MYASSET_dummy_xccdf.ckl] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-10 22:47:28] [INFO    ] [op=apply_results, file=MYASSET_dummy_xccdf.ckl] Checklist updated and saved to C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\MYASSET_updated.ckl
+[2026-04-10 22:47:34] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-10 22:47:34] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-10 22:47:53] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-10 22:47:53] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-10 22:47:53] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-10 22:47:53] [ERROR   ] Fatal error (Value): 'charmap' codec can't encode character '\u2192' in position 705: character maps to <undefined>
+Traceback (most recent call last):
+  File "C:\Users\Madden\Desktop\_Personal_GitHub_Repos\STIG_Script\stig_assessor\ui\cli.py", line 1008, in main
+    print(result.get("formatted_text", ""))
+  File "C:\Users\Madden\AppData\Local\Programs\Python\Python311\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 705: character maps to <undefined>
+[2026-04-10 22:48:20] [INFO    ] Loaded 3 boilerplate templates
+[2026-04-10 22:48:20] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious
+[2026-04-10 22:48:20] [WARNING ] Parsing without defusedxml - vulnerable to XML entity expansion attacks if file is malicious

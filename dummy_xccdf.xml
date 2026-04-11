@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Benchmark xmlns="http://checklists.nist.gov/xccdf/1.2"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           id="TEST_STIG">
+    <title>Test STIG Benchmark</title>
+    <description>Sample STIG for testing</description>
+    <version>1</version>
+    <Group id="V-123456">
+        <title>Test Vulnerability</title>
+        <description>Test description</description>
+        <Rule id="SV-123456r1_rule" severity="medium">
+            <version>TEST-001</version>
+            <title>Test Rule Title</title>
+            <description>Rule description</description>
+            <fixtext fixref="F-123456">
+                Run this command:
+                systemctl enable test.service
+            </fixtext>
+            <check system="http://oval.mitre.org/XMLSchema/oval-definitions-5">
+                <check-content>Check content here</check-content>
+            </check>
+            <ident system="http://cyber.mil/cci">CCI-000001</ident>
+        </Rule>
+    </Group>
+    <Group id="V-234567">
+        <title>Another Vulnerability</title>
+        <description>Another test</description>
+        <Rule id="SV-234567r1_rule" severity="high">
+            <version>TEST-002</version>
+            <title>Second Rule</title>
+            <description>Second rule description</description>
+            <fixtext fixref="F-234567">No fix available</fixtext>
+            <check system="http://oval.mitre.org/XMLSchema/oval-definitions-5">
+                <check-content>Check this</check-content>
+            </check>
+            <ident system="http://cyber.mil/cci">CCI-000002</ident>
+        </Rule>
+    </Group>
+</Benchmark>

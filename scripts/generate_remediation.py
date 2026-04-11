@@ -25,7 +25,7 @@ Usage Examples:
     python generate_remediation.py --multi-system server1.csv server2.csv --output multi.json
 
 Apply results to checklist:
-    python -m stig_assessor.ui.cli --apply-results remediation.json --checklist current.ckl --results-out updated.ckl
+    python -m stig_assessor --apply-results remediation.json --checklist current.ckl --results-out updated.ckl
 
 Version: 1.0.0
 Compatible with: STIG Assessor Complete 7.0.0+

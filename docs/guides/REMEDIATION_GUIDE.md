@@ -19,7 +19,7 @@ python generate_remediation.py --from-csv template.csv --output remediation.json
 ### 2. Apply remediation results to checklist
 
 ```bash
-python STIG_Script.py --apply-results remediation.json \
+python -m stig_assessor --apply-results remediation.json \
   --checklist current.ckl \
   --results-out updated.ckl
 ```
@@ -128,7 +128,7 @@ Each remediation result has these fields:
 
 4. **Apply to checklist:**
    ```bash
-   python STIG_Script.py --apply-results remediation.json --checklist current.ckl --results-out updated.ckl
+   python -m stig_assessor --apply-results remediation.json --checklist current.ckl --results-out updated.ckl
    ```
 
 ### Scenario 2: Automated Script Results
@@ -150,7 +150,7 @@ If you have an automated remediation script that outputs results:
 2. **Convert to JSON and apply:**
    ```bash
    python generate_remediation.py --from-csv auto_results.csv --output remediation.json
-   python STIG_Script.py --apply-results remediation.json --checklist current.ckl --results-out updated.ckl
+   python -m stig_assessor --apply-results remediation.json --checklist current.ckl --results-out updated.ckl
    ```
 
 ### Scenario 3: Multiple Servers (Bulk Operations)
@@ -166,7 +166,7 @@ If you have an automated remediation script that outputs results:
    ```bash
    # Extract results for specific system from JSON manually or use separate CSVs
    python generate_remediation.py --from-csv server1.csv --output server1.json
-   python STIG_Script.py --apply-results server1.json --checklist server1.ckl --results-out server1_updated.ckl
+   python -m stig_assessor --apply-results server1.json --checklist server1.ckl --results-out server1_updated.ckl
    ```
 
 ## Advanced: Custom Metadata
@@ -238,7 +238,7 @@ Example GitHub Actions workflow:
   run: |
     ./auto_remediate.sh > results.csv
     python generate_remediation.py --from-csv results.csv --output remediation.json
-    python STIG_Script.py --apply-results remediation.json --checklist baseline.ckl --results-out updated.ckl
+    python -m stig_assessor --apply-results remediation.json --checklist baseline.ckl --results-out updated.ckl
 ```
 
 ## Version History

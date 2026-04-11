@@ -87,19 +87,22 @@ cd STIG_Script
 2. Optionally place a portable Python installation in a `python/` subfolder (the launchers auto-detect it).
 3. No `pip install` required — the tool works immediately.
 
-#### Method C: Single-File Mode
-For maximum simplicity, copy only `STIG_Script.py` (the monolithic script). All features work from this single file:
-```bash
-python STIG_Script.py --help
+#### Method C: Standalone Executable
+For maximum air-gapped simplicity, build or download the standalone executable (`STIG_Assessor.exe`). All features work from this single binary without requiring Python:
+```cmd
+.\STIG_Assessor.exe --help
 ```
 
 ### 1.4 Verifying Your Installation
 ```bash
-# Check version and validate your environment
-python STIG_Script.py --version
+# Installed via pip (or running from venv)
+stig-assessor --version
 
-# Or use the modular package
-python -m stig_assessor.ui.cli --version
+# Running directly from source package (no install)
+python -m stig_assessor --version
+
+# Running standalone executable
+.\STIG_Assessor.exe --version
 ```
 
 Expected output: `8.1.0`
@@ -113,14 +116,17 @@ STIG Assessor supports **three interfaces**: CLI, GUI, and Web. All three have f
 ### 2.1 Command-Line Interface (CLI)
 
 ```bash
-# Via monolith
-python STIG_Script.py --help
+# Installed via pip (or running from venv)
+stig-assessor --help
 
-# Via modular package
-python -m stig_assessor.ui.cli --help
+# Running directly from source package (no install)
+python -m stig_assessor --help
+
+# Running standalone executable
+.\STIG_Assessor.exe --help
 
 # With verbose logging
-python STIG_Script.py --verbose --create --xccdf benchmark.xml --asset SRV01
+stig-assessor --verbose --create --xccdf benchmark.xml --asset SRV01
 ```
 
 ### 2.1.1 Interactive Wizard Mode (CLI)
@@ -129,14 +135,14 @@ The CLI features a fully interactive menu-driven Wizard for guided operations. I
 
 ```bash
 # Launch the interactive Wizard mode
-python STIG_Script.py --wizard
+stig-assessor --wizard
 ```
 
 ### 2.2 Graphical Interface (GUI)
 
 ```bash
 # Launch GUI
-python STIG_Script.py --gui
+stig-assessor --gui
 
 # Windows: Double-click the launcher
 launch_gui.bat
@@ -150,7 +156,7 @@ launch_gui.bat
 
 ```bash
 # Launch web server (auto-opens browser)
-python STIG_Script.py --web
+stig-assessor --web
 
 # Windows: Double-click the launcher
 launch_web.bat
@@ -190,7 +196,7 @@ All launchers auto-detect Python from:
 ### CLI Quick Reference
 
 ```
-python STIG_Script.py [GLOBAL_OPTIONS] [COMMAND] [COMMAND_OPTIONS]
+stig-assessor [GLOBAL_OPTIONS] [COMMAND] [COMMAND_OPTIONS]
 
 Global Options:
   --version          Show version number
@@ -230,7 +236,7 @@ Converts a DISA XCCDF benchmark (`.xml`) into a STIG Viewer-compatible checklist
 ### 4.1 CLI
 
 ```bash
-python STIG_Script.py --create \
+stig-assessor --create \
   --xccdf U_RHEL_8_STIG_V1R10_Manual-xccdf.xml \
   --asset "WEB-SERVER-01" \
   --ip "10.0.1.50" \
@@ -257,7 +263,7 @@ python STIG_Script.py --create \
 
 #### Creating a CKLB (STIG Viewer 3) file instead:
 ```bash
-python STIG_Script.py --create-cklb \
+stig-assessor --create-cklb \
   --xccdf benchmark.xml \
   --asset "SRV-01"
 ```
@@ -278,7 +284,7 @@ If you run `--create` without `--xccdf` or `--asset`, and you're in a terminal (
 
 ### 4.2 GUI
 
-1. Launch the GUI (`python STIG_Script.py --gui`).
+1. Launch the GUI (`stig-assessor --gui`).
 2. Navigate to the **📋 Create CKL** tab.
 3. Click **📂 Browse…** to select your `.xml` XCCDF file.
 4. Enter your **Asset Name** (required, shown with red `* Required` validation).
@@ -289,7 +295,7 @@ If you run `--create` without `--xccdf` or `--asset`, and you're in a terminal (
 
 ### 4.3 Web
 
-1. Launch the web server (`python STIG_Script.py --web`).
+1. Launch the web server (`stig-assessor --web`).
 2. Go to the **Create CKL** section.
 3. Drag-and-drop or browse for your XCCDF file.
 4. Fill in asset details.
@@ -304,7 +310,7 @@ When DISA releases a new quarterly STIG, you must migrate your historical assess
 ### 5.1 CLI
 
 ```bash
-python STIG_Script.py --merge \
+stig-assessor --merge \
   --base Q4_2025_Blank_Baseline.ckl \
   --histories Q1_Assessment.ckl Q2_Assessment.ckl Q3_Assessment.ckl \
   --merge-out Q4_2025_Preserved.ckl
@@ -363,7 +369,7 @@ Parses XCCDF benchmarks for embedded fix instructions and exports them as ready-
 ### 6.1 CLI
 
 ```bash
-python STIG_Script.py --extract benchmark.xml \
+stig-assessor --extract benchmark.xml \
   --outdir ./server_fixes \
   --script-dry-run \
   --enable-rollbacks
@@ -453,17 +459,17 @@ Or a CSV file with columns: `vid`, `ok` (true/false), `msg`, `ts`.
 
 ```bash
 # Single file
-python STIG_Script.py --apply-results results.json \
+stig-assessor --apply-results results.json \
   --checklist server01.ckl \
   --results-out server01_updated.ckl
 
 # Multiple results files from different scanners
-python STIG_Script.py --apply-results scan_a.json scan_b.json manual_check.json \
+stig-assessor --apply-results scan_a.json scan_b.json manual_check.json \
   --checklist server01.ckl \
   --results-out server01_final.ckl
 
 # Fine-grained text injection
-python STIG_Script.py --apply-results results.json \
+stig-assessor --apply-results results.json \
   --checklist server01.ckl \
   --details-mode append \
   --comment-mode prepend
@@ -517,18 +523,18 @@ The Evidence Manager provides content-deduplicated storage for screenshots, logs
 
 ```bash
 # Import a single evidence file
-python STIG_Script.py --import-evidence "V-230234" /path/to/firewall_screenshot.png \
+stig-assessor --import-evidence "V-230234" /path/to/firewall_screenshot.png \
   --evidence-desc "firewalld status showing drop rules" \
   --evidence-cat "config"
 
 # Export all evidence to a directory
-python STIG_Script.py --export-evidence /path/to/export_dir
+stig-assessor --export-evidence /path/to/export_dir
 
 # Create a ZIP package for auditors or transfer
-python STIG_Script.py --package-evidence evidence_bundle.zip
+stig-assessor --package-evidence evidence_bundle.zip
 
 # Import evidence from a received package
-python STIG_Script.py --import-evidence-package received_evidence.zip
+stig-assessor --import-evidence-package received_evidence.zip
 ```
 
 #### Parameters
@@ -564,7 +570,7 @@ Checks a CKL for STIG Viewer 2.18 compatibility issues that would cause import e
 
 #### CLI
 ```bash
-python STIG_Script.py --validate assessment.ckl
+stig-assessor --validate assessment.ckl
 ```
 
 **Output:**
@@ -594,7 +600,7 @@ Automatically fixes common corruption issues in CKL files.
 
 #### CLI
 ```bash
-python STIG_Script.py --repair corrupt_assessment.ckl \
+stig-assessor --repair corrupt_assessment.ckl \
   --repair-out fixed_assessment.ckl
 ```
 
@@ -616,16 +622,16 @@ python STIG_Script.py --repair corrupt_assessment.ckl \
 
 ```bash
 # Text report to console
-python STIG_Script.py --stats assessment.ckl
+stig-assessor --stats assessment.ckl
 
 # JSON output (machine-readable)
-python STIG_Script.py --stats assessment.ckl --stats-format json
+stig-assessor --stats assessment.ckl --stats-format json
 
 # Save to file
-python STIG_Script.py --stats assessment.ckl --stats-format html --stats-out report.html
+stig-assessor --stats assessment.ckl --stats-format html --stats-out report.html
 
 # CSV for spreadsheets
-python STIG_Script.py --stats assessment.ckl --stats-format csv --stats-out stats.csv
+stig-assessor --stats assessment.ckl --stats-format csv --stats-out stats.csv
 ```
 
 #### Output Formats
@@ -685,13 +691,13 @@ Severity Breakdown:
 
 ```bash
 # Summary comparison
-python STIG_Script.py --diff previous.ckl current.ckl
+stig-assessor --diff previous.ckl current.ckl
 
 # Detailed comparison showing all unique VIDs
-python STIG_Script.py --diff previous.ckl current.ckl --diff-format detailed
+stig-assessor --diff previous.ckl current.ckl --diff-format detailed
 
 # Machine-readable JSON
-python STIG_Script.py --diff previous.ckl current.ckl --diff-format json
+stig-assessor --diff previous.ckl current.ckl --diff-format json
 ```
 
 #### What is Compared
@@ -715,7 +721,7 @@ python STIG_Script.py --diff previous.ckl current.ckl --diff-format json
 Combines SHA-256 checksum computation with full STIG Viewer validation.
 
 ```bash
-python STIG_Script.py --verify-integrity final_assessment.ckl
+stig-assessor --verify-integrity final_assessment.ckl
 ```
 
 **Output:**
@@ -734,7 +740,7 @@ python STIG_Script.py --verify-integrity final_assessment.ckl
 ### 12.2 Compute Checksum Only
 
 ```bash
-python STIG_Script.py --compute-checksum assessment.ckl
+stig-assessor --compute-checksum assessment.ckl
 # Output: a1b2c3d4...  assessment.ckl
 ```
 
@@ -779,34 +785,34 @@ Templates are organized as:
 
 ```bash
 # List all boilerplates
-python STIG_Script.py --bp-list
+stig-assessor --bp-list
 
 # List boilerplates for a specific VID
-python STIG_Script.py --bp-list-vid V-230234
+stig-assessor --bp-list-vid V-230234
 
 # Set a boilerplate
-python STIG_Script.py --bp-set \
+stig-assessor --bp-set \
   --vid V-230234 \
   --status NotAFinding \
   --finding "Audit logging is configured correctly." \
   --comment "Verified via manual inspection."
 
 # Delete a boilerplate
-python STIG_Script.py --bp-delete --vid V-230234 --status NotAFinding
+stig-assessor --bp-delete --vid V-230234 --status NotAFinding
 # Or delete ALL statuses for a VID:
-python STIG_Script.py --bp-delete --vid V-230234
+stig-assessor --bp-delete --vid V-230234
 
 # Clone templates from one VID to another
-python STIG_Script.py --bp-clone V-230234 V-230235
+stig-assessor --bp-clone V-230234 V-230235
 
 # Export all boilerplates to a JSON file
-python STIG_Script.py --bp-export boilerplates_backup.json
+stig-assessor --bp-export boilerplates_backup.json
 
 # Import boilerplates from a JSON file (merges with existing)
-python STIG_Script.py --bp-import team_templates.json
+stig-assessor --bp-import team_templates.json
 
 # Reset ALL boilerplates to factory defaults
-python STIG_Script.py --bp-reset
+stig-assessor --bp-reset
 ```
 
 ### 13.3 Apply Modes (used during Create/Merge)
@@ -844,7 +850,7 @@ Templates are stored at `~/.stig_assessor/templates/boilerplate.json`. This file
 Ingest a completed checklist into the SQLite history database for long-term tracking:
 
 ```bash
-python STIG_Script.py --track-ckl completed_assessment.ckl
+stig-assessor --track-ckl completed_assessment.ckl
 ```
 
 This extracts all VID statuses and stores them with a timestamp and asset name.
@@ -854,7 +860,7 @@ This extracts all VID statuses and stores them with a timestamp and asset name.
 Compare the latest assessment against previous ones:
 
 ```bash
-python STIG_Script.py --show-drift "WEB-SERVER-01"
+stig-assessor --show-drift "WEB-SERVER-01"
 ```
 
 **Output:**
@@ -872,10 +878,10 @@ Unchanged: 260
 
 ```bash
 # Export history to JSON
-python STIG_Script.py --export-history history_backup.json
+stig-assessor --export-history history_backup.json
 
 # Import history from JSON
-python STIG_Script.py --import-history received_history.json
+stig-assessor --import-history received_history.json
 ```
 
 ### 14.4 GUI
@@ -903,18 +909,18 @@ Process an entire folder of XCCDF benchmarks at once:
 
 ```bash
 # Basic batch conversion
-python STIG_Script.py --batch-convert /path/to/stig_folder/ \
+stig-assessor --batch-convert /path/to/stig_folder/ \
   --batch-out /path/to/ckl_output/ \
   --batch-asset-prefix "DC01"
 
 # With boilerplate application
-python STIG_Script.py --batch-convert /path/to/stigs/ \
+stig-assessor --batch-convert /path/to/stigs/ \
   --batch-out /path/to/ckls/ \
   --batch-asset-prefix "WEB" \
   --apply-boilerplate
 
 # Output as CKLB (STIG Viewer 3)
-python STIG_Script.py --batch-convert /path/to/stigs/ \
+stig-assessor --batch-convert /path/to/stigs/ \
   --batch-out-ext .cklb
 ```
 
@@ -933,10 +939,10 @@ Analyze compliance across an entire fleet of checklists:
 
 ```bash
 # From a directory
-python STIG_Script.py --fleet-stats /path/to/fleet_ckls/
+stig-assessor --fleet-stats /path/to/fleet_ckls/
 
 # From a ZIP archive
-python STIG_Script.py --fleet-stats fleet_bundle.zip
+stig-assessor --fleet-stats fleet_bundle.zip
 ```
 
 **Output:** JSON with aggregate compliance stats across all assets, including per-asset breakdowns and overall fleet compliance percentage.
@@ -963,14 +969,14 @@ Mass-update vulnerabilities matching specific criteria:
 
 ```bash
 # Mark all CAT III (low) items as Not_Applicable
-python STIG_Script.py --bulk-edit assessment.ckl \
+stig-assessor --bulk-edit assessment.ckl \
   --filter-severity low \
   --apply-status Not_Applicable \
   --apply-comment "Low-severity items deferred per site policy." \
   --bulk-out assessment_updated.ckl
 
 # Mark specific VIDs matching a regex
-python STIG_Script.py --bulk-edit assessment.ckl \
+stig-assessor --bulk-edit assessment.ckl \
   --filter-vid "V-2302[0-9]{2}" \
   --apply-status NotAFinding \
   --apply-comment "Remediated in batch 2026-Q1." \
@@ -994,7 +1000,7 @@ python STIG_Script.py --bulk-edit assessment.ckl \
 Export Open and Not_Reviewed findings as an eMASS-compatible Plan of Action & Milestones CSV:
 
 ```bash
-python STIG_Script.py --export-poam assessment.ckl
+stig-assessor --export-poam assessment.ckl
 ```
 
 **Output:** Creates `assessment_poam.csv` with columns:
@@ -1013,10 +1019,10 @@ Convert between STIG Viewer 2 (`.ckl`, XML) and STIG Viewer 3 (`.cklb`, JSON) fo
 
 ```bash
 # CKL → CKLB
-python STIG_Script.py --convert-to-cklb existing_assessment.ckl
+stig-assessor --convert-to-cklb existing_assessment.ckl
 
 # CKLB → CKL  
-python STIG_Script.py --convert-to-ckl existing_assessment.cklb
+stig-assessor --convert-to-ckl existing_assessment.cklb
 ```
 
 The output file is created alongside the input with the opposite extension.
@@ -1031,11 +1037,11 @@ Save and reuse common argument configurations:
 
 ```bash
 # Save current arguments as a profile
-python STIG_Script.py --save-profile "rhel8_web_servers" \
+stig-assessor --save-profile "rhel8_web_servers" \
   --create --xccdf rhel8.xml --asset "WEB-" --marking "CUI" --apply-boilerplate
 
 # Use a saved profile
-python STIG_Script.py --use-profile "rhel8_web_servers" \
+stig-assessor --use-profile "rhel8_web_servers" \
   --asset "WEB-SERVER-42" --out web42.ckl
 ```
 
@@ -1047,10 +1053,10 @@ Bundle all boilerplates, profiles, and plugin configurations for transfer:
 
 ```bash
 # Export all configs
-python STIG_Script.py --export-configs team_configs.zip
+stig-assessor --export-configs team_configs.zip
 
 # Import configs on a new machine
-python STIG_Script.py --import-configs team_configs.zip
+stig-assessor --import-configs team_configs.zip
 ```
 
 This creates/reads a ZIP containing `presets/`, `boilerplates/`, and `plugins/` directories.
@@ -1167,27 +1173,27 @@ RESULTS="remediation_results.json"
 FINAL="${ASSET}_assessed.ckl"
 
 # Step 1: Create baseline checklist
-python STIG_Script.py --create --xccdf "$XCCDF" --asset "$ASSET" \
+stig-assessor --create --xccdf "$XCCDF" --asset "$ASSET" \
   --apply-boilerplate --out "$CKL"
 
 # Step 2: Extract remediation scripts
-python STIG_Script.py --extract "$XCCDF" --outdir "$FIXES_DIR"
+stig-assessor --extract "$XCCDF" --outdir "$FIXES_DIR"
 
 # Step 3: Execute fixes (generates results JSON)
 sudo bash "${FIXES_DIR}/remediate.sh"
 
 # Step 4: Import results back into checklist
-python STIG_Script.py --apply-results "${FIXES_DIR}/stig_results_*.json" \
+stig-assessor --apply-results "${FIXES_DIR}/stig_results_*.json" \
   --checklist "$CKL" --results-out "$FINAL"
 
 # Step 5: Generate compliance report
-python STIG_Script.py --stats "$FINAL" --stats-format html --stats-out "${ASSET}_report.html"
+stig-assessor --stats "$FINAL" --stats-format html --stats-out "${ASSET}_report.html"
 
 # Step 6: Verify integrity
-python STIG_Script.py --verify-integrity "$FINAL"
+stig-assessor --verify-integrity "$FINAL"
 
 # Step 7: Track into history
-python STIG_Script.py --track-ckl "$FINAL"
+stig-assessor --track-ckl "$FINAL"
 
 echo "Pipeline complete for $ASSET"
 ```
@@ -1200,16 +1206,16 @@ NEW_XCCDF="U_RHEL_8_STIG_V1R11_Manual-xccdf.xml"
 NEW_BLANK="blank_v1r11.ckl"
 
 # Create blank baseline from new XCCDF
-python STIG_Script.py --create --xccdf "$NEW_XCCDF" --asset "TEMP" --out "$NEW_BLANK"
+stig-assessor --create --xccdf "$NEW_XCCDF" --asset "TEMP" --out "$NEW_BLANK"
 
 # Merge all previous assessments
-python STIG_Script.py --merge \
+stig-assessor --merge \
   --base "$NEW_BLANK" \
   --histories Q1_assessment.ckl Q2_assessment.ckl Q3_assessment.ckl \
   --merge-out Q4_assessment.ckl
 
 # Validate the result
-python STIG_Script.py --validate Q4_assessment.ckl
+stig-assessor --validate Q4_assessment.ckl
 ```
 
 ### Recipe 3: Fleet Batch Processing
@@ -1217,7 +1223,7 @@ python STIG_Script.py --validate Q4_assessment.ckl
 ```bash
 # Convert all STIGs for a fleet
 for server in WEB{01..10}; do
-  python STIG_Script.py --create \
+  stig-assessor --create \
     --xccdf win_server_2022_stig.xml \
     --asset "$server" \
     --out "fleet/$server.ckl" \
@@ -1225,14 +1231,14 @@ for server in WEB{01..10}; do
 done
 
 # Generate fleet-wide statistics
-python STIG_Script.py --fleet-stats fleet/
+stig-assessor --fleet-stats fleet/
 ```
 
 ### Recipe 4: CI/CD Validation Gate
 
 ```bash
 # In your CI pipeline:
-result=$(python STIG_Script.py --stats assessment.ckl --stats-format json)
+result=$(stig-assessor --stats assessment.ckl --stats-format json)
 compliance=$(echo "$result" | python3 -c "import sys,json; print(json.load(sys.stdin)['compliance_pct'])")
 
 if (( $(echo "$compliance < 80" | bc -l) )); then
@@ -1261,7 +1267,7 @@ echo "PASS: Compliance at ${compliance}%"
 ### Verbose Logging
 
 ```bash
-python STIG_Script.py --verbose [any command]
+stig-assessor --verbose [any command]
 ```
 
 Logs are written to `~/.stig_assessor/logs/stig_assessor.log` (rotating, 10 MB max, 15 files retained).

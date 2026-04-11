@@ -1,0 +1,16 @@
+{
+    "results": [
+        {
+            "vid": "V-123456",
+            "status": "NotAFinding",
+            "finding_details": "Fix applied successfully. Service enabled.",
+            "comments": "Automated remediation completed on 2025-11-16"
+        },
+        {
+            "vid": "V-234567",
+            "status": "Open",
+            "finding_details": "Fix failed. Manual intervention required.",
+            "comments": "Error: Permission denied"
+        }
+    ]
+}

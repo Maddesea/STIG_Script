@@ -909,6 +909,7 @@ record_result "%{vid}" true "dry_run"
             if fix.check_command:
                 check_block = fix.check_command
 
+                indented_check = "\n".join(f"  {line}" for line in fix.check_command.splitlines())
                 verify_block = f"""echo "  [VERIFY] Running post-fix verification..." | tee -a "$LOG_FILE"
 {{
 {indented_check}

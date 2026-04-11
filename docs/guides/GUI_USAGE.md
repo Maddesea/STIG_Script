@@ -7,7 +7,7 @@ This guide provides detailed instructions on how to use the **STIG Assessor** gr
 To start the graphical interface, run the script with the `--gui` flag:
 
 ```bash
-python3 STIG_Script.py --gui
+python -m stig_assessor --gui
 ```
 
 *Note: Ensure you have `python3-tk` installed on your system.*
@@ -135,4 +135,4 @@ The following features are available exclusively through the command-line interf
 | **Verify Integrity** | `--verify-integrity FILE` | Compute SHA256 checksum and run full validation |
 | **Compute Checksum** | `--compute-checksum FILE` | Display SHA256 hash for a file |
 
-Run `python3 STIG_Script.py --help` for full CLI documentation with usage examples.
+Run `python -m stig_assessor --help` for full CLI documentation with usage examples.

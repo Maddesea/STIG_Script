@@ -22,7 +22,7 @@ if exist "%~dp0python\python.exe" (
 )
 
 echo Starting STIG Assessor GUI...
-%PYTHON% -m stig_assessor.ui.cli --gui
+%PYTHON% -m stig_assessor --gui
 if errorlevel 1 (
     echo.
     echo ERROR: Failed to launch the GUI. Please check errors above.
