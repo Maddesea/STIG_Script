@@ -195,8 +195,6 @@ class Val:
 
         # Validate MARKING
         marking = values.get("MARKING", "")
-        if marking and marking not in Sch.MARKS:
-            warnings_.append(f"Non-standard MARKING: {marking}")
 
         # Validate WEB_OR_DATABASE
         web = values.get("WEB_OR_DATABASE", "")

@@ -149,7 +149,6 @@ def build_create_tab(app, frame):
         textvariable=app.create_mark,
         values=sorted(Sch.MARKS),
         width=GUI_ENTRY_WIDTH - 3,
-        state="readonly",
     ).grid(row=r, column=1, padx=GUI_PADDING, sticky="we")
     r += 1
 

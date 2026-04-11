@@ -186,7 +186,7 @@
                     <div class="form-group"><label for="gen-asset">Asset Name *</label><input class="glass-input" id="gen-asset" placeholder="e.g. WEBSERVER01" required></div>
                     <div class="form-group"><label for="gen-ip">IP Address</label><input class="glass-input" id="gen-ip" placeholder="e.g. 10.0.1.50"></div>
                     <div class="form-group"><label for="gen-mac">MAC Address</label><input class="glass-input" id="gen-mac" placeholder="e.g. 00:1A:2B:3C:4D:5E"></div>
-                    <div class="form-group"><label for="gen-marking">Marking</label><select class="glass-input" id="gen-marking"><option value="CUI" selected>CUI</option><option value="UNCLASSIFIED">UNCLASSIFIED</option><option value="CLASSIFIED">CLASSIFIED</option></select></div>
+                    <div class="form-group"><label for="gen-marking">Marking</label><input type="text" class="glass-input" id="gen-marking" value="CUI" list="gen-marking-options" placeholder="e.g. CUI"><datalist id="gen-marking-options"><option value="CUI"></option><option value="UNCLASSIFIED"></option><option value="CLASSIFIED"></option></datalist></div>
                 </div>
                 <div class="grid-2" style="margin-top:16px;">
                     <div class="form-group"><label class="checkbox-label" style="margin-top:24px;"><input type="checkbox" id="gen-boilerplate"> Apply boilerplate templates</label></div>
