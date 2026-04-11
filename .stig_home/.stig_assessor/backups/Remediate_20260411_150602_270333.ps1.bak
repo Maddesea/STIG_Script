@@ -1,0 +1,59 @@
+#requires -RunAsAdministrator
+# Generated: 2026-04-11 15:03:39 UTC
+# Mode: LIVE
+# Rollbacks Enabled: NO
+
+$$ErrorActionPreference = 'Continue'
+$$DryRun = $$false
+$$Log = "stig_fix_$$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+$$Results = @()
+if (-not (Test-Path "evidence")) { New-Item -ItemType Directory -Path "evidence" | Out-Null }
+Start-Transcript -Path $$Log -Append | Out-Null
+
+
+function Add-Result([string]$$Vid, [bool]$$Success, [string]$$Message) {
+    $$Results += [pscustomobject]@{
+        vid = $$Vid;
+        ok = $$Success;
+        msg = $$Message;
+        ts = [DateTime]::UtcNow.ToString('o')
+    }
+}
+
+Write-Host "[1/1] V-234567 - Second Rule" -ForegroundColor Cyan
+$$EvidLog = "evidence\V-234567_out.log"
+"--- PRE-FIX CHECK ---" | Out-File $$EvidLog -Encoding utf8
+try {  | Out-File $$EvidLog -Append -Encoding utf8 } catch { "Check failed: $$($$_)" | Out-File $$EvidLog -Append }
+
+# ═══ FIX ═══
+"--- APPLYING FIX ---" | Out-File $$EvidLog -Append -Encoding utf8
+try {
+    fix available | Out-File $$EvidLog -Append -Encoding utf8
+    Write-Host "  ✔ Remediation Success" -ForegroundColor Green
+    
+    # ═══ VERIFY ═══
+    "--- POST-FIX VERIFY ---" | Out-File $$EvidLog -Append -Encoding utf8
+    try { 
+         | Out-File $$EvidLog -Append -Encoding utf8
+        Write-Host "  ✔ Evidence: Check now PASSES" -ForegroundColor Green
+    } catch { 
+        Write-Host "  ! Evidence: Manual verification suggested" -ForegroundColor Yellow
+    }
+    Add-Result "V-234567" $$true "success"
+} catch {
+    Write-Warning "  ✘ Remediation Failed: $$($$_.Exception.Message)"
+    "ERROR: $$($$_.Exception.Message)" | Out-File $$EvidLog -Append -Encoding utf8
+    Add-Result "V-234567" $$false $$_.Exception.Message
+}
+
+Stop-Transcript | Out-Null
+[pscustomobject]@{
+    meta = @{
+        generated = [DateTime]::UtcNow.ToString('o');
+        mode = if ($$DryRun) { 'dry' } else { 'live' };
+        total = $$Results.Count;
+        pass = ($$Results | Where-Object { $$_.ok }).Count;
+        fail = ($$Results | Where-Object { -not $$_.ok }).Count;
+    };
+    results = $$Results
+} | ConvertTo-Json -Depth 10 | Out-File "stig_results_$$(Get-Date -Format 'yyyyMMdd_HHmmss').json" -Encoding utf8

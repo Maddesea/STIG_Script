@@ -2,3 +2,6 @@
 [2026-04-10 23:13:44] [INFO    ] Shutting down web server...
 [2026-04-11 08:07:29] [INFO    ] Starting web server on http://localhost:8080/
 [2026-04-11 08:25:25] [INFO    ] Starting web server on http://localhost:8080/
+[2026-04-11 10:06:27] [INFO    ] Starting web server on http://localhost:18889/
+[2026-04-11 10:06:35] [INFO    ] Starting web server on http://localhost:18890/
+[2026-04-11 10:07:25] [INFO    ] Starting web server on http://localhost:18892/

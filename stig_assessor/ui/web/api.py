@@ -57,7 +57,7 @@ def _cleanup_paths(paths: List[Path]) -> None:
 
 
 def handle_ping(payload: dict) -> dict:
-    return {"status": "ok", "message": "pong"}
+    return {"status": "success", "message": "pong"}
 
 
 def handle_xccdf_to_ckl(payload: dict) -> dict:
