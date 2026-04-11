@@ -831,7 +831,7 @@ class Proc:
         if len(history_paths) > Cfg.MAX_MERGE:
             raise ValidationError(f"Too many historical files (limit {Cfg.MAX_MERGE})")
 
-        sev_set = {s.lower() for s in severity_filter} if severity_filter else None
+        sev_set = {s.lower() for s in severity_filter} if severity_filter else set()
         protect_set = set(protect_statuses) if protect_statuses else set()
 
         with LOG.context(op="merge", base=base.name, histories=len(history_paths)):
@@ -1089,8 +1089,8 @@ class Proc:
 
         vid_inc_re = _re.compile(vid_include) if vid_include else None
         vid_exc_re = _re.compile(vid_exclude) if vid_exclude else None
-        status_set = {s.lower() for s in status_filter} if status_filter else None
-        sev_set = {s.lower() for s in severity_filter} if severity_filter else None
+        status_set = {s.lower() for s in status_filter} if status_filter else set()
+        sev_set = {s.lower() for s in severity_filter} if severity_filter else set()
 
         with LOG.context(op="merge_advanced", base=base.name, histories=len(history_paths)):
             LOG.i(f"Advanced merge: {len(history_paths)} checklist(s) into {base.name}")
@@ -1362,8 +1362,8 @@ class Proc:
 
         vid_inc_re = _re.compile(vid_include) if vid_include else None
         vid_exc_re = _re.compile(vid_exclude) if vid_exclude else None
-        status_set = {s.lower() for s in status_filter} if status_filter else None
-        sev_set = {s.lower() for s in severity_filter} if severity_filter else None
+        status_set = {s.lower() for s in status_filter} if status_filter else set()
+        sev_set = {s.lower() for s in severity_filter} if severity_filter else set()
 
         # Build history data
         history_data: Dict[str, Dict[str, str]] = {}
@@ -2827,7 +2827,7 @@ class Proc:
 
         import re
         vid_pattern = re.compile(regex_vid) if regex_vid else None
-        status_set = {s.lower() for s in status_filter} if status_filter else None
+        status_set = {s.lower() for s in status_filter} if status_filter else set()
 
         count = 0
         affected_vids: List[str] = []
@@ -2986,3 +2986,4 @@ class Proc:
             "updates": count,
             "output": str(out_path)
         }
+

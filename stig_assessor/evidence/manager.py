@@ -385,7 +385,7 @@ class EvidenceMgr:
                     3,
                     12,
                 ):
-                    shutil.unpack_archive(package, extract_dir=tmp_path, filter="data")
+                    shutil.unpack_archive(package, extract_dir=tmp_path, filter="data")  # pylint: disable=unexpected-keyword-arg
                 else:
                     with zipfile.ZipFile(package, "r") as archive:
                         for member in archive.namelist():
@@ -477,3 +477,4 @@ class EvidenceMgr:
 
 # Module-level singleton instance
 EVIDENCE = EvidenceMgr()
+

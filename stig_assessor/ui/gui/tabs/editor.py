@@ -37,9 +37,10 @@ def build_editor_tab(app, frame):
         path = app.editor_ckl_var.get().strip()
         if not path: return
         try:
-            data = _parse_checklist(FO.resolve(path))
+            resolved_path = Path(path).resolve()
+            data = _parse_checklist(resolved_path)
             app._editor_findings_cache = data.get("vulns", [])
-            app._editor_ckl_path = FO.resolve(path)
+            app._editor_ckl_path = resolved_path
             app._editor_active_xml_tree = FO.parse_xml(app._editor_ckl_path)
             _refresh_editor_list()
             app.status_var.set(f"Loaded {len(app._editor_findings_cache)} vulnerabilities.")
@@ -205,7 +206,10 @@ def build_editor_tab(app, frame):
                     ext.to_bash(out_path, dry_run=dry_var.get())
                     
                 if evidence_var.get():
-                    ext.to_evidence(Path(out_dir) / f"gather_evidence_{plat}.{'ps1' if plat == 'windows' else 'sh'}")
+                    if plat == "windows":
+                        ext.to_evidence_powershell(Path(out_dir) / f"gather_evidence_{plat}.ps1")
+                    else:
+                        ext.to_evidence_bash(Path(out_dir) / f"gather_evidence_{plat}.sh")
                 
                 dialog.destroy()
                 messagebox.showinfo("Success", f"Playbook generated successfully:\n{out_path}\n\nEvidence mapping logs and scripts are in the output directory.")
@@ -266,7 +270,7 @@ def build_editor_tab(app, frame):
         for vid in selections:
             vuln = next((v for v in app._editor_findings_cache if v.get("vid") == vid), {})
             _update_xml_vuln(vid, new_status, vuln.get("finding", ""), vuln.get("comment", ""))
-        FO.write_xml(app._editor_active_xml_tree, app._editor_ckl_path)
+        FO.write_ckl(app._editor_active_xml_tree, app._editor_ckl_path)
         app.status_var.set(f"Quick-set {len(selections)} rules to {new_status}")
         _refresh_editor_list()
 
@@ -388,7 +392,7 @@ def build_editor_tab(app, frame):
         _update_xml_vuln(app._editor_current_vid, new_status, new_details, new_comments)
                 
         try:
-            FO.write_xml(app._editor_active_xml_tree, app._editor_ckl_path)
+            FO.write_ckl(app._editor_active_xml_tree, app._editor_ckl_path)
             app._editor_is_dirty = False
             app.status_var.set(f"Saved {app._editor_current_vid} directly to checklist.")
             _refresh_editor_list()
@@ -476,7 +480,7 @@ def build_editor_tab(app, frame):
                 from stig_assessor.xml.schema import Sch
                 host_info = app._editor_active_xml_tree.find(f".//{Sch.ASSET}")
                 if host_info is not None:
-                    asset_node = host_info.find(Sch.HOST_NAME)
+                    asset_node = host_info.find("HOST_NAME")
                     if asset_node is not None and asset_node.text:
                         asset_name = asset_node.text
 
@@ -598,7 +602,7 @@ def build_editor_tab(app, frame):
                 vuln = next((v for v in app._editor_findings_cache if v.get("vid") == vid), {})
                 _update_xml_vuln(vid, new_status, vuln.get("finding", ""), vuln.get("comment", ""))
             try:
-                FO.write_xml(app._editor_active_xml_tree, app._editor_ckl_path)
+                FO.write_ckl(app._editor_active_xml_tree, app._editor_ckl_path)
                 app.status_var.set(f"Marked {len(items)} visible rules as {new_status}")
                 _refresh_editor_list()
             except Exception as e:
@@ -676,7 +680,7 @@ def build_editor_tab(app, frame):
         def _process_chunk(idx):
             if idx >= len(selections):
                 try:
-                    FO.write_xml(app._editor_active_xml_tree, app._editor_ckl_path)
+                    FO.write_ckl(app._editor_active_xml_tree, app._editor_ckl_path)
                     app.status_var.set(f"Bulk saved {len(selections)} records to checklist.")
                     _refresh_editor_list()
                     for vid in selections:
@@ -721,7 +725,7 @@ def build_editor_tab(app, frame):
             if idx >= len(selections):
                 if applied_count > 0:
                     try:
-                        FO.write_xml(app._editor_active_xml_tree, app._editor_ckl_path)
+                        FO.write_ckl(app._editor_active_xml_tree, app._editor_ckl_path)
                         app.status_var.set(f"Applied boilerplates to {applied_count} out of {len(selections)} selected.")
                         _refresh_editor_list()
                         for vid in selections:
@@ -743,7 +747,7 @@ def build_editor_tab(app, frame):
                 from stig_assessor.xml.schema import Sch
                 host_info = app._editor_active_xml_tree.find(f".//{Sch.ASSET}")
                 if host_info is not None:
-                    asset_node = host_info.find(Sch.HOST_NAME)
+                    asset_node = host_info.find("HOST_NAME")
                     if asset_node is not None and asset_node.text:
                         asset_name = asset_node.text
 
@@ -829,7 +833,7 @@ def build_editor_tab(app, frame):
             tab_name = app.notebook.tab(idx, "text")
             if "Editor" in tab_name:
                 app._editor_tree.focus_set()
-        except:
+        except Exception:
             pass
             
     app.root.bind("<Up>", _tree_key_nav, add="+")

@@ -13,6 +13,8 @@ class PluginManager:
     """Manages dynamic loading and execution of custom Python plugins."""
 
     _instance = None
+    _hooks: dict
+    _loaded: bool
 
     def __new__(cls) -> "PluginManager":
         """Instantiate single-instance PluginManager object."""

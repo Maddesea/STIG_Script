@@ -257,7 +257,7 @@ stig-assessor --create \
 | `--ip` | ❌ | `""` | IP address |
 | `--mac` | ❌ | `""` | MAC address |
 | `--role` | ❌ | `"None"` | System role (e.g., "Member Server", "Web Server") |
-| `--marking` | ❌ | `"CUI"` | Classification marking (CUI, FOUO, SECRET, etc.) |
+| `--marking` | ❌ | `"CUI"` | Classification marking (e.g., CUI, SECRET, or any fully customizable user-defined string) |
 | `--apply-boilerplate` | ❌ | `false` | Pre-populate finding details with template text |
 | `--dry-run` | ❌ | `false` | Test the conversion without writing any file |
 
@@ -288,7 +288,7 @@ If you run `--create` without `--xccdf` or `--asset`, and you're in a terminal (
 2. Navigate to the **📋 Create CKL** tab.
 3. Click **📂 Browse…** to select your `.xml` XCCDF file.
 4. Enter your **Asset Name** (required, shown with red `* Required` validation).
-5. Optionally enter IP, MAC, and select a Marking from the dropdown.
+5. Optionally enter IP, MAC, and select or define a Custom Marking from the dropdown (custom markings are saved to your settings).
 6. Check **☑ Apply boilerplate templates** if desired.
 7. Click **➕ Create Checklist**.
 8. The result appears in the output log at the bottom.

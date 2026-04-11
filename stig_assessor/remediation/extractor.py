@@ -295,8 +295,8 @@ class FixExt:
         self.stats["by_severity"] = defaultdict(int)
         self.stats["manual_review"] = []
 
-        status_set = {s.lower() for s in status_filter} if status_filter else None
-        sev_set = {s.lower() for s in severity_filter} if severity_filter else None
+        status_set = {s.lower() for s in status_filter} if status_filter else set()
+        sev_set = {s.lower() for s in severity_filter} if severity_filter else set()
 
         with LOG.context(op="extract_fix", file=self.xccdf.name):
             LOG.i("Extracting fix information")
@@ -323,7 +323,7 @@ class FixExt:
             else:
                 status_set = None
 
-            sev_set = {s.lower() for s in severity_filter} if severity_filter else None
+            sev_set = {s.lower() for s in severity_filter} if severity_filter else set()
             
             import re as _re
             vid_inc_re = _re.compile(vid_include) if vid_include else None
@@ -335,7 +335,7 @@ class FixExt:
                 except _re.error:
                     vid_exc_re = _re.compile(_re.escape(vid_exclude))
             
-            vid_list_set = {v.strip().upper() for v in vid_list} if vid_list else None
+            vid_list_set = {v.strip().upper() for v in vid_list} if vid_list else set()
 
             for idx, group in enumerate(groups, 1):
                 with suppress(ValueError, AttributeError, KeyError):
@@ -1480,4 +1480,6 @@ function Run-Check {
 
 
 __all__ = ["FixExt"]
+
+
 

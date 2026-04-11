@@ -113,9 +113,9 @@ GUI_PADDING_LARGE = 16
 GUI_PADDING_SECTION = 24
 
 # Font settings
-GUI_FONT_MONO = ("Courier New", 10)
-GUI_FONT_NORMAL = ("TkDefaultFont", 10)
-GUI_FONT_HEADING = ("TkDefaultFont", 12, "bold")
+GUI_FONT_MONO = ("Cascadia Code", 10)
+GUI_FONT_NORMAL = ("Inter", 10)
+GUI_FONT_HEADING = ("Inter", 12, "bold")
 
 
 # ──────────────────────────────────────────────────────────────────────────────

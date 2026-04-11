@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import ttk, simpledialog, messagebox, filedialog
 from tkinter.scrolledtext import ScrolledText
 from datetime import datetime
+from pathlib import Path
 
 from stig_assessor.ui.helpers import ToolTip
 from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_FONT_MONO, Status

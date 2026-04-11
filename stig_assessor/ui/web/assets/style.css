@@ -5,13 +5,13 @@
 
 :root {
     /* ── Core Palette ── */
-    --bg-main: #06090e;
-    --bg-surface: #0b0f15;
-    --bg-glass: rgba(11, 15, 21, 0.7);
-    --bg-glass-strong: rgba(11, 15, 21, 0.88);
-    --bg-elevated: rgba(18, 23, 30, 0.9);
-    --bg-hover: rgba(28, 36, 48, 0.6);
-    --bg-input: rgba(4, 6, 10, 0.6);
+    --bg-main: #02040a;
+    --bg-surface: #0d1117;
+    --bg-glass: rgba(13, 17, 23, 0.75);
+    --bg-glass-strong: rgba(13, 17, 23, 0.90);
+    --bg-elevated: rgba(22, 27, 34, 0.9);
+    --bg-hover: rgba(48, 54, 61, 0.6);
+    --bg-input: rgba(1, 4, 9, 0.8);
 
     /* ── Typography ── */
     --tx-main: #f0f6fc;
@@ -40,26 +40,26 @@
     --status-nr-bg: rgba(234, 179, 8, 0.15);
 
     /* ── Borders & Shadows ── */
-    --border-default: rgba(255, 255, 255, 0.12);
-    --border-subtle: rgba(255, 255, 255, 0.06);
-    --border-input: rgba(255, 255, 255, 0.18);
-    --border-active: rgba(59, 130, 246, 0.55);
-    --shadow-sm: 0 4px 12px rgba(0,0,0,0.4);
-    --shadow-md: 0 8px 24px rgba(0,0,0,0.5);
-    --shadow-lg: 0 16px 40px rgba(0,0,0,0.7);
-    --shadow-glow: 0 0 35px rgba(59, 130, 246, 0.35);
+    --border-default: rgba(255, 255, 255, 0.15);
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-input: rgba(255, 255, 255, 0.2);
+    --border-active: rgba(59, 130, 246, 0.65);
+    --shadow-sm: 0 4px 12px rgba(0,0,0,0.5);
+    --shadow-md: 0 8px 24px rgba(0,0,0,0.6);
+    --shadow-lg: 0 16px 40px rgba(0,0,0,0.8);
+    --shadow-glow: 0 0 40px rgba(59, 130, 246, 0.4);
 
     /* ── Layout ── */
-    --sidebar-width: 260px;
+    --sidebar-width: 270px;
     --sidebar-collapsed: 72px;
-    --header-height: 64px;
+    --header-height: 68px;
     --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 18px;
-    --radius-xl: 24px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-xl: 26px;
 
     /* ── Typography ── */
-    --font-stack: 'Inter', 'Roboto', 'Outfit', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
+    --font-stack: 'Inter', 'Segoe UI', 'Roboto', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Arial', sans-serif;
     --font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
 }
 
@@ -75,13 +75,23 @@ body {
     color: var(--tx-main);
     min-height: 100vh;
     overflow-x: hidden;
-    line-height: 1.5;
+    line-height: 1.6;
+    letter-spacing: 0.2px;
     -webkit-font-smoothing: antialiased;
     background-image:
-        radial-gradient(ellipse at 10% 0%, rgba(59, 130, 246, 0.18) 0%, transparent 55%),
-        radial-gradient(ellipse at 90% 100%, rgba(168, 85, 247, 0.15) 0%, transparent 60%),
-        radial-gradient(ellipse at 50% 50%, rgba(236, 72, 153, 0.05) 0%, transparent 70%);
+        radial-gradient(circle at 15% 0%, rgba(59, 130, 246, 0.25) 0%, transparent 50%),
+        radial-gradient(circle at 85% 100%, rgba(168, 85, 247, 0.20) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(236, 72, 153, 0.10) 0%, transparent 60%);
+    background-size: 200% 200%;
     background-attachment: fixed;
+    animation: breathingGlow 18s ease-in-out infinite alternate;
+    transition: background-color 0.4s ease;
+}
+
+@keyframes breathingGlow {
+    0% { background-position: 0% 0%; }
+    50% { background-position: 100% 100%; }
+    100% { background-position: 0% 50%; }
 }
 
 /* ── Custom Scrollbars ── */
@@ -104,7 +114,9 @@ body {
 /* ── Sidebar ── */
 .sidebar {
     grid-area: sidebar;
-    background: var(--bg-surface);
+    background: rgba(13, 17, 23, 0.65);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
     border-right: 1px solid var(--border-default);
     display: flex;
     flex-direction: column;
@@ -396,7 +408,19 @@ body {
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    animation: cardStagger 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+@keyframes cardStagger {
+    0% { opacity: 0; transform: translateY(15px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+.panel.active .card:nth-child(1) { animation-delay: 0.04s; }
+.panel.active .card:nth-child(2) { animation-delay: 0.08s; }
+.panel.active .card:nth-child(3) { animation-delay: 0.12s; }
+.panel.active .card:nth-child(4) { animation-delay: 0.16s; }
+.panel.active .card:nth-child(5) { animation-delay: 0.20s; }
 .card::before {
     content: "";
     position: absolute;
@@ -690,6 +714,24 @@ textarea.glass-input {
     text-decoration: none;
     font-family: var(--font-stack);
     line-height: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.ripple {
+    position: absolute;
+    border-radius: 50%;
+    transform: scale(0);
+    animation: ripple-animation 600ms linear;
+    background-color: rgba(255, 255, 255, 0.3);
+    pointer-events: none;
+}
+
+@keyframes ripple-animation {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
 }
 
 .btn-primary {

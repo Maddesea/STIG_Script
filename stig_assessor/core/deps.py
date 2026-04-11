@@ -18,12 +18,14 @@ class Deps:
     def check(cls) -> None:
         """Check for available optional dependencies."""
         with suppress(ImportError):
-            from io import StringIO
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=DeprecationWarning, module="defusedxml")
+                from io import StringIO
+                from defusedxml import ElementTree as DET
 
-            from defusedxml import ElementTree as DET
-
-            DET.parse(StringIO("<test/>"))
-            cls.HAS_DEFUSEDXML = True
+                DET.parse(StringIO("<test/>"))
+                cls.HAS_DEFUSEDXML = True
 
         with suppress(ImportError, Exception):
             import tkinter
@@ -52,11 +54,14 @@ class Deps:
         from xml.etree.ElementTree import ParseError as XMLParseError
 
         if cls.HAS_DEFUSEDXML:
-            import defusedxml.ElementTree as DET
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=DeprecationWarning, module="defusedxml")
+                import defusedxml.ElementTree as DET  # pylint: disable=import-error
 
-            ET.parse = DET.parse
-            ET.fromstring = DET.fromstring
-            ET.XMLParser = DET.XMLParser
+                ET.parse = DET.parse
+                ET.fromstring = DET.fromstring
+                ET.XMLParser = DET.XMLParser
         else:
             # Implement a native PyExpat wrapper to prevent DTD/XXE/Billion Laughs
             # This ensures air-gapped DoD compliance without external dependencies
@@ -116,3 +121,4 @@ class Deps:
 
 # Automatically check dependencies on import
 Deps.check()
+

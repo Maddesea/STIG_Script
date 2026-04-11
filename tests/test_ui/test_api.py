@@ -19,12 +19,12 @@ class TestWebAPI(unittest.TestCase):
 
     def test_handle_ping(self):
         res = handle_ping({})
-        self.assertEqual(res["status"], "ok")
+        self.assertEqual(res["status"], "success")
         self.assertEqual(res["message"], "pong")
 
     def test_route_request_ping(self):
         res = route_request("/api/v1/ping", {})
-        self.assertEqual(res["status"], "ok")
+        self.assertEqual(res["status"], "success")
 
     def test_route_request_404(self):
         res = route_request("/api/v1/invalid", {})

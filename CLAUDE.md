@@ -20,9 +20,10 @@
 5. **Evidence Management** - Import, export, and package evidence files
 6. **History Tracking** - Microsecond-precision change tracking with deduplication
 7. **Boilerplate Templates** - Status-aware compliance text templates
-8. **GUI, TUI, & Web UI** - Full feature parity between desktop, terminal, and web interfaces
-9. **HTML Compliance Reports** - Self-contained offline HTML reporting (SVG/Dark Mode)
-10. **Fleet Statistics** - Aggregate statistics and scores across hundreds of checklists
+8. **GUI, TUI, & Web UI** - Premium, air-gapped-compatible design system featuring fluid micro-animations, modern typography, and full feature parity across interfaces
+9. **Custom Classifications** - Fully customizable classification markings beyond hardcoded defaults
+10. **HTML Compliance Reports** - Self-contained offline HTML reporting (SVG/Dark Mode)
+11. **Fleet Statistics** - Aggregate statistics and scores across hundreds of checklists
 
 ---
 
@@ -611,7 +612,13 @@ Based on repository history:
 
 ## Version History Notes
 
-### v7.0.0 (2025-10-28) - Current
+### v8.1.0 (2026-04-07) - Current
+- Achieved 100% test pass rate (338/338) and full test suite compliance
+- Implemented premium, air-gapped-compatible design system with fluid micro-animations and consistent high-contrast visual hierarchies (Tkinter GUI & Web UI)
+- Added fully customizable classification markings supporting user-defined custom text
+- Resolved UI regression in Bulk Operations panel and remediated logic gaps
+
+### v7.0.0 (2025-10-28)
 - Fix extraction rebuilt with better namespace handling
 - Remediation import rewritten for bulk JSON (array/object payloads)
 - XML sanitizer hardened (no silent truncation)

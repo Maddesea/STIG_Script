@@ -538,7 +538,7 @@ class InteractiveWizard:
             return
         print(_c("\n  [Step 2] Apply Remediation Results", "yellow"))
         fix_dir = self._prompt("Directory with JSON/CSV result files", validate_dir=True)
-        out2 = self._prompt("Output CKL file (post-remediation)", default=out1)
+        out2 = self._prompt(f"Output CKL file (post-remediation) [{out1}]", required=False) or out1
         try:
             from stig_assessor.remediation.processor import FixResPro
             fix_proc = FixResPro()
@@ -565,7 +565,7 @@ class InteractiveWizard:
             self._pause()
             return
 
-        print(_c("\n  Pipeline successfully finished!", "green", "bold"))
+        print(_c("\n  Pipeline successfully finished!", "green"))
         if self._prompt_yn(f"Open {html_out} in default browser?", default=True):
             try:
                 if os.name == "nt":

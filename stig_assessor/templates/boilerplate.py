@@ -213,109 +213,7 @@ class BP:
         self.save()
         return True
 
-    def import_from_checklist(self, path: str, status_filter: Optional[List[str]] = None, overwrite: bool = True) -> Dict[str, int]:
-        """
-        Import boilerplates by scanning a checklist file.
 
-        Args:
-            path: Checklist file path.
-            status_filter: Only import VULNs with these statuses.
-            overwrite: If False, skip VIDs that already have a template.
-            
-        Returns:
-            Dict with import statistics.
-        """
-        from stig_assessor.io.file_ops import FO
-        from stig_assessor.processor.html_report import _parse_checklist
-        
-        data = _parse_checklist(FO.resolve(path))
-        vulns = data.get("vulns", [])
-        
-        total_scanned = len(vulns)
-        imported = 0
-        skipped = 0
-        
-        for vuln in vulns:
-            vid = vuln.get("vid", "")
-            status = vuln.get("status", "")
-            finding = vuln.get("finding", "")
-            comment = vuln.get("comment", "")
-            
-            if not vid or (not finding.strip() and not comment.strip()):
-                continue
-                
-            if status_filter and status not in status_filter:
-                continue
-                
-            if not overwrite and vid in self.templates:
-                skipped += 1
-                continue
-                
-            self.set(vid, status, finding, comment)
-            imported += 1
-            
-        return {
-            "total_scanned": total_scanned,
-            "imported": imported,
-            "skipped": skipped
-        }
-
-    def reset_vid(self, vid: str) -> bool:
-        """
-        Reset a specific VID to inherit from the V-* wildcard template 
-        by deleting its specific templates.
-        """
-        if vid in self.templates:
-            del self.templates[vid]
-            self.save()
-            return True
-        return False
-
-    def find_duplicates(self) -> List[Dict[str, Any]]:
-        """
-        Analyze all loaded boilerplate templates to find identical content 
-        used across multiple VIDs. This helps users consolidate to V-* wildcards.
-        
-        Returns:
-            List of dictionaries describing duplicate groups.
-        """
-        # Map content hash -> { 'status': status, 'field': field, 'vids': set(), 'text': text }
-        content_map = {}
-        
-        for vid, statuses in self.templates.items():
-            if vid == "V-*": continue  # Skip the wildcard itself
-            
-            for status, fields in statuses.items():
-                for field in ["finding_details", "comments"]:
-                    text = fields.get(field, "").strip()
-                    if not text or len(text) < 20: continue # Skip trivial templates
-                    
-                    # Create signature
-                    sig = f"{status}:{field}:{hash(text)}"
-                    
-                    if sig not in content_map:
-                        content_map[sig] = {
-                            "status": status,
-                            "field": field,
-                            "vids": set(),
-                            "text": text
-                        }
-                    content_map[sig]["vids"].add(vid)
-                    
-        # Filter to only those with >1 VID
-        duplicates = []
-        for sig, data in content_map.items():
-            if len(data["vids"]) > 1:
-                duplicates.append({
-                    "status": data["status"],
-                    "field": "Finding Details" if data["field"] == "finding_details" else "Comments",
-                    "count": len(data["vids"]),
-                    "vids": sorted(list(data["vids"])),
-                    "text_preview": data["text"][:100].replace("\n", " ")
-                })
-                
-        # Sort by count descending
-        return sorted(duplicates, key=lambda x: x["count"], reverse=True)
 
     def apply_to_vuln(
         self,
@@ -447,64 +345,7 @@ class BP:
         self.save()
         return True
 
-    def bulk_set(
-        self, vids: List[str], status: str, finding: str, comment: str
-    ) -> int:
-        """Set the same boilerplate across multiple VIDs at once.
 
-        Args:
-            vids: List of vulnerability IDs to update.
-            status: Status key (e.g. 'NotAFinding').
-            finding: Finding details text.
-            comment: Comments text.
-
-        Returns:
-            Number of VIDs updated.
-        """
-        count = 0
-        for vid in vids:
-            if vid not in self.templates:
-                self.templates[vid] = {}
-            self.templates[vid][status] = {
-                "finding_details": finding,
-                "comments": comment,
-            }
-            count += 1
-        if count:
-            self.save()
-        return count
-
-    def search(self, pattern: str) -> List[str]:
-        """Search for VIDs whose boilerplate text matches a pattern.
-
-        Case-insensitive substring match against finding_details and comments.
-
-        Args:
-            pattern: Text pattern to search for.
-
-        Returns:
-            Sorted list of matching VID strings.
-        """
-        if not pattern:
-            return sorted(self.templates.keys())
-        needle = pattern.lower()
-        matches = []
-        for vid, statuses in self.templates.items():
-            found = False
-            if needle in vid.lower():
-                found = True
-            else:
-                for _status, entry in statuses.items():
-                    if isinstance(entry, dict):
-                        for val in entry.values():
-                            if isinstance(val, str) and needle in val.lower():
-                                found = True
-                                break
-                    if found:
-                        break
-            if found:
-                matches.append(vid)
-        return sorted(matches)
 
     @staticmethod
     def list_variables() -> List[Dict[str, str]]:
@@ -612,7 +453,7 @@ class BP:
             LOG.e(f"Failed to parse checklist for boilerplate import: {e}")
             return {"imported": 0, "skipped": 0, "total_scanned": 0}
 
-        status_set = {s for s in status_filter} if status_filter else None
+        status_set = {s for s in status_filter} if status_filter else set()
         imported = 0
         skipped = 0
         total = 0
@@ -803,9 +644,9 @@ class BP:
         """
         from stig_assessor.xml.utils import XmlUtils
 
-        status_set = {s.lower() for s in status_filter} if status_filter else None
-        sev_set = {s.lower() for s in severity_filter} if severity_filter else None
-        vid_set = set(vid_list) if vid_list else None
+        status_set = {s.lower() for s in status_filter} if status_filter else set()
+        sev_set = {s.lower() for s in severity_filter} if severity_filter else set()
+        vid_set = set(vid_list) if vid_list else set()
 
         applied = 0
         skipped = 0
@@ -996,3 +837,5 @@ class BP:
 
 # Module-level singleton
 BOILERPLATE = BP()
+
+

@@ -1,6 +1,6 @@
 # STIG Assessor GUI Usage Guide
 
-This guide provides detailed instructions on how to use the **STIG Assessor** graphical user interface (GUI). The GUI has been redesigned to improve usability, layout, and visual consistency.
+This guide provides detailed instructions on how to use the **STIG Assessor** graphical user interface (GUI). The GUI features a premium, air-gapped-compatible design system with modern typography, fluid micro-animations, and consistent high-contrast visual hierarchies across all workflows.
 
 ## 🚀 Launching the GUI
 
@@ -35,7 +35,7 @@ The interface is organized into logical tabs for different workflows.
 *   **Asset Details**:
     *   **Asset Name**: (Required) The hostname of the system being assessed.
     *   **IP / MAC**: Optional network details.
-    *   **Marking**: Classification marking (e.g., CUI, PROPRIETARY).
+    *   **Marking**: Select or define a custom Classification marking. Custom markings are fully supported beyond hardcoded defaults and persist in your settings.
     *   **Apply Boilerplate**: Check this to automatically populate findings with default templates. *(Hover for tooltip)*
 *   **Feedback**: After creation, a summary dialog shows processed/skipped VID counts and any errors.
 
@@ -63,8 +63,8 @@ The interface is organized into logical tabs for different workflows.
 *   **Options**:
     *   **Dry run mode**: Generate scripts that only print commands without executing them (safer for testing).
 
-### 4. 📥 Import Results
-*Apply automated scan results to your checklist.*
+### 4. 📥 Import Results (Bulk Operations)
+*Apply automated scan results to your checklist using the highly stable Bulk Operations panel.*
 
 *   **Batch Import**:
     *   Add multiple JSON result files (from automated scanners) to process them in bulk.

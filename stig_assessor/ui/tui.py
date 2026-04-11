@@ -4,7 +4,8 @@ Provides a completely headless, interactive curses-based UI for sysadmins
 operating in air-gapped terminal environments.
 """
 
-import curses
+import curses  # pylint: disable=import-error
+# pylint: disable=no-member
 import json
 import os
 import sys
@@ -385,3 +386,4 @@ def start_tui():
         sys.exit(1)
     except KeyboardInterrupt:
         sys.exit(0)
+

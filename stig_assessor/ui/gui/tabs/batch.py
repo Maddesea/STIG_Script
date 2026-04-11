@@ -234,7 +234,7 @@ def build_batch_tab(app, frame):
                         for v in tree.getroot().findall(".//VULN"):
                             s_node = v.find(Sch.STATUS)
                             if s_node is not None: s_node.text = default_status
-                        FO.write_xml(tree, out_file)
+                        FO.write_ckl(tree, out_file)
                         
                     app._batch_tree.insert("", tk.END, values=(fpath.name, "Success", f"Processed {processed} rules"), tags=("ok",))
                     successes += 1

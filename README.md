@@ -49,7 +49,8 @@ python -m stig_assessor --help
 
 ## 🛠️ Key Features at a Glance
 
-*   **Universal Interface**: Full feature parity across CLI, GUI (Tkinter), and Web (Browser).
+*   **Universal Interface**: Premium modern UI featuring fluid micro-animations, consistent high-contrast visual hierarchies, and full feature parity across CLI, GUI (Tkinter), and Web (Browser).
+*   **Customizable Classifications**: Fully customizable classification markings beyond hardcoded defaults, persisted in settings across all interfaces.
 *   **Built-in Editor**: Review and update checklists directly in the browser—no STIG Viewer Java required.
 *   **Air-Gap First**: Zero-dependency architecture with bundled wheels and embedded interpreters.
 *   **Advanced Merging**: quarterly STIG updates without losing historical comments or statuses.

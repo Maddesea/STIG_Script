@@ -136,11 +136,39 @@ document.addEventListener('DOMContentLoaded', () => {
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             navItems.forEach(n => n.classList.remove('active'));
-            panels.forEach(p => p.classList.remove('active'));
+            panels.forEach(p => {
+                p.classList.remove('active');
+                p.style.opacity = '0';
+                p.style.transform = 'translateY(10px)';
+            });
             item.classList.add('active');
             const target = document.getElementById('panel-' + item.dataset.panel);
-            if (target) target.classList.add('active');
+            if (target) {
+                target.classList.add('active');
+                // Micro-animation for page transition
+                setTimeout(() => {
+                    target.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+                    target.style.opacity = '1';
+                    target.style.transform = 'translateY(0)';
+                }, 10);
+            }
             if (headerTitle) headerTitle.textContent = item.querySelector('span')?.textContent || '';
+        });
+    });
+
+    // Ripple effect for all buttons
+    document.querySelectorAll('.btn, .nav-item').forEach(btn => {
+        btn.addEventListener('mousedown', function (e) {
+            let ripple = document.createElement('span');
+            ripple.classList.add('ripple');
+            this.appendChild(ripple);
+            let x = e.clientX - e.target.getBoundingClientRect().left;
+            let y = e.clientY - e.target.getBoundingClientRect().top;
+            ripple.style.left = `${x}px`;
+            ripple.style.top = `${y}px`;
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
         });
     });
 

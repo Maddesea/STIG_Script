@@ -67,44 +67,44 @@ VULN_ID_PATTERN = re.compile(r"^V-\d+$")
 
 # ── Theme color palettes (#1/#2) ─────────────────────────────────────────────
 _LIGHT_COLORS: Dict[str, str] = {
-    "bg": "#f6f8fa",
-    "fg": "#1f2328",
-    "accent": "#0969da",
-    "accent_hover": "#0550ae",
+    "bg": "#f8fafc",
+    "fg": "#0f172a",
+    "accent": "#2563eb",
+    "accent_hover": "#1d4ed8",
     "accent_fg": "#ffffff",
     "entry_bg": "#ffffff",
-    "entry_fg": "#1f2328",
+    "entry_fg": "#0f172a",
     "frame_bg": "#ffffff",
-    "select_bg": "#ddf4ff",
-    "status_bg": "#eaeef2",
-    "tooltip_bg": "#24292f",
-    "tooltip_fg": "#ffffff",
-    "error": "#cf222e",
-    "warn": "#9a6700",
-    "ok": "#1a7f37",
-    "info": "#0969da",
+    "select_bg": "#e0f2fe",
+    "status_bg": "#f1f5f9",
+    "tooltip_bg": "#1e293b",
+    "tooltip_fg": "#f8fafc",
+    "error": "#ef4444",
+    "warn": "#eab308",
+    "ok": "#16a34a",
+    "info": "#0ea5e9",
     "treeview_bg": "#ffffff",
-    "treeview_fg": "#1f2328",
+    "treeview_fg": "#0f172a",
 }
 _DARK_COLORS: Dict[str, str] = {
-    "bg": "#06090e",
-    "fg": "#e6edf3",
-    "accent": "#58a6ff",
-    "accent_hover": "#3182ce",
+    "bg": "#02040a",
+    "fg": "#f0f6fc",
+    "accent": "#3b82f6",
+    "accent_hover": "#2563eb",
     "accent_fg": "#ffffff",
-    "entry_bg": "#0d1117",
-    "entry_fg": "#e6edf3",
-    "frame_bg": "#0b0f15",
+    "entry_bg": "#010409",
+    "entry_fg": "#f0f6fc",
+    "frame_bg": "#0d1117",
     "select_bg": "#1f3a5f",
     "status_bg": "#161b22",
-    "tooltip_bg": "#30363d",
-    "tooltip_fg": "#c9d1d9",
-    "error": "#f85149",
-    "warn": "#d29922",
-    "ok": "#3fb950",
-    "info": "#58a6ff",
-    "treeview_bg": "#0b0f15",
-    "treeview_fg": "#e6edf3",
+    "tooltip_bg": "#1f3a5f",
+    "tooltip_fg": "#f0f6fc",
+    "error": "#ef4444",
+    "warn": "#eab308",
+    "ok": "#22c55e",
+    "info": "#0ea5e9",
+    "treeview_bg": "#0d1117",
+    "treeview_fg": "#c9d1d9",
 }
 
 # Try to detect premium theme library
@@ -183,12 +183,18 @@ if Deps.HAS_TKINTER:
             tw.wm_overrideredirect(True)
             tw.wm_geometry(f"+{x}+{y}")
             
+            # Start transparent for fade-in animation
+            if sys.platform == "win32" or sys.platform == "darwin":
+                tw.attributes("-alpha", 0.0)
+            
             # Adopt proper theme colors
-            bg_color = "#FFFFDD"
-            fg_color = "#333333"
-            if self._app and self._app.get("_current_theme", "light") == "dark":
-                bg_color = "#2d2d30"
-                fg_color = "#e6edf3"
+            bg_color = "#f8fafc"
+            fg_color = "#0f172a"
+            border_color = "#cbd5e1"
+            if self._app and getattr(self._app, "_current_theme", "light") == "dark":
+                bg_color = "#1f3a5f"
+                fg_color = "#f0f6fc"
+                border_color = "#3b82f6"
             
             label = tk.Label(
                 tw,
@@ -198,7 +204,7 @@ if Deps.HAS_TKINTER:
                 foreground=fg_color,
                 relief="flat",
                 borderwidth=1,
-                highlightbackground="#58a6ff" if bg_color == "#2d2d30" else "#2563eb",
+                highlightbackground=border_color,
                 highlightthickness=1,
                 font=("TkDefaultFont", 9),
                 wraplength=350,
@@ -206,6 +212,20 @@ if Deps.HAS_TKINTER:
                 pady=8,
             )
             label.pack()
+            
+            # Fade-in animation
+            if sys.platform == "win32" or sys.platform == "darwin":
+                self._fade_in(tw, 0.0)
+                
+        def _fade_in(self, window: tk.Toplevel, alpha: float):
+            if not window.winfo_exists():
+                return
+            alpha += 0.15
+            if alpha >= 1.0:
+                window.attributes("-alpha", 1.0)
+            else:
+                window.attributes("-alpha", alpha)
+                window.after(20, self._fade_in, window, alpha)
 
         def _hide(self):
             if self._tip:
@@ -214,6 +234,10 @@ if Deps.HAS_TKINTER:
 
     class GUI:
         """Graphical interface."""
+        
+        editor_ckl_var: tk.StringVar
+        _editor_load: Callable[[], None]
+        evid_tree: ttk.Treeview
 
         def __init__(self):
             self.root = tk.Tk()
@@ -365,10 +389,10 @@ if Deps.HAS_TKINTER:
                     foreground=colors["fg"],
                 )
                 style.configure(
-                    "TLabel", background=colors["bg"], foreground=colors["fg"]
+                    "TLabel", background=colors["bg"], foreground=colors["fg"], font=("Segoe UI", 10)
                 )
                 style.configure("TNotebook", background=colors["bg"])
-                style.configure("TNotebook.Tab", padding=[10, 4])
+                style.configure("TNotebook.Tab", padding=[12, 6], font=("Segoe UI", 10, "bold"))
                 style.map(
                     "TNotebook.Tab",
                     background=[
@@ -390,7 +414,7 @@ if Deps.HAS_TKINTER:
                     fieldbackground=colors["entry_bg"],
                     foreground=colors["entry_fg"],
                 )
-                style.configure("TButton", padding=4)
+                style.configure("TButton", padding=[8, 6], font=("Segoe UI", 10))
                 style.map(
                     "TButton",
                     background=[
@@ -404,7 +428,10 @@ if Deps.HAS_TKINTER:
                     background=colors["treeview_bg"],
                     foreground=colors["treeview_fg"],
                     fieldbackground=colors["treeview_bg"],
+                    rowheight=28,
+                    font=("Segoe UI", 10)
                 )
+                style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"))
                 style.map(
                     "Treeview",
                     background=[("selected", colors["select_bg"])],
@@ -413,7 +440,7 @@ if Deps.HAS_TKINTER:
 
             # Accent button style (#3)
             style = ttk.Style()
-            style.configure("Accent.TButton", font=("TkDefaultFont", 10, "bold"))
+            style.configure("Accent.TButton", font=("Segoe UI", 10, "bold"), padding=[10, 6])
             with suppress(tk.TclError):
                 style.map(
                     "Accent.TButton",
@@ -825,7 +852,9 @@ if Deps.HAS_TKINTER:
             if not out_path:
                 return
             try:
-                self.proc.export_poam(ckl_path, out_path)
+                poam_str = self.proc.export_poam(ckl_path)
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write(poam_str)
                 messagebox.showinfo("Export Successful", f"Successfully exported POAM to:\n{out_path}")
             except Exception as exc:
                 messagebox.showerror("Export Error", str(exc))
