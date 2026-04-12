@@ -27,7 +27,8 @@ class TestFixExt(unittest.TestCase):
         from stig_assessor.remediation import FixExt
 
         # Create a minimal XCCDF file
-        self.test_xccdf.write_text("""<?xml version="1.0"?>
+        self.test_xccdf.write_text(
+            """<?xml version="1.0"?>
         <Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1">
             <Group id="V-123456">
                 <Rule id="SV-123456r1_rule">
@@ -35,7 +36,8 @@ class TestFixExt(unittest.TestCase):
                 </Rule>
             </Group>
         </Benchmark>
-        """)
+        """
+        )
 
         extractor = FixExt(self.test_xccdf)
         self.assertEqual(extractor.xccdf.resolve(), self.test_xccdf.resolve())
@@ -46,7 +48,8 @@ class TestFixExt(unittest.TestCase):
         from stig_assessor.remediation import FixExt
 
         # Create XCCDF with fix text
-        self.test_xccdf.write_text("""<?xml version="1.0"?>
+        self.test_xccdf.write_text(
+            """<?xml version="1.0"?>
         <Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1">
             <Group id="V-123456">
                 <title>Test Group</title>
@@ -56,7 +59,8 @@ class TestFixExt(unittest.TestCase):
                 </Rule>
             </Group>
         </Benchmark>
-        """)
+        """
+        )
 
         extractor = FixExt(self.test_xccdf)
         fixes = extractor.extract()
@@ -109,7 +113,8 @@ class TestFixExtExport(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
         self.test_xccdf = Path(self.test_dir) / "test_benchmark.xml"
-        self.test_xccdf.write_text("""<?xml version="1.0"?>
+        self.test_xccdf.write_text(
+            """<?xml version="1.0"?>
         <Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1">
             <Group id="V-123456">
                 <title>Test Group</title>
@@ -119,7 +124,8 @@ class TestFixExtExport(unittest.TestCase):
                 </Rule>
             </Group>
         </Benchmark>
-        """)
+        """
+        )
         from stig_assessor.remediation import FixExt
 
         self.extractor = FixExt(self.test_xccdf)
@@ -175,7 +181,9 @@ class TestFixExtExport(unittest.TestCase):
         out_ps1 = Path(self.test_dir) / "out.ps1"
         self.extractor.to_powershell(out_ps1)
         self.assertTrue(out_ps1.exists())
-        self.assertIn("#requires -RunAsAdministrator", out_ps1.read_text(encoding="utf-8"))
+        self.assertIn(
+            "#requires -RunAsAdministrator", out_ps1.read_text(encoding="utf-8")
+        )
 
 
 if __name__ == "__main__":

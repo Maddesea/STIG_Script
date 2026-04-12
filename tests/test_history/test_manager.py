@@ -10,14 +10,15 @@ Tests the HistMgr class including:
 - Thread safety
 """
 
-from stig_assessor.core.config import Cfg
-from stig_assessor.history.manager import HistMgr
-import unittest
-import tempfile
 import json
+import sys
+import tempfile
+import unittest
 from datetime import datetime, timezone
 from pathlib import Path
-import sys
+
+from stig_assessor.core.config import Cfg
+from stig_assessor.history.manager import HistMgr
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))

@@ -195,8 +195,8 @@ class HistMgr:
 
         # Keep head and tail entries, compress middle
         head = entries[: Cfg.HIST_COMPRESS_HEAD]
-        tail = entries[-Cfg.HIST_COMPRESS_TAIL:]
-        middle = entries[Cfg.HIST_COMPRESS_HEAD: -Cfg.HIST_COMPRESS_TAIL]
+        tail = entries[-Cfg.HIST_COMPRESS_TAIL :]
+        middle = entries[Cfg.HIST_COMPRESS_HEAD : -Cfg.HIST_COMPRESS_TAIL]
 
         if middle:
             # Create compressed entry representing middle entries

@@ -213,8 +213,6 @@ class BP:
         self.save()
         return True
 
-
-
     def apply_to_vuln(
         self,
         vuln_elem: Element,
@@ -252,9 +250,7 @@ class BP:
             finding_elem = vuln_elem.find(Sch.FINDING_DETAILS)
             if finding_elem is not None:
                 current_f = XmlUtils.get_text(finding_elem)
-                new_f = self._apply_text(
-                    current_f, finding_text, apply_mode
-                )
+                new_f = self._apply_text(current_f, finding_text, apply_mode)
                 if new_f != current_f:
                     XmlUtils.set_text(finding_elem, new_f)
                     applied = True
@@ -263,21 +259,15 @@ class BP:
             comm_elem = vuln_elem.find(Sch.COMMENTS)
             if comm_elem is not None:
                 current_c = XmlUtils.get_text(comm_elem)
-                new_c = self._apply_text(
-                    current_c, comments_text, apply_mode
-                )
+                new_c = self._apply_text(current_c, comments_text, apply_mode)
                 if new_c != current_c:
                     XmlUtils.set_text(comm_elem, new_c)
                     applied = True
 
         return applied
 
-
-
     @staticmethod
-    def _apply_text(
-        current: str, boilerplate: str, mode: str
-    ) -> str:
+    def _apply_text(current: str, boilerplate: str, mode: str) -> str:
         """Combine current text with boilerplate according to mode."""
         current = current or ""
         if mode == "overwrite_empty":
@@ -344,8 +334,6 @@ class BP:
         self.templates[vid_to] = copy.deepcopy(self.templates[vid_from])
         self.save()
         return True
-
-
 
     @staticmethod
     def list_variables() -> List[Dict[str, str]]:
@@ -444,6 +432,7 @@ class BP:
         try:
             if ckl_path.suffix.lower() == ".cklb":
                 import json as _json
+
                 cklb_data = _json.loads(FO.read(ckl_path))
                 return self._import_from_cklb(cklb_data, status_filter, overwrite)
 
@@ -611,9 +600,7 @@ class BP:
         """
         import base64
 
-        raw = json.dumps(
-            self.templates, indent=2, ensure_ascii=False
-        )
+        raw = json.dumps(self.templates, indent=2, ensure_ascii=False)
         return base64.b64encode(raw.encode("utf-8")).decode("utf-8")
 
     # ═══ ENHANCED: Apply boilerplates to a full checklist ═══
@@ -651,13 +638,14 @@ class BP:
         applied = 0
         skipped = 0
         affected: List[str] = []
-        
+
         # Inject date into kwargs for formatting
         if "date" not in kwargs:
             if date_override:
                 kwargs["date"] = date_override
             else:
                 from datetime import datetime
+
                 kwargs["date"] = datetime.now().strftime("%Y-%m-%d")
 
         stigs = root.find("STIGS")
@@ -678,7 +666,9 @@ class BP:
 
                 # Get status
                 status_node = vuln.find("STATUS")
-                status = (status_node.text or "").strip() if status_node is not None else ""
+                status = (
+                    (status_node.text or "").strip() if status_node is not None else ""
+                )
                 if not status:
                     skipped += 1
                     continue
@@ -781,12 +771,14 @@ class BP:
                             snippet = "..." + snippet
                         if end < len(text):
                             snippet = snippet + "..."
-                        results.append({
-                            "vid": vid,
-                            "status": status,
-                            "field": field,
-                            "snippet": snippet,
-                        })
+                        results.append(
+                            {
+                                "vid": vid,
+                                "status": status,
+                                "field": field,
+                                "snippet": snippet,
+                            }
+                        )
 
         return results
 
@@ -824,18 +816,18 @@ class BP:
         for key, vids in groups.items():
             if len(vids) >= 2:
                 parts = key.split("|", 2)
-                duplicates.append({
-                    "status": parts[0],
-                    "field": parts[1],
-                    "text_preview": parts[2][:100],
-                    "vids": vids,
-                    "count": len(vids),
-                })
+                duplicates.append(
+                    {
+                        "status": parts[0],
+                        "field": parts[1],
+                        "text_preview": parts[2][:100],
+                        "vids": vids,
+                        "count": len(vids),
+                    }
+                )
 
         return sorted(duplicates, key=lambda d: -d["count"])
 
 
 # Module-level singleton
 BOILERPLATE = BP()
-
-

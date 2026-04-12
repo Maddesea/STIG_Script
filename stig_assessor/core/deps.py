@@ -19,9 +19,13 @@ class Deps:
         """Check for available optional dependencies."""
         with suppress(ImportError):
             import warnings
+
             with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", category=DeprecationWarning, module="defusedxml")
+                warnings.filterwarnings(
+                    "ignore", category=DeprecationWarning, module="defusedxml"
+                )
                 from io import StringIO
+
                 from defusedxml import ElementTree as DET
 
                 DET.parse(StringIO("<test/>"))
@@ -55,8 +59,11 @@ class Deps:
 
         if cls.HAS_DEFUSEDXML:
             import warnings
+
             with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", category=DeprecationWarning, module="defusedxml")
+                warnings.filterwarnings(
+                    "ignore", category=DeprecationWarning, module="defusedxml"
+                )
                 import defusedxml.ElementTree as DET  # pylint: disable=import-error
 
                 ET.parse = DET.parse
@@ -121,4 +128,3 @@ class Deps:
 
 # Automatically check dependencies on import
 Deps.check()
-

@@ -1,9 +1,11 @@
 """HTML Graphical Diff Generator for Checklists."""
 
-import os
-from typing import Dict, Any
 import html
+import os
+from typing import Any, Dict
+
 from stig_assessor.processor.processor import Proc
+
 
 def generate_html_diff(ckl1: str, ckl2: str, out_path: str) -> str:
     """
@@ -12,7 +14,7 @@ def generate_html_diff(ckl1: str, ckl2: str, out_path: str) -> str:
     proc = Proc()
     # Ensure detailed output
     diff_data = proc.diff(ckl1, ckl2, output_format="json")
-    
+
     # Render
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -162,10 +164,18 @@ def generate_html_diff(ckl1: str, ckl2: str, out_path: str) -> str:
             field = df.get("field", "status")
             old_val = df.get("from", "")
             new_val = df.get("to", "")
-            
+
             # Special handling for text diffs to make them look cleaner in HTML
-            old_display = html.escape(str(old_val)) if old_val else '<span class="empty">empty</span>'
-            new_display = html.escape(str(new_val)) if new_val else '<span class="empty">empty</span>'
+            old_display = (
+                html.escape(str(old_val))
+                if old_val
+                else '<span class="empty">empty</span>'
+            )
+            new_display = (
+                html.escape(str(new_val))
+                if new_val
+                else '<span class="empty">empty</span>'
+            )
 
             html_content += f"""
                 <tr>
@@ -211,7 +221,7 @@ def generate_html_diff(ckl1: str, ckl2: str, out_path: str) -> str:
 </html>
 """
 
-    with open(out_path, 'w', encoding='utf-8') as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         f.write(html_content)
-        
+
     return out_path

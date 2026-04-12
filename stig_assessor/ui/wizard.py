@@ -17,18 +17,27 @@ from stig_assessor.core.constants import APP_NAME, VERSION
 from stig_assessor.exceptions import FileError, ParseError, ValidationError
 from stig_assessor.processor.processor import Proc
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # ANSI COLOR (standalone — no dependency on cli.py)
 # ─────────────────────────────────────────────────────────────────────────────
 
 _ANSI = {
-    "red": "\033[91m", "green": "\033[92m", "yellow": "\033[93m",
-    "blue": "\033[94m", "magenta": "\033[95m", "cyan": "\033[96m",
-    "bold": "\033[1m", "dim": "\033[2m", "reset": "\033[0m",
+    "red": "\033[91m",
+    "green": "\033[92m",
+    "yellow": "\033[93m",
+    "blue": "\033[94m",
+    "magenta": "\033[95m",
+    "cyan": "\033[96m",
+    "bold": "\033[1m",
+    "dim": "\033[2m",
+    "reset": "\033[0m",
 }
 
-_USE_COLOR = hasattr(sys.stdout, "isatty") and sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+_USE_COLOR = (
+    hasattr(sys.stdout, "isatty")
+    and sys.stdout.isatty()
+    and not os.environ.get("NO_COLOR")
+)
 
 
 def _c(text: str, color: str) -> str:
@@ -41,6 +50,7 @@ def _c(text: str, color: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 # WIZARD
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class InteractiveWizard:
     """Full-featured interactive CLI wizard."""
@@ -75,7 +85,13 @@ class InteractiveWizard:
 
     # ── Prompts ──────────────────────────────────────────────────────────────
 
-    def _prompt(self, message: str, required: bool = True, validate_file: bool = False, validate_dir: bool = False) -> str:
+    def _prompt(
+        self,
+        message: str,
+        required: bool = True,
+        validate_file: bool = False,
+        validate_dir: bool = False,
+    ) -> str:
         """Prompt with optional path validation."""
         while True:
             val = input(_c(f"  ? {message}: ", "yellow")).strip()
@@ -153,7 +169,9 @@ class InteractiveWizard:
 
         print(_c(f"\n  Generating {out_file}…", "cyan"))
         try:
-            res = self.proc.xccdf_to_ckl(xccdf, out_file, asset=asset, apply_boilerplate=apply_bp)
+            res = self.proc.xccdf_to_ckl(
+                xccdf, out_file, asset=asset, apply_boilerplate=apply_bp
+            )
             self._success(f"Processed {res.get('processed', 0)} rules → {out_file}")
         except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
             self._error(str(e))
@@ -181,19 +199,28 @@ class InteractiveWizard:
         self._header("Extract Remediation Playbooks")
 
         xccdf = self._prompt("Path to DISA XCCDF XML", validate_file=True)
-        checklist = self._prompt("Path to Checklist (for filtering, optional)", required=False, validate_file=True)
-        
+        checklist = self._prompt(
+            "Path to Checklist (for filtering, optional)",
+            required=False,
+            validate_file=True,
+        )
+
         print(_c("\n  Pick Statuses to Include:", "bold"))
         print("    1. Open + Not_Reviewed (Recommended)")
         print("    2. Everything (All Statuses)")
         print("    3. Custom Status List")
         choice = input(_c("  Select: ", "yellow")).strip()
-        
+
         status_filter = ["Open", "Not_Reviewed"]
         if choice == "2":
             status_filter = ["All"]
         elif choice == "3":
-            status_filter = [s.strip() for s in self._prompt("Enter statuses (comma-sep, e.g. Open,NotAFinding)").split(",")]
+            status_filter = [
+                s.strip()
+                for s in self._prompt(
+                    "Enter statuses (comma-sep, e.g. Open,NotAFinding)"
+                ).split(",")
+            ]
 
         platform = self._prompt_choice("Target Platform", ["windows", "linux", "both"])
         out_dir = self._prompt("Output Directory")
@@ -204,26 +231,39 @@ class InteractiveWizard:
             from stig_assessor.remediation.extractor import FixExt
 
             extractor = FixExt(xccdf, checklist=checklist if checklist else None)
-            extractor.extract(status_filter=None if "All" in status_filter else status_filter)
-            
+            extractor.extract(
+                status_filter=None if "All" in status_filter else status_filter
+            )
+
             extractor.to_json(os.path.join(out_dir, "fixes.json"))
             extractor.to_csv(os.path.join(out_dir, "fixes.csv"))
-            
+
             if platform in ("linux", "both"):
                 extractor.to_bash(os.path.join(out_dir, "remediate.sh"))
                 extractor.to_ansible(os.path.join(out_dir, "remediate.yml"))
-            
+
             if platform in ("windows", "both"):
-                extractor.to_powershell(os.path.join(out_dir, "Remediate.ps1"), enable_rollbacks=True)
+                extractor.to_powershell(
+                    os.path.join(out_dir, "Remediate.ps1"), enable_rollbacks=True
+                )
 
             try:
-                from stig_assessor.remediation.html_playbook import generate_html_playbook
-                generate_html_playbook(extractor, os.path.join(out_dir, "remediation_playbook.html"))
+                from stig_assessor.remediation.html_playbook import \
+                    generate_html_playbook
+
+                generate_html_playbook(
+                    extractor, os.path.join(out_dir, "remediation_playbook.html")
+                )
             except (ImportError, OSError, ValueError):
                 pass
 
             self._success(f"Playbooks generated in {out_dir}")
-            print(_c(f"  Note: Evidence logs will be mapped to 'evidence/' directory when scripts run.", "dim"))
+            print(
+                _c(
+                    f"  Note: Evidence logs will be mapped to 'evidence/' directory when scripts run.",
+                    "dim",
+                )
+            )
         except (ParseError, FileError, OSError, ValueError) as e:
             self._error(str(e))
         self._pause()
@@ -241,12 +281,20 @@ class InteractiveWizard:
             changes = res.get("changed", [])
             summary = res.get("summary", {})
             self._success(f"Differences found: {len(changes)}")
-            print(f"    Baseline: {summary.get('total_in_baseline', '?')} | Comparison: {summary.get('total_in_comparison', '?')}")
-            print(f"    Changed: {summary.get('changed', 0)} | Unchanged: {summary.get('unchanged', 0)}")
-            print(f"    Only in baseline: {summary.get('only_in_baseline', 0)} | Only in comparison: {summary.get('only_in_comparison', 0)}")
+            print(
+                f"    Baseline: {summary.get('total_in_baseline', '?')} | Comparison: {summary.get('total_in_comparison', '?')}"
+            )
+            print(
+                f"    Changed: {summary.get('changed', 0)} | Unchanged: {summary.get('unchanged', 0)}"
+            )
+            print(
+                f"    Only in baseline: {summary.get('only_in_baseline', 0)} | Only in comparison: {summary.get('only_in_comparison', 0)}"
+            )
 
             try:
-                from stig_assessor.processor.html_diff import generate_html_diff
+                from stig_assessor.processor.html_diff import \
+                    generate_html_diff
+
                 out_html = str(Path(ckl1).with_name(f"{Path(ckl1).stem}_diff.html"))
                 generate_html_diff(ckl1, ckl2, out_html)
                 print(_c(f"    HTML diff: {out_html}", "green"))
@@ -267,14 +315,18 @@ class InteractiveWizard:
         print(_c("\n  Generating statistics…", "cyan"))
         try:
             stats = self.proc.generate_stats(ckl_path, output_format=fmt)
-            out_ext = {"text": ".txt", "json": ".json", "csv": ".csv", "html": ".html"}[fmt]
+            out_ext = {"text": ".txt", "json": ".json", "csv": ".csv", "html": ".html"}[
+                fmt
+            ]
             out_file = str(Path(ckl_path).with_suffix(f".stats{out_ext}"))
 
             with open(out_file, "w", encoding="utf-8") as f:
                 if fmt == "json":
                     json.dump(stats, f, indent=2, ensure_ascii=False)
                 else:
-                    f.write(stats if isinstance(stats, str) else json.dumps(stats, indent=2))
+                    f.write(
+                        stats if isinstance(stats, str) else json.dumps(stats, indent=2)
+                    )
 
             self._success(f"Stats written to {out_file}")
         except (ParseError, FileError, OSError, ValueError) as e:
@@ -290,7 +342,9 @@ class InteractiveWizard:
         out_file = str(Path(ckl_path).with_suffix(".html"))
         print(_c(f"\n  Generating report → {out_file}…", "cyan"))
         try:
-            from stig_assessor.processor.html_report import generate_html_report
+            from stig_assessor.processor.html_report import \
+                generate_html_report
+
             generate_html_report(ckl_path, out_file)
             self._success(f"HTML report generated: {out_file}")
         except (ParseError, FileError, OSError, ValueError) as e:
@@ -310,6 +364,7 @@ class InteractiveWizard:
         print(_c("\n  Analyzing fleet compliance…", "cyan"))
         try:
             from stig_assessor.processor.fleet_stats import FleetStats
+
             fs = FleetStats()
             if os.path.isfile(target) and target.lower().endswith(".zip"):
                 stats = fs.process_zip(target)
@@ -320,7 +375,9 @@ class InteractiveWizard:
             with open(out_file, "w", encoding="utf-8") as f:
                 json.dump(stats, f, indent=2, ensure_ascii=False)
 
-            self._success(f"Analyzed {stats.get('total_assets', 0)} assets → {out_file}")
+            self._success(
+                f"Analyzed {stats.get('total_assets', 0)} assets → {out_file}"
+            )
         except (ParseError, FileError, OSError, ValueError) as e:
             self._error(str(e))
         self._pause()
@@ -330,9 +387,13 @@ class InteractiveWizard:
         self._header("Repair Checklist")
 
         ckl_path = self._prompt("Path to CKL to repair", validate_file=True)
-        out_file = self._prompt("Output repaired file path (Enter for auto)", required=False)
+        out_file = self._prompt(
+            "Output repaired file path (Enter for auto)", required=False
+        )
         if not out_file:
-            out_file = str(Path(ckl_path).with_name(f"{Path(ckl_path).stem}_repaired.ckl"))
+            out_file = str(
+                Path(ckl_path).with_name(f"{Path(ckl_path).stem}_repaired.ckl")
+            )
 
         print(_c(f"\n  Repairing → {out_file}…", "cyan"))
         try:
@@ -391,7 +452,9 @@ class InteractiveWizard:
 
     def _bp_set(self):
         vid = self._prompt("Vulnerability ID (e.g. V-12345)")
-        status = self._prompt_choice("Status", ["NotAFinding", "Open", "Not_Reviewed", "Not_Applicable"])
+        status = self._prompt_choice(
+            "Status", ["NotAFinding", "Open", "Not_Reviewed", "Not_Applicable"]
+        )
         finding = self._prompt("Finding Details text", required=False)
         comment = self._prompt("Comments text", required=False)
         self.proc.boiler.set(vid, status, finding or "", comment or "")
@@ -427,7 +490,9 @@ class InteractiveWizard:
         self._pause()
 
     def _bp_reset(self):
-        if self._prompt_yn("Reset ALL boilerplates to defaults? This cannot be undone."):
+        if self._prompt_yn(
+            "Reset ALL boilerplates to defaults? This cannot be undone."
+        ):
             self.proc.boiler.reset_all()
             self._success("Boilerplates reset to factory defaults.")
         self._pause()
@@ -439,7 +504,9 @@ class InteractiveWizard:
         print(f"  {_c('Version:', 'cyan')}      {VERSION}")
         print(f"  {_c('App Dir:', 'cyan')}       {Cfg.APP_DIR}")
         print(f"  {_c('Log Dir:', 'cyan')}       {Cfg.LOG_DIR}")
-        print(f"  {_c('Platform:', 'cyan')}      {'Windows' if Cfg.IS_WIN else ('Linux' if Cfg.IS_LIN else 'macOS')}")
+        print(
+            f"  {_c('Platform:', 'cyan')}      {'Windows' if Cfg.IS_WIN else ('Linux' if Cfg.IS_LIN else 'macOS')}"
+        )
         print(f"  {_c('Python:', 'cyan')}        {sys.version.split()[0]}")
         print()
         print(_c("  Capabilities:", "bold"))
@@ -460,21 +527,36 @@ class InteractiveWizard:
             print(f"    • {cap}")
         self._pause()
 
-
     def bulk_edit_ckl(self):
         """Bulk update vulnerabilities."""
         self._header("Bulk Edit Checklist")
         ckl = self._prompt("Source CKL file", validate_file=True)
         out = self._prompt("Output CKL file")
-        sev = self._prompt("Filter by Severity (high/medium/low, Enter for any)", required=False)
-        vid = self._prompt("Filter by V-ID regex (e.g. ^V-123, Enter for any)", required=False)
-        status = self._prompt_choice("New Status", ["NotAFinding", "Open", "Not_Reviewed", "Not_Applicable"])
+        sev = self._prompt(
+            "Filter by Severity (high/medium/low, Enter for any)", required=False
+        )
+        vid = self._prompt(
+            "Filter by V-ID regex (e.g. ^V-123, Enter for any)", required=False
+        )
+        status = self._prompt_choice(
+            "New Status", ["NotAFinding", "Open", "Not_Reviewed", "Not_Applicable"]
+        )
         comment = self._prompt("New Comments")
         append = self._prompt_yn("Append to existing comments?", default=True)
 
         try:
-            res = self.proc.bulk_edit(ckl, out, severity=sev, regex_vid=vid, new_status=status, new_comment=comment, append_comment=append)
-            self._success(f"Updated {res['updates']} vulnerabilities. Saved to {res['output']}")
+            res = self.proc.bulk_edit(
+                ckl,
+                out,
+                severity=sev,
+                regex_vid=vid,
+                new_status=status,
+                new_comment=comment,
+                append_comment=append,
+            )
+            self._success(
+                f"Updated {res['updates']} vulnerabilities. Saved to {res['output']}"
+            )
         except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
             self._error(str(e))
         self._pause()
@@ -493,7 +575,9 @@ class InteractiveWizard:
         print(_c("\n  Applying waivers…", "dim"))
         try:
             res = self.proc.apply_waivers(ckl, out, vids, approver, reason, valid)
-            self._success(f"Applied waivers to {res['updates']} vulnerabilities. Saved to {res['output']}")
+            self._success(
+                f"Applied waivers to {res['updates']} vulnerabilities. Saved to {res['output']}"
+            )
         except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
             self._error(str(e))
         self._pause()
@@ -501,15 +585,21 @@ class InteractiveWizard:
     def batch_convert(self):
         """Batch convert multiple XCCDF files."""
         self._header("Batch Convert Checklists")
-        in_dir = self._prompt("Input Directory (containing XCCDF files)", validate_dir=True)
+        in_dir = self._prompt(
+            "Input Directory (containing XCCDF files)", validate_dir=True
+        )
         out_dir = self._prompt("Output Directory for CKL files", validate_dir=True)
         prefix = self._prompt("Asset name prefix", required=False) or "ASSET"
         apply_bp = self._prompt_yn("Apply boilerplate templates?", default=False)
 
         print(_c("\n  Converting (this may take a while)…", "dim"))
         try:
-            res = self.proc.batch_convert(in_dir, out_dir, asset_prefix=prefix, apply_boilerplate=apply_bp)
-            self._success(f"Batch convert complete: {res['converted']} succeeded, {res.get('failed', 0)} failed")
+            res = self.proc.batch_convert(
+                in_dir, out_dir, asset_prefix=prefix, apply_boilerplate=apply_bp
+            )
+            self._success(
+                f"Batch convert complete: {res['converted']} succeeded, {res.get('failed', 0)} failed"
+            )
         except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
             self._error(str(e))
         self._pause()
@@ -517,7 +607,12 @@ class InteractiveWizard:
     def advanced_pipeline(self):
         """Run a guided end-to-end pipeline (Build -> Apply Fixes -> Report)."""
         self._header("Advanced End-to-End Pipeline")
-        print(_c("  This pipeline will walk you through Building, Remediating, and Reporting.", "cyan"))
+        print(
+            _c(
+                "  This pipeline will walk you through Building, Remediating, and Reporting.",
+                "cyan",
+            )
+        )
 
         # Step 1: Create
         print(_c("\n  [Step 1] Build Checklist", "yellow"))
@@ -525,7 +620,7 @@ class InteractiveWizard:
         out1 = self._prompt("Output CKL file")
         asset = self._prompt("Asset Name (optional)", required=False)
         try:
-            self.proc.xccdf_to_ckl(xccdf, out1, asset=asset or 'ASSET')
+            self.proc.xccdf_to_ckl(xccdf, out1, asset=asset or "ASSET")
             self._success(f"Built CKL to {out1}")
         except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
             self._error(f"Failed Phase 1: {e}")
@@ -533,18 +628,28 @@ class InteractiveWizard:
             return
 
         # Step 2: Remediate
-        if not self._prompt_yn("\nProceed to Remediate this checklist from Results?", default=True):
+        if not self._prompt_yn(
+            "\nProceed to Remediate this checklist from Results?", default=True
+        ):
             self._pause()
             return
         print(_c("\n  [Step 2] Apply Remediation Results", "yellow"))
-        fix_dir = self._prompt("Directory with JSON/CSV result files", validate_dir=True)
-        out2 = self._prompt(f"Output CKL file (post-remediation) [{out1}]", required=False) or out1
+        fix_dir = self._prompt(
+            "Directory with JSON/CSV result files", validate_dir=True
+        )
+        out2 = (
+            self._prompt(f"Output CKL file (post-remediation) [{out1}]", required=False)
+            or out1
+        )
         try:
             from stig_assessor.remediation.processor import FixResPro
+
             fix_proc = FixResPro()
             fix_proc.load_dir(fix_dir)
             res2 = fix_proc.update_ckl(out1, out2)
-            self._success(f"Applied fixes: {res2['updated']} updated, {len(res2.get('not_found', []))} missing.")
+            self._success(
+                f"Applied fixes: {res2['updated']} updated, {len(res2.get('not_found', []))} missing."
+            )
         except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
             self._error(f"Failed Phase 2: {e}")
             self._pause()
@@ -557,7 +662,9 @@ class InteractiveWizard:
         print(_c("\n  [Step 3] Generate HTML Report", "yellow"))
         html_out = self._prompt("HTML Output path")
         try:
-            from stig_assessor.processor.html_report import generate_html_report
+            from stig_assessor.processor.html_report import \
+                generate_html_report
+
             generate_html_report(out2, html_out)
             self._success(f"Report generated successfully.")
         except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
@@ -577,7 +684,6 @@ class InteractiveWizard:
             except Exception as e:
                 self._error(f"Could not open file: {e}")
         self._pause()
-
 
     # ── Main loop ────────────────────────────────────────────────────────────
 

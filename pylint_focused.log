@@ -1,0 +1,74 @@
+﻿************* Module stig_assessor.evidence.manager
+stig_assessor\evidence\manager.py:403:32: W0707: Consider explicitly re-raising using 'except ValueError as exc' and 'raise ValidationError(f'Archive path escapes extraction directory: {member}') from exc' (raise-missing-from)
+************* Module stig_assessor.io.file_ops
+stig_assessor\io\file_ops.py:32:4: W0707: Consider explicitly re-raising using 'except ImportError as exc' and 'raise ImportError('xml.etree.ElementTree is required but not available') from exc' (raise-missing-from)
+stig_assessor\io\file_ops.py:368:16: W0707: Consider explicitly re-raising using 'raise ParseError(f'XML parse failed: {inner}') from inner' (raise-missing-from)
+stig_assessor\io\file_ops.py:399:12: W0707: Consider explicitly re-raising using 'raise ParseError(f'CKLB JSON parse failed: {err}') from err' (raise-missing-from)
+stig_assessor\io\file_ops.py:401:12: W0707: Consider explicitly re-raising using 'raise ParseError(f'Error reading CKLB: {err}') from err' (raise-missing-from)
+************* Module stig_assessor.processor.html_diff
+stig_assessor\processor\html_diff.py:5:0: W0611: Unused Any imported from typing (unused-import)
+stig_assessor\processor\html_diff.py:5:0: W0611: Unused Dict imported from typing (unused-import)
+************* Module stig_assessor.processor.html_report
+stig_assessor\processor\html_report.py:16:0: W0611: Unused xml.etree.ElementTree imported as ET (unused-import)
+************* Module stig_assessor.processor.processor
+stig_assessor\processor\processor.py:492:12: W0707: Consider explicitly re-raising using 'except ValidationError as exc' and 'raise ParseError(f'Invalid VID format in group: {vid}') from exc' (raise-missing-from)
+stig_assessor\processor\processor.py:2861:12: W0707: Consider explicitly re-raising using 'raise ParseError(f'Failed to parse checklist: {exc}') from exc' (raise-missing-from)
+stig_assessor\processor\processor.py:2959:12: W0707: Consider explicitly re-raising using 'raise ParseError(f'Failed to load checklist: {exc}') from exc' (raise-missing-from)
+stig_assessor\processor\processor.py:3098:12: W0707: Consider explicitly re-raising using 'raise ParseError(f'Failed to load checklist: {exc}') from exc' (raise-missing-from)
+************* Module stig_assessor.remediation.html_playbook
+stig_assessor\remediation\html_playbook.py:5:0: W0611: Unused import json (unused-import)
+stig_assessor\remediation\html_playbook.py:6:0: W0611: Unused Dict imported from typing (unused-import)
+stig_assessor\remediation\html_playbook.py:6:0: W0611: Unused List imported from typing (unused-import)
+************* Module stig_assessor.templates.boilerplate
+stig_assessor\templates\boilerplate.py:122:12: W0707: Consider explicitly re-raising using 'raise FileError(f'Failed to write boilerplate to {target_path}: {e}') from e' (raise-missing-from)
+************* Module stig_assessor.ui.wizard
+stig_assessor\ui\wizard.py:13:0: W0611: Unused Optional imported from typing (unused-import)
+************* Module stig_assessor.ui.gui.core
+stig_assessor\ui\gui\core.py:18:0: W0611: Unused GUI_BUTTON_WIDTH imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\core.py:18:0: W0611: Unused GUI_BUTTON_WIDTH_WIDE imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\core.py:18:0: W0611: Unused GUI_ENTRY_WIDTH imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\core.py:18:0: W0611: Unused GUI_ENTRY_WIDTH_MEDIUM imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\core.py:18:0: W0611: Unused GUI_ENTRY_WIDTH_SMALL imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\core.py:18:0: W0611: Unused GUI_FONT_NORMAL imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\core.py:18:0: W0611: Unused GUI_LISTBOX_HEIGHT imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\core.py:18:0: W0611: Unused GUI_LISTBOX_WIDTH imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\core.py:18:0: W0611: Unused GUI_PADDING_SECTION imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\core.py:18:0: W0611: Unused GUI_TEXT_HEIGHT imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\core.py:18:0: W0611: Unused GUI_TEXT_WIDTH imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\core.py:18:0: W0611: Unused GUI_WRAP_LENGTH imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\core.py:18:0: W0611: Unused Status imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\core.py:34:0: W0611: Unused ValidationError imported from stig_assessor.exceptions (unused-import)
+stig_assessor\ui\gui\core.py:36:0: W0611: Unused FixExt imported from stig_assessor.remediation.extractor (unused-import)
+stig_assessor\ui\gui\core.py:37:0: W0611: Unused FixResPro imported from stig_assessor.remediation.processor (unused-import)
+stig_assessor\ui\gui\core.py:53:0: W0611: Unused Debouncer imported from stig_assessor.ui.helpers (unused-import)
+stig_assessor\ui\gui\core.py:55:0: W0611: Unused San imported from stig_assessor.xml.sanitizer (unused-import)
+stig_assessor\ui\gui\core.py:56:0: W0611: Unused Sch imported from stig_assessor.xml.schema (unused-import)
+************* Module stig_assessor.ui.gui.tabs.analytics
+stig_assessor\ui\gui\tabs\analytics.py:13:0: W0611: Unused ToolTip imported from stig_assessor.ui.helpers (unused-import)
+************* Module stig_assessor.ui.gui.tabs.boilerplates
+stig_assessor\ui\gui\tabs\boilerplates.py:4:0: W0611: Unused datetime imported from datetime (unused-import)
+stig_assessor\ui\gui\tabs\boilerplates.py:11:0: W0611: Unused FO imported from stig_assessor.io.file_ops (unused-import)
+stig_assessor\ui\gui\tabs\boilerplates.py:12:0: W0611: Unused _parse_checklist imported from stig_assessor.processor.html_report (unused-import)
+************* Module stig_assessor.ui.gui.tabs.compare
+stig_assessor\ui\gui\tabs\compare.py:8:0: W0611: Unused GUI_BUTTON_WIDTH_WIDE imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\tabs\compare.py:8:0: W0611: Unused GUI_PADDING_SECTION imported from stig_assessor.core.constants (unused-import)
+************* Module stig_assessor.ui.gui.tabs.dashboard
+stig_assessor\ui\gui\tabs\dashboard.py:7:0: W0611: Unused GUI_PADDING imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\tabs\dashboard.py:7:0: W0611: Unused Status imported from stig_assessor.core.constants (unused-import)
+stig_assessor\ui\gui\tabs\dashboard.py:10:0: W0611: Unused PremiumChart imported from stig_assessor.ui.helpers (unused-import)
+************* Module stig_assessor.ui.gui.tabs.editor
+stig_assessor\ui\gui\tabs\editor.py:9:0: W0611: Unused GUI_ENTRY_WIDTH_MEDIUM imported from stig_assessor.core.constants (unused-import)
+************* Module stig_assessor.ui.gui.tabs.log_viewer
+stig_assessor\ui\gui\tabs\log_viewer.py:9:0: W0611: Unused GUI_PADDING imported from stig_assessor.core.constants (unused-import)
+************* Module stig_assessor.ui.gui.tabs.validate
+stig_assessor\ui\gui\tabs\validate.py:3:0: W0611: Unused import sys (unused-import)
+************* Module stig_assessor.ui.web.api
+stig_assessor\ui\web\api.py:29:8: W0707: Consider explicitly re-raising using 'raise ValueError(f'Malformed base64 encoding: {e}') from e' (raise-missing-from)
+************* Module stig_assessor.xml.sanitizer
+stig_assessor\xml\sanitizer.py:167:48: W0707: Consider explicitly re-raising using 'except ValueError as exc' and 'raise ValidationError(f'Symlink escape attempt detected: {parent}') from exc' (raise-missing-from)
+stig_assessor\xml\sanitizer.py:171:36: W0707: Consider explicitly re-raising using 'raise ValidationError(f'Symlink validation failed: {parent}: {ve}') from ve' (raise-missing-from)
+stig_assessor\xml\sanitizer.py:267:16: W0707: Consider explicitly re-raising using 'except ValueError as exc' and 'raise ValidationError(f'IP octet {idx + 1} is not numeric: {octet}') from exc' (raise-missing-from)
+
+------------------------------------------------------------------
+Your code has been rated at 9.96/10 (previous run: 8.44/10, +1.51)
+

@@ -41,7 +41,8 @@ class SQLiteStore:
         with self._get_conn() as conn:
             cursor = conn.cursor()
             # Assessments metadata
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS assessments (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     asset_name TEXT NOT NULL,
@@ -49,10 +50,12 @@ class SQLiteStore:
                     source_file TEXT,
                     stig_title TEXT
                 )
-            """)
+            """
+            )
 
             # Findings linking to assessments
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS findings (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     assessment_id INTEGER NOT NULL,
@@ -64,11 +67,13 @@ class SQLiteStore:
                     chk TEXT,
                     FOREIGN KEY(assessment_id) REFERENCES assessments(id) ON DELETE CASCADE
                 )
-            """)
+            """
+            )
 
             # Justifications (Persistent POA&M tracking)
             # This stores the latest user justification for a specific VID
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS justifications (
                     vid TEXT PRIMARY KEY,
                     status TEXT NOT NULL,
@@ -76,7 +81,8 @@ class SQLiteStore:
                     updated_at TEXT NOT NULL,
                     who TEXT NOT NULL
                 )
-            """)
+            """
+            )
 
             # Indices for performance
             cursor.execute(

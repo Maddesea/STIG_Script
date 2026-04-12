@@ -39,7 +39,7 @@ class AssessorTUI:
             ("Generate Fleet Stats", self._run_fleet),
             ("Repair Checklist", self._run_repair),
             ("Compare Checklists (Diff)", self._run_diff),
-            ("Exit", self._exit_app)
+            ("Exit", self._exit_app),
         ]
 
     def _safe_addstr(self, y: int, x: int, text: str, attr: int = 0) -> None:
@@ -64,10 +64,17 @@ class AssessorTUI:
         h, w = self.stdscr.getmaxyx()
 
         title = "STIG ASSESSOR Headless Control Panel"
-        self._safe_addstr(1, max(0, w // 2 - len(title) // 2), title, curses.A_BOLD | curses.A_UNDERLINE)
+        self._safe_addstr(
+            1,
+            max(0, w // 2 - len(title) // 2),
+            title,
+            curses.A_BOLD | curses.A_UNDERLINE,
+        )
 
         instruction = "Use UP/DOWN arrows to navigate. Press ENTER to select."
-        self._safe_addstr(3, max(0, w // 2 - len(instruction) // 2), instruction, curses.A_DIM)
+        self._safe_addstr(
+            3, max(0, w // 2 - len(instruction) // 2), instruction, curses.A_DIM
+        )
 
         start_y = 5
         for idx, (label, _) in enumerate(self.menu_items):
@@ -86,7 +93,9 @@ class AssessorTUI:
 
         # Status Bar
         footer = f"STIG Assessor v{VERSION} | Air-Gap Mode Active"
-        self._safe_addstr(h - 1, max(0, w // 2 - len(footer) // 2), footer, curses.A_REVERSE)
+        self._safe_addstr(
+            h - 1, max(0, w // 2 - len(footer) // 2), footer, curses.A_REVERSE
+        )
 
         self.stdscr.refresh()
 
@@ -103,19 +112,19 @@ class AssessorTUI:
 
             if key == curses.KEY_RESIZE:
                 continue
-            elif key in [curses.KEY_UP, ord('k')] and len(self.menu_items) > 0:
+            elif key in [curses.KEY_UP, ord("k")] and len(self.menu_items) > 0:
                 if self.current_idx > 0:
                     self.current_idx -= 1
                 else:
                     self.current_idx = len(self.menu_items) - 1
-            elif key in [curses.KEY_DOWN, ord('j')] and len(self.menu_items) > 0:
+            elif key in [curses.KEY_DOWN, ord("j")] and len(self.menu_items) > 0:
                 if self.current_idx < len(self.menu_items) - 1:
                     self.current_idx += 1
                 else:
                     self.current_idx = 0
-            elif key in [curses.KEY_HOME, ord('g')]:
+            elif key in [curses.KEY_HOME, ord("g")]:
                 self.current_idx = 0
-            elif key in [curses.KEY_END, ord('G')]:
+            elif key in [curses.KEY_END, ord("G")]:
                 self.current_idx = len(self.menu_items) - 1
             elif key in [curses.KEY_ENTER, 10, 13]:
                 action = self.menu_items[self.current_idx][1]
@@ -132,7 +141,9 @@ class AssessorTUI:
         self.stdscr.refresh()
 
         try:
-            input_val = self.stdscr.getstr(h // 2, min(w - 2, prompt_x + len(prompt) + 2), 256)
+            input_val = self.stdscr.getstr(
+                h // 2, min(w - 2, prompt_x + len(prompt) + 2), 256
+            )
             res = input_val.decode("utf-8").strip()
         except curses.error:
             res = ""
@@ -166,7 +177,9 @@ class AssessorTUI:
 
         self._safe_addstr(h // 2 - 2, max(0, w // 2 - len(title) // 2), title, attr)
         self._safe_addstr(h // 2, max(0, w // 2 - len(msg) // 2), msg)
-        self._safe_addstr(h // 2 + 2, max(0, w // 2 - 12), "Press ANY KEY to return.", curses.A_DIM)
+        self._safe_addstr(
+            h // 2 + 2, max(0, w // 2 - 12), "Press ANY KEY to return.", curses.A_DIM
+        )
         self.stdscr.refresh()
         self.stdscr.getch()
 
@@ -196,12 +209,14 @@ class AssessorTUI:
 
     def _run_merge(self):
         base_path = self._prompt_path("Base Checklist Path")
-        hist_path = self._prompt_input("History Checklist Path (or comma-separated list)")
+        hist_path = self._prompt_input(
+            "History Checklist Path (or comma-separated list)"
+        )
         out_path = self._prompt_input("Output Path (default: merged_output.ckl)")
         if not out_path:
             out_path = "merged_output.ckl"
 
-        histories = [h.strip() for h in hist_path.split(',') if h.strip()]
+        histories = [h.strip() for h in hist_path.split(",") if h.strip()]
 
         try:
             _ = self.proc.merge(base=base_path, histories=histories, out=out_path)
@@ -213,7 +228,9 @@ class AssessorTUI:
         vid = self._prompt_input("Vulnerability ID (e.g. V-12345)")
         if not vid:
             return
-        status = self._prompt_input("Status (NotAFinding, Open, Not_Reviewed, Not_Applicable)")
+        status = self._prompt_input(
+            "Status (NotAFinding, Open, Not_Reviewed, Not_Applicable)"
+        )
         finding = self._prompt_input("Finding Details text")
         comment = self._prompt_input("Comments text")
 
@@ -225,7 +242,9 @@ class AssessorTUI:
 
     def _run_waiver(self):
         ckl_path = self._prompt_path("Path to target CKL file")
-        vids = self._prompt_input("Comma-separated list of STIG V-IDs (e.g. V-123, V-456)").split(",")
+        vids = self._prompt_input(
+            "Comma-separated list of STIG V-IDs (e.g. V-123, V-456)"
+        ).split(",")
         approver = self._prompt_input("Approver Name / Reference ID")
         reason = self._prompt_input("Reason / Justification")
         until = self._prompt_input("Valid Until (Date)")
@@ -233,7 +252,9 @@ class AssessorTUI:
         vids = [v.strip() for v in vids if v.strip()]
 
         try:
-            res = self.proc.apply_waivers(ckl_path, ckl_path, vids, approver, reason, until)
+            res = self.proc.apply_waivers(
+                ckl_path, ckl_path, vids, approver, reason, until
+            )
             self._show_msg("Success", f"Applied waivers to {res['updates']} findings.")
         except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
             self._show_msg("Error", str(e))
@@ -243,10 +264,12 @@ class AssessorTUI:
         out_path = self._prompt_input("Output CKL file")
         sev = self._prompt_input("Filter by Severity (high/medium/low, blank for any)")
         vid = self._prompt_input("Filter by V-ID regex (e.g. ^V-123, blank for any)")
-        status = self._prompt_input("New Status (NotAFinding, Open, Not_Reviewed, Not_Applicable)")
+        status = self._prompt_input(
+            "New Status (NotAFinding, Open, Not_Reviewed, Not_Applicable)"
+        )
         comment = self._prompt_input("New Comments")
         append = self._prompt_input("Append to existing comments? (y/n)")
-        append_bool = append.lower() == 'y'
+        append_bool = append.lower() == "y"
 
         self.stdscr.clear()
         self._safe_addstr(2, 2, "Applying bulk edits... Please wait.")
@@ -254,24 +277,28 @@ class AssessorTUI:
 
         try:
             res = self.proc.bulk_edit(
-                ckl_path, out_path, 
-                severity=sev or None, 
-                regex_vid=vid or None, 
-                new_status=status or None, 
-                new_comment=comment or None, 
-                append_comment=append_bool
+                ckl_path,
+                out_path,
+                severity=sev or None,
+                regex_vid=vid or None,
+                new_status=status or None,
+                new_comment=comment or None,
+                append_comment=append_bool,
             )
-            self._show_msg("Success", f"Updated {res['updates']} vulnerabilities. Saved to {res['output']}")
+            self._show_msg(
+                "Success",
+                f"Updated {res['updates']} vulnerabilities. Saved to {res['output']}",
+            )
         except Exception as e:
             self._show_msg("Error", str(e))
 
     def _run_export_poam(self):
         ckl_path = self._prompt_path("Path to CKL file")
-        
+
         self.stdscr.clear()
         self._safe_addstr(2, 2, "Exporting POAM... Please wait.")
         self.stdscr.refresh()
-        
+
         try:
             poam_str = self.proc.export_poam(ckl_path)
             out_file = os.path.splitext(ckl_path)[0] + "_poam.csv"
@@ -288,12 +315,15 @@ class AssessorTUI:
         try:
             os.makedirs(out_dir, exist_ok=True)
             from stig_assessor.remediation.extractor import FixExt
+
             extractor = FixExt(x_path)
             extractor.extract()
             extractor.to_json(os.path.join(out_dir, "fixes.json"))
             extractor.to_csv(os.path.join(out_dir, "fixes.csv"))
             extractor.to_bash(os.path.join(out_dir, "remediate.sh"))
-            extractor.to_powershell(os.path.join(out_dir, "Remediate.ps1"), enable_rollbacks=False)
+            extractor.to_powershell(
+                os.path.join(out_dir, "Remediate.ps1"), enable_rollbacks=False
+            )
             extractor.to_ansible(os.path.join(out_dir, "remediate.yml"))
             self._show_msg("Success", "Playbooks generated successfully.")
         except (ParseError, FileError, OSError, ValueError) as e:
@@ -315,7 +345,9 @@ class AssessorTUI:
         ckl_path = self._prompt_path("Path to CKL/CKLB file")
 
         try:
-            from stig_assessor.processor.html_report import generate_html_report
+            from stig_assessor.processor.html_report import \
+                generate_html_report
+
             out_file = os.path.splitext(ckl_path)[0] + ".html"
             generate_html_report(ckl_path, out_file)
             self._show_msg("Success", f"HTML Report generated at {out_file}")
@@ -330,17 +362,23 @@ class AssessorTUI:
 
         try:
             from stig_assessor.processor.fleet_stats import FleetStats
+
             fs = FleetStats()
             if os.path.isfile(target_dir) and target_dir.lower().endswith(".zip"):
                 stats = fs.process_zip(target_dir)
             else:
                 stats = fs.process_directory(target_dir)
 
-            out_file = os.path.join(os.path.dirname(os.path.abspath(target_dir)), "fleet_stats.json")
+            out_file = os.path.join(
+                os.path.dirname(os.path.abspath(target_dir)), "fleet_stats.json"
+            )
             with open(out_file, "w", encoding="utf-8") as f:
                 json.dump(stats, f, indent=2)
 
-            self._show_msg("Success", f"Fleet stats analyzed {stats.get('total_assets', 0)} assets. Saved to {out_file}")
+            self._show_msg(
+                "Success",
+                f"Fleet stats analyzed {stats.get('total_assets', 0)} assets. Saved to {out_file}",
+            )
         except (ParseError, FileError, OSError, ValueError) as e:
             self._show_msg("Error", str(e))
 
@@ -385,7 +423,9 @@ def start_tui():
     """Bootstrap wrapper for the curses UI."""
     if curses is None:
         print("ERROR: Terminal UI (curses) is not available on this system.")
-        print("If you are on Windows, you must install 'windows-curses' to use the TUI:")
+        print(
+            "If you are on Windows, you must install 'windows-curses' to use the TUI:"
+        )
         print("  pip install windows-curses")
         sys.exit(1)
 
@@ -396,4 +436,3 @@ def start_tui():
         sys.exit(1)
     except KeyboardInterrupt:
         sys.exit(0)
-

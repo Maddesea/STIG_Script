@@ -19,8 +19,8 @@ import tempfile
 import time
 import zipfile
 from contextlib import contextmanager, suppress
-from functools import wraps
 from datetime import datetime, timezone
+from functools import wraps
 from pathlib import Path
 from typing import IO, Any, Dict, Generator, List, Optional, Tuple, Union
 
@@ -234,7 +234,7 @@ class FO:
                 key=lambda p: p.stat().st_mtime,
                 reverse=True,
             )
-            for old in backups[Cfg.KEEP_BACKUPS:]:
+            for old in backups[Cfg.KEEP_BACKUPS :]:
                 with suppress(OSError):
                     old.unlink()
 

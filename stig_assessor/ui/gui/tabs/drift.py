@@ -1,13 +1,10 @@
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
-from stig_assessor.core.constants import (
-    GUI_PADDING,
-    GUI_PADDING_LARGE,
-    GUI_ENTRY_WIDTH,
-    GUI_BUTTON_WIDTH_WIDE,
-    GUI_FONT_NORMAL,
-)
+from tkinter import filedialog, messagebox, ttk
+
+from stig_assessor.core.constants import (GUI_BUTTON_WIDTH_WIDE,
+                                          GUI_ENTRY_WIDTH, GUI_FONT_NORMAL,
+                                          GUI_PADDING, GUI_PADDING_LARGE)
 from stig_assessor.ui.helpers import PremiumChart
 
 
@@ -20,9 +17,7 @@ def build_drift_tab(app, frame):
     io_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
     io_frame.columnconfigure(1, weight=1)
 
-    ttk.Label(io_frame, text="Completed CKL: *").grid(
-        row=0, column=0, sticky="w"
-    )
+    ttk.Label(io_frame, text="Completed CKL: *").grid(row=0, column=0, sticky="w")
     app.drift_track_ckl = tk.StringVar()
     ent_1 = ttk.Entry(
         io_frame,
@@ -33,7 +28,9 @@ def build_drift_tab(app, frame):
 
     def _browse_drift_ckl():
         app.drift_track_ckl.set(
-            filedialog.askopenfilename(initialdir=app._last_dir(), filetypes=[("CKL", "*.ckl")])
+            filedialog.askopenfilename(
+                initialdir=app._last_dir(), filetypes=[("CKL", "*.ckl")]
+            )
         )
 
     ttk.Button(
@@ -53,7 +50,7 @@ def build_drift_tab(app, frame):
         try:
             tree = app.proc._load_file_as_xml(Path(ckl_path))
             root = tree.getroot()
-            
+
             # Simple manual extraction for tracking
             vulns = {}
             for vnode in root.findall(".//VULN"):
@@ -66,7 +63,7 @@ def build_drift_tab(app, frame):
                     vulns[vid] = {
                         "status": vnode.findtext("STATUS", "Not_Reviewed"),
                         "finding_details": vnode.findtext("FINDING_DETAILS", ""),
-                        "comments": vnode.findtext("COMMENTS", "")
+                        "comments": vnode.findtext("COMMENTS", ""),
                     }
 
             asset_elem = root.find(".//HOST_NAME")
@@ -108,9 +105,7 @@ def build_drift_tab(app, frame):
     drift_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
     drift_frame.columnconfigure(1, weight=1)
 
-    ttk.Label(drift_frame, text="Asset Name: *").grid(
-        row=0, column=0, sticky="w"
-    )
+    ttk.Label(drift_frame, text="Asset Name: *").grid(row=0, column=0, sticky="w")
     app.drift_asset = tk.StringVar()
     ttk.Entry(
         drift_frame,
@@ -176,10 +171,18 @@ def build_drift_tab(app, frame):
             for label, count, color in bars:
                 h = (count / max_val) * max_h if count > 0 else 2
                 PremiumChart.draw_bar(
-                    app.drift_canvas, x_pos, height - 35, bar_w, h,
-                    color, label, count,
-                    GUI_FONT_NORMAL, GUI_FONT_NORMAL,
-                    app._colors.get("fg", "#1f2937"), app._colors.get("text", "#4b5563")
+                    app.drift_canvas,
+                    x_pos,
+                    height - 35,
+                    bar_w,
+                    h,
+                    color,
+                    label,
+                    count,
+                    GUI_FONT_NORMAL,
+                    GUI_FONT_NORMAL,
+                    app._colors.get("fg", "#1f2937"),
+                    app._colors.get("text", "#4b5563"),
                 )
                 x_pos += bar_w + gap
 
@@ -209,10 +212,10 @@ def build_drift_tab(app, frame):
         style="Accent.TButton",
     )
     btn2.pack(side="left", padx=GUI_PADDING)
-    
-    ttk.Button(
-        btn_row, text="🗑 Clear Form", command=_clear_drift_form
-    ).pack(side="left")
+
+    ttk.Button(btn_row, text="🗑 Clear Form", command=_clear_drift_form).pack(
+        side="left"
+    )
 
     app.drift_canvas = tk.Canvas(
         frame,
@@ -220,9 +223,7 @@ def build_drift_tab(app, frame):
         bg=app._colors.get("bg", "#ffffff"),
         highlightthickness=0,
     )
-    app.drift_canvas.pack(
-        fill="x", padx=GUI_PADDING_LARGE, pady=(0, GUI_PADDING_LARGE)
-    )
+    app.drift_canvas.pack(fill="x", padx=GUI_PADDING_LARGE, pady=(0, GUI_PADDING_LARGE))
     app.drift_canvas.create_text(
         300,
         110,

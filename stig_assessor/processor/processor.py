@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import hashlib
-import uuid
 import difflib
+import hashlib
+import html as _html_module
+import uuid
 from collections import OrderedDict, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Union
-import html as _html_module
 
 if TYPE_CHECKING:
     import xml.etree.ElementTree as ET
@@ -158,7 +158,9 @@ class Proc:
 
             for idx, group in enumerate(groups, 1):
                 try:
-                    vuln_data = self._parse_vuln_data(group, ns, meta, apply_boilerplate, asset)
+                    vuln_data = self._parse_vuln_data(
+                        group, ns, meta, apply_boilerplate, asset
+                    )
                     vuln = self._serialize_vuln(vuln_data)
                     istig.append(vuln)
                     processed += 1
@@ -173,15 +175,17 @@ class Proc:
 
             self._check_conversion_errors(processed, skipped, errors)
 
-            LOG.i(
-                f"Processed: {processed} | Skipped: {skipped}"
-            )
+            LOG.i(f"Processed: {processed} | Skipped: {skipped}")
 
             XmlUtils.indent_xml(checklist)
 
-            return self._finalize_ckl_output(checklist, xccdf, out, dry, processed, skipped, errors)
+            return self._finalize_ckl_output(
+                checklist, xccdf, out, dry, processed, skipped, errors
+            )
 
-    def _check_conversion_errors(self, processed: int, skipped: int, errors: List[str]) -> None:
+    def _check_conversion_errors(
+        self, processed: int, skipped: int, errors: List[str]
+    ) -> None:
         """Helper to validate error rates during XCCDF conversion."""
         total = processed + skipped
         error_rate = (skipped / total) * 100 if total > 0 else 0
@@ -191,8 +195,14 @@ class Proc:
                 raise ParseError(f"Critical error rate: {error_rate:.1f}%")
 
     def _finalize_ckl_output(
-        self, checklist: ET.Element, xccdf: Path, out: Path, dry: bool, 
-        processed: int, skipped: int, errors: List[str]
+        self,
+        checklist: ET.Element,
+        xccdf: Path,
+        out: Path,
+        dry: bool,
+        processed: int,
+        skipped: int,
+        errors: List[str],
     ) -> Dict[str, Any]:
         """Helper to handle plugin hooks, dry-runs, and file writing."""
         checklist = self.plugins.run_hooks(
@@ -200,7 +210,12 @@ class Proc:
         )
 
         if dry:
-            return {"ok": True, "processed": processed, "skipped": skipped, "errors": errors}
+            return {
+                "ok": True,
+                "processed": processed,
+                "skipped": skipped,
+                "errors": errors,
+            }
 
         if out.suffix.lower() == EXT_CKLB:
             FO.write_cklb(self._checklist_to_json(checklist), out, backup=False)
@@ -208,14 +223,22 @@ class Proc:
             self._export_xml_to_file(checklist, out)
 
         self._validate_output(out)
-        return {"ok": True, "output": str(out), "processed": processed, "skipped": skipped, "errors": errors}
+        return {
+            "ok": True,
+            "output": str(out),
+            "processed": processed,
+            "skipped": skipped,
+            "errors": errors,
+        }
 
     def _validate_output(self, out: Path) -> None:
         """Helper to validate generated output."""
         try:
             ok, errs, _, _ = self.validator.validate(out)
             if not ok:
-                raise ValidationError(f"Validation failed: {errs[0] if errs else 'Unknown'}")
+                raise ValidationError(
+                    f"Validation failed: {errs[0] if errs else 'Unknown'}"
+                )
         except (ValidationError, OSError, ParseError, ValueError) as exc:
             LOG.w(f"Validator issue: {exc}")
 
@@ -231,7 +254,7 @@ class Proc:
         date_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Apply boilerplates directly to a checklist file and save.
-        
+
         Args:
             ckl_path: Target CKL file to apply templates to.
             out_path: Output CKL file to save.
@@ -239,7 +262,7 @@ class Proc:
             status_filter: Only modify vulnerabilities matching these statuses (e.g. Open, NotAFinding).
             severity_filter: Only modify vulnerabilities matching these severities (e.g. high, medium).
             vid_list: Only modify these specific VIDs.
-        
+
         Returns:
             Dict containing stats about the applied templates (updated, skipped, affected_vids).
         """
@@ -248,10 +271,10 @@ class Proc:
             out_file = San.path(out_path, mkpar=True)
         except (ValidationError, OSError, ValueError, TypeError) as exc:
             raise ValidationError(f"Path validation failed: {exc}") from exc
-            
+
         with LOG.context(op="apply_boilerplates", file=in_file.name):
             LOG.i(f"Applying boilerplates with mode: {apply_mode}")
-            
+
             try:
                 tree = self._load_file_as_xml(in_file)
                 root = tree.getroot()
@@ -264,21 +287,23 @@ class Proc:
                 status_filter=status_filter,
                 severity_filter=severity_filter,
                 vid_list=vid_list,
-                date_override=date_override
+                date_override=date_override,
             )
-            
+
             # Map 'applied' and 'total' from underlying method since the caller expects 'updated' and 'total_scanned'
             mapped_result = {
                 "updated": result.get("applied", 0),
                 "skipped": result.get("skipped", 0),
                 "total_scanned": result.get("applied", 0) + result.get("skipped", 0),
-                "affected_vids": result.get("affected_vids", [])
+                "affected_vids": result.get("affected_vids", []),
             }
-            
+
             self._export_xml_to_file(root, out_file)
-            
-            LOG.i(f"Applied boilerplates to {mapped_result['updated']} items. Saved to {out_file}")
-            
+
+            LOG.i(
+                f"Applied boilerplates to {mapped_result['updated']} items. Saved to {out_file}"
+            )
+
             return mapped_result
 
     # ------------------------------------------------------------------- helpers
@@ -497,15 +522,17 @@ class Proc:
                 txt = ET.tostring(elem, encoding="unicode", method="text")
                 return txt.strip() if txt else ""
             except (TypeError, ValueError, AttributeError) as exc:
-                LOG.w(f"Failed to extract text from XML element {elem.tag if hasattr(elem, 'tag') else 'unknown'}: {exc}")
+                LOG.w(
+                    f"Failed to extract text from XML element {elem.tag if hasattr(elem, 'tag') else 'unknown'}: {exc}"
+                )
                 return ""
 
         rule_title = text(find("title"))[:TITLE_MAX_LONG]
         rule_ver = text(find("version"))
-        
+
         discussion_raw = text(find("description"))
         parsed_desc = XmlUtils.parse_description(discussion_raw)
-        
+
         fix_elem = find("fixtext")
 
         fix_text = self._collect_fix_text(fix_elem) if fix_elem is not None else ""
@@ -582,7 +609,10 @@ class Proc:
                 ("Third_Party_Tools", parsed_desc.get("ThirdPartyTools", "")),
                 ("Mitigation_Control", parsed_desc.get("MitigationControl", "")),
                 ("Responsibility", parsed_desc.get("Responsibility", "")),
-                ("Security_Override_Guidance", parsed_desc.get("SeverityOverrideGuidance", "")),
+                (
+                    "Security_Override_Guidance",
+                    parsed_desc.get("SeverityOverrideGuidance", ""),
+                ),
                 ("Check_Content_Ref", check_ref),
                 ("Weight", weight),
                 ("Class", "Unclass"),
@@ -603,7 +633,7 @@ class Proc:
             "cci_refs": cci_refs,
             "status": status,
             "finding": finding,
-            "comment": comment
+            "comment": comment,
         }
 
     def _serialize_vuln(self, data: Dict[str, Any]) -> ET.Element:
@@ -618,7 +648,7 @@ class Proc:
         """
         vuln_node = ET.Element("VULN")
         stig_data_map = data["stig_data_map"]
-        
+
         for attribute in Sch.VULN:
             value = stig_data_map.get(attribute, "")
             sd = ET.SubElement(vuln_node, "STIG_DATA")
@@ -760,7 +790,7 @@ class Proc:
         if path.suffix.lower() == ".cklb":
             data = FO.parse_cklb(path)
             return self._json_to_checklist(data)
-        
+
         # Explicitly use the safe parser for internal loads
         _ = Deps.get_xml()
         return FO.parse_xml(path)
@@ -851,8 +881,12 @@ class Proc:
                         elif merge_strategy == "newest_wins":
                             # Keep whichever has more content
                             existing = history_data[vid]
-                            new_len = len(vdata.get("finding_details", "")) + len(vdata.get("comments", ""))
-                            old_len = len(existing.get("finding_details", "")) + len(existing.get("comments", ""))
+                            new_len = len(vdata.get("finding_details", "")) + len(
+                                vdata.get("comments", "")
+                            )
+                            old_len = len(existing.get("finding_details", "")) + len(
+                                existing.get("comments", "")
+                            )
                             if new_len > old_len:
                                 history_data[vid] = vdata
                 except (ParseError, OSError) as exc:
@@ -894,7 +928,9 @@ class Proc:
                         skipped += 1
                         continue
 
-                    base_status = (vuln.findtext("STATUS") or Status.NOT_REVIEWED).strip()
+                    base_status = (
+                        vuln.findtext("STATUS") or Status.NOT_REVIEWED
+                    ).strip()
                     base_finding = vuln.findtext("FINDING_DETAILS") or ""
                     base_comment = vuln.findtext("COMMENTS") or ""
 
@@ -903,7 +939,9 @@ class Proc:
                         base_sev = "medium"
                         for sd in vuln.findall("STIG_DATA"):
                             if sd.findtext("VULN_ATTRIBUTE") == "Severity":
-                                base_sev = sd.findtext("ATTRIBUTE_DATA", default="medium")
+                                base_sev = sd.findtext(
+                                    "ATTRIBUTE_DATA", default="medium"
+                                )
                         if base_sev.lower() not in sev_set:
                             skipped += 1
                             continue
@@ -922,13 +960,17 @@ class Proc:
                     if merge_strategy == "base_wins" and hist:
                         # Only fill empty fields from history
                         changed = False
-                        if not base_finding.strip() and (hist.get("finding_details", "").strip()):
+                        if not base_finding.strip() and (
+                            hist.get("finding_details", "").strip()
+                        ):
                             fn = vuln.find("FINDING_DETAILS")
                             if fn is None:
                                 fn = ET.SubElement(vuln, "FINDING_DETAILS")
                             fn.text = hist["finding_details"]
                             changed = True
-                        if not base_comment.strip() and (hist.get("comments", "").strip()):
+                        if not base_comment.strip() and (
+                            hist.get("comments", "").strip()
+                        ):
                             cn = vuln.find("COMMENTS")
                             if cn is None:
                                 cn = ET.SubElement(vuln, "COMMENTS")
@@ -943,7 +985,9 @@ class Proc:
                     if not hist:
                         # No history data — apply boilerplate if enabled
                         if apply_boilerplate:
-                            result = self._merge_vuln(vuln, preserve_history, apply_boilerplate)
+                            result = self._merge_vuln(
+                                vuln, preserve_history, apply_boilerplate
+                            )
                             if result is True:
                                 updated += 1
                             else:
@@ -957,7 +1001,11 @@ class Proc:
                     hist_comment = hist.get("comments", "")
                     hist_status = hist.get("status", "")
 
-                    conflict = "prefer_history" if merge_strategy == "history_wins" else "prefer_base"
+                    conflict = (
+                        "prefer_history"
+                        if merge_strategy == "history_wins"
+                        else "prefer_base"
+                    )
 
                     if content_mode_finding != "skip":
                         new_finding = self._apply_merge_mode(
@@ -975,9 +1023,17 @@ class Proc:
 
                     # Apply status based on strategy
                     new_status = base_status
-                    if merge_strategy == "history_wins" and hist_status and Status.is_valid(hist_status):
+                    if (
+                        merge_strategy == "history_wins"
+                        and hist_status
+                        and Status.is_valid(hist_status)
+                    ):
                         new_status = hist_status
-                    elif merge_strategy == "newest_wins" and hist_status and Status.is_valid(hist_status):
+                    elif (
+                        merge_strategy == "newest_wins"
+                        and hist_status
+                        and Status.is_valid(hist_status)
+                    ):
                         # Newest wins: prefer history if it has assessed content
                         if hist_finding.strip() or hist_comment.strip():
                             new_status = hist_status
@@ -1009,13 +1065,20 @@ class Proc:
                     else:
                         skipped += 1
 
-            LOG.i(f"Merge summary: {updated} updated, {skipped} unchanged, {protected} protected")
+            LOG.i(
+                f"Merge summary: {updated} updated, {skipped} unchanged, {protected} protected"
+            )
 
             XmlUtils.indent_xml(root)
 
             if dry:
                 LOG.i("Dry-run requested, merged checklist not written")
-                return {"updated": updated, "skipped": skipped, "protected": protected, "dry_run": True}
+                return {
+                    "updated": updated,
+                    "skipped": skipped,
+                    "protected": protected,
+                    "dry_run": True,
+                }
 
             self._export_xml_to_file(root, out)
             LOG.i(f"Merged checklist saved to {out}")
@@ -1092,7 +1155,9 @@ class Proc:
         status_set = {s.lower() for s in status_filter} if status_filter else set()
         sev_set = {s.lower() for s in severity_filter} if severity_filter else set()
 
-        with LOG.context(op="merge_advanced", base=base.name, histories=len(history_paths)):
+        with LOG.context(
+            op="merge_advanced", base=base.name, histories=len(history_paths)
+        ):
             LOG.i(f"Advanced merge: {len(history_paths)} checklist(s) into {base.name}")
 
             # Build history data from all history files
@@ -1108,8 +1173,12 @@ class Proc:
                         else:
                             # Merge by keeping whichever has more content
                             existing = history_data[vid]
-                            new_content = len(vdata.get("finding_details", "")) + len(vdata.get("comments", ""))
-                            old_content = len(existing.get("finding_details", "")) + len(existing.get("comments", ""))
+                            new_content = len(vdata.get("finding_details", "")) + len(
+                                vdata.get("comments", "")
+                            )
+                            old_content = len(
+                                existing.get("finding_details", "")
+                            ) + len(existing.get("comments", ""))
                             if new_content > old_content:
                                 history_data[vid] = vdata
                 except (ParseError, OSError) as exc:
@@ -1153,13 +1222,17 @@ class Proc:
                         continue
 
                     # --- Get base data ---
-                    base_status = (vuln.findtext("STATUS") or Status.NOT_REVIEWED).strip()
+                    base_status = (
+                        vuln.findtext("STATUS") or Status.NOT_REVIEWED
+                    ).strip()
                     base_finding = vuln.findtext("FINDING_DETAILS") or ""
                     base_comment = vuln.findtext("COMMENTS") or ""
                     base_severity = "medium"
                     for sd in vuln.findall("STIG_DATA"):
                         if sd.findtext("VULN_ATTRIBUTE") == "Severity":
-                            base_severity = sd.findtext("ATTRIBUTE_DATA", default="medium")
+                            base_severity = sd.findtext(
+                                "ATTRIBUTE_DATA", default="medium"
+                            )
 
                     # --- Filter: status ---
                     if status_set and base_status.lower() not in status_set:
@@ -1176,6 +1249,7 @@ class Proc:
                         # No history data — optionally apply boilerplate
                         if apply_boilerplate:
                             from stig_assessor.xml.schema import Sch as _Sch
+
                             if base_status in _Sch.STAT_VALS:
                                 bp_finding = self.boiler.get_finding(vid, base_status)
                                 bp_comment = self.boiler.get_comment(vid, base_status)
@@ -1215,8 +1289,14 @@ class Proc:
                         base_comment, hist_comment, comments_mode, conflict_resolution
                     )
                     new_status = self._apply_merge_mode_status(
-                        base_status, hist_status, status_mode, conflict_resolution,
-                        base_finding, base_comment, hist_finding, hist_comment
+                        base_status,
+                        hist_status,
+                        status_mode,
+                        conflict_resolution,
+                        base_finding,
+                        base_comment,
+                        hist_finding,
+                        hist_comment,
                     )
 
                     changed = False
@@ -1237,7 +1317,11 @@ class Proc:
                     sn = vuln.find("STATUS")
                     if sn is None:
                         sn = ET.SubElement(vuln, "STATUS")
-                    if new_status and Status.is_valid(new_status) and sn.text != new_status:
+                    if (
+                        new_status
+                        and Status.is_valid(new_status)
+                        and sn.text != new_status
+                    ):
                         sn.text = new_status
                         changed = True
 
@@ -1247,7 +1331,9 @@ class Proc:
                     else:
                         skipped += 1
 
-            LOG.i(f"Advanced merge: {updated} updated, {skipped} unchanged, {filtered} filtered out")
+            LOG.i(
+                f"Advanced merge: {updated} updated, {skipped} unchanged, {filtered} filtered out"
+            )
 
             XmlUtils.indent_xml(root)
 
@@ -1289,7 +1375,9 @@ class Proc:
             return hist_text if hist_text.strip() else base_text
         if mode == "append":
             if base_text.strip() and hist_text.strip():
-                return f"{base_text}\n\n{'═' * 40}\n[HISTORY]\n{'═' * 40}\n\n{hist_text}"
+                return (
+                    f"{base_text}\n\n{'═' * 40}\n[HISTORY]\n{'═' * 40}\n\n{hist_text}"
+                )
             return hist_text if hist_text.strip() else base_text
 
         # Default: prefer_history / keep_history
@@ -1374,8 +1462,10 @@ class Proc:
                 vulns = self._extract_vuln_data(root)
                 for vid, vdata in vulns.items():
                     if vid not in history_data or (
-                        len(vdata.get("finding_details", "")) + len(vdata.get("comments", ""))
-                        > len(history_data[vid].get("finding_details", "")) + len(history_data[vid].get("comments", ""))
+                        len(vdata.get("finding_details", ""))
+                        + len(vdata.get("comments", ""))
+                        > len(history_data[vid].get("finding_details", ""))
+                        + len(history_data[vid].get("comments", ""))
                     ):
                         history_data[vid] = vdata
             except (ParseError, OSError):
@@ -1429,32 +1519,40 @@ class Proc:
 
                 changes: List[Dict[str, str]] = []
                 if hist.get("status", "") != base_status:
-                    changes.append({
-                        "field": "status",
-                        "from": base_status,
-                        "to": hist.get("status", ""),
-                    })
+                    changes.append(
+                        {
+                            "field": "status",
+                            "from": base_status,
+                            "to": hist.get("status", ""),
+                        }
+                    )
                 if hist.get("finding_details", "") != base_finding:
-                    changes.append({
-                        "field": "finding_details",
-                        "from_length": str(len(base_finding)),
-                        "to_length": str(len(hist.get("finding_details", ""))),
-                    })
+                    changes.append(
+                        {
+                            "field": "finding_details",
+                            "from_length": str(len(base_finding)),
+                            "to_length": str(len(hist.get("finding_details", ""))),
+                        }
+                    )
                 if hist.get("comments", "") != base_comment:
-                    changes.append({
-                        "field": "comments",
-                        "from_length": str(len(base_comment)),
-                        "to_length": str(len(hist.get("comments", ""))),
-                    })
+                    changes.append(
+                        {
+                            "field": "comments",
+                            "from_length": str(len(base_comment)),
+                            "to_length": str(len(hist.get("comments", ""))),
+                        }
+                    )
 
                 if changes:
                     rule_title = hist.get("rule_title", "")
-                    preview.append({
-                        "vid": vid,
-                        "severity": base_severity,
-                        "rule_title": rule_title[:80],
-                        "changes": changes,
-                    })
+                    preview.append(
+                        {
+                            "vid": vid,
+                            "severity": base_severity,
+                            "rule_title": rule_title[:80],
+                            "changes": changes,
+                        }
+                    )
 
         return {
             "total_affected": len(preview),
@@ -1536,13 +1634,15 @@ class Proc:
                         }
                     )
                 if v1["finding_details"] != v2["finding_details"]:
-                    diff_text = list(difflib.unified_diff(
-                        (v1["finding_details"] or "").splitlines(),
-                        (v2["finding_details"] or "").splitlines(),
-                        lineterm="",
-                        fromfile="Baseline",
-                        tofile="Target"
-                    ))
+                    diff_text = list(
+                        difflib.unified_diff(
+                            (v1["finding_details"] or "").splitlines(),
+                            (v2["finding_details"] or "").splitlines(),
+                            lineterm="",
+                            fromfile="Baseline",
+                            tofile="Target",
+                        )
+                    )
                     differences.append(
                         {
                             "field": "finding_details",
@@ -1554,13 +1654,15 @@ class Proc:
                         }
                     )
                 if v1["comments"] != v2["comments"]:
-                    diff_text = list(difflib.unified_diff(
-                        (v1["comments"] or "").splitlines(),
-                        (v2["comments"] or "").splitlines(),
-                        lineterm="",
-                        fromfile="Baseline",
-                        tofile="Target"
-                    ))
+                    diff_text = list(
+                        difflib.unified_diff(
+                            (v1["comments"] or "").splitlines(),
+                            (v2["comments"] or "").splitlines(),
+                            lineterm="",
+                            fromfile="Baseline",
+                            tofile="Target",
+                        )
+                    )
                     differences.append(
                         {
                             "field": "comments",
@@ -1869,6 +1971,7 @@ class Proc:
             if out_path is None:
                 if backup:
                     import shutil
+
                     backup_path = ckl_path.with_suffix(".ckl.bak")
                     shutil.copy2(ckl_path, backup_path)
                     LOG.i(f"Backup created: {backup_path}")
@@ -1898,7 +2001,10 @@ class Proc:
                             status_val = status_node.text.strip()
                             if not Status.is_valid(status_val):
                                 # Try to fix common typos
-                                if status_val.lower().replace(" ", "_") == "not_a_finding":
+                                if (
+                                    status_val.lower().replace(" ", "_")
+                                    == "not_a_finding"
+                                ):
                                     status_node.text = Status.NOT_A_FINDING
                                     repairs.append(
                                         f"Fixed status typo: '{status_val}' → '{Status.NOT_A_FINDING}'"
@@ -2175,7 +2281,9 @@ class Proc:
             # Extract statistics
             stats = {
                 "file": str(ckl_path),
-                "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                "generated": datetime.now(timezone.utc).strftime(
+                    "%Y-%m-%d %H:%M:%S UTC"
+                ),
                 "total_vulns": 0,
                 "by_status": defaultdict(int),
                 "by_severity": defaultdict(int),
@@ -2202,7 +2310,9 @@ class Proc:
                         for sd in vuln.findall("STIG_DATA"):
                             attr = sd.findtext("VULN_ATTRIBUTE")
                             if attr == "Severity":
-                                severity = sd.findtext("ATTRIBUTE_DATA", default="medium")
+                                severity = sd.findtext(
+                                    "ATTRIBUTE_DATA", default="medium"
+                                )
                                 break
 
                         stats["by_severity"][severity] += 1
@@ -2216,7 +2326,9 @@ class Proc:
             )
             stats["reviewed"] = reviewed
             stats["completion_pct"] = (
-                (reviewed / stats["total_vulns"] * 100) if stats["total_vulns"] > 0 else 0
+                (reviewed / stats["total_vulns"] * 100)
+                if stats["total_vulns"] > 0
+                else 0
             )
 
             # Calculate compliance percentage (NotAFinding / total reviewed)
@@ -2317,7 +2429,8 @@ class Proc:
         o_na = o_open + p_open
         o_nr = o_na + p_na
 
-        html_template = string.Template("""<!DOCTYPE html>
+        html_template = string.Template(
+            """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -2438,7 +2551,8 @@ class Proc:
         Generated by STIG Assessor v$version &middot; Zero-Dependency Offline Reporter
     </div>
 </body>
-</html>""")
+</html>"""
+        )
 
         # Build severity rows
         sev_rows = ""
@@ -2454,6 +2568,7 @@ class Proc:
                 sev_rows += f"<tr><td><span class='badge {bg_class}'>{sev.upper()}</span></td><td>{count}</td><td>{pct:.1f}%</td></tr>"
 
         from stig_assessor.core.constants import VERSION as _ver
+
         return html_template.substitute(
             file=stats["file"],
             date=stats["generated"],
@@ -2506,14 +2621,16 @@ class Proc:
                 lines.append(f"{severity},{stats['by_severity'][severity]}")
         return "\n".join(lines)
 
-    def export_html_report(self, ckl_path: Union[str, Path], out_path: Union[str, Path]) -> str:
+    def export_html_report(
+        self, ckl_path: Union[str, Path], out_path: Union[str, Path]
+    ) -> str:
         """
         Generate a standalone HTML compliance report from a checklist.
-        
+
         Args:
             ckl_path: Path to checklist.
             out_path: Path to save the HTML file.
-            
+
         Returns:
             The path to the generated HTML report.
         """
@@ -2528,13 +2645,19 @@ class Proc:
         vulns = self._extract_vuln_data(root)
         asset_node = root.find(".//HOST_NAME")
         asset_name = asset_node.text if asset_node is not None else "Unknown Asset"
-        
+
         # Stats — separate Pass and N/A for accurate reporting
         total = len(vulns)
-        naf_count = sum(1 for v in vulns.values() if v.get("status") == Status.NOT_A_FINDING)
+        naf_count = sum(
+            1 for v in vulns.values() if v.get("status") == Status.NOT_A_FINDING
+        )
         open_count = sum(1 for v in vulns.values() if v.get("status") == Status.OPEN)
-        na_count = sum(1 for v in vulns.values() if v.get("status") == Status.NOT_APPLICABLE)
-        nr_count = sum(1 for v in vulns.values() if v.get("status") == Status.NOT_REVIEWED)
+        na_count = sum(
+            1 for v in vulns.values() if v.get("status") == Status.NOT_APPLICABLE
+        )
+        nr_count = sum(
+            1 for v in vulns.values() if v.get("status") == Status.NOT_REVIEWED
+        )
 
         from stig_assessor.core.constants import VERSION as _ver
 
@@ -2558,7 +2681,6 @@ class Proc:
             ".bg-green { background: #28a745; }",
             ".bg-teal { background: #6c757d; }",
             ".bg-yellow { background: #ffc107; color: #333; }",
-            
             "/* Toolbar */",
             ".toolbar { display: flex; gap: 10px; margin: 20px 0 10px; align-items: center; flex-wrap: wrap; }",
             ".toolbar input[type=text] { flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }",
@@ -2568,7 +2690,6 @@ class Proc:
             ".filter-btns button:hover { background: #e9ecef; }",
             ".filter-btns button.active { background: #0056b3; color: #fff; border-color: #0056b3; }",
             ".match-count { font-size: 13px; color: #6c757d; margin-left: 8px; white-space: nowrap; }",
-            
             "/* Table */",
             "table { width: 100%; border-collapse: collapse; margin-top: 0; font-size: 14px; }",
             "th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: left; }",
@@ -2581,10 +2702,8 @@ class Proc:
             ".status-Not_Applicable { color: #6c757d; }",
             ".status-Not_Reviewed { color: #d89e00; font-weight: bold; }",
             "tr.hidden { display: none; }",
-            
             "/* Footer */",
             ".footer { text-align: center; color: #6c757d; font-size: .8em; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; }",
-            
             "@media print { .toolbar { display: none; } th { cursor: default; } }",
             "</style>",
             "</head>",
@@ -2598,7 +2717,6 @@ class Proc:
             f"<div class='stat-box bg-teal'><h3>Not Applicable</h3><h2>{na_count}</h2></div>",
             f"<div class='stat-box bg-yellow'><h3>Not Reviewed</h3><h2>{nr_count}</h2></div>",
             "</div>",
-            
             "<!-- Search / Filter toolbar -->",
             "<div class='toolbar'>",
             "<input type='text' id='searchInput' placeholder='Search by Vuln ID, severity, or details…' />",
@@ -2611,7 +2729,6 @@ class Proc:
             "</div>",
             "<span class='match-count' id='matchCount'></span>",
             "</div>",
-            
             "<table id='vulnTable'>",
             "<thead>",
             "<tr>",
@@ -2635,7 +2752,9 @@ class Proc:
             html_content.append(f"<tr data-status='{_html_module.escape(status)}'>")
             html_content.append(f"<td><strong>{_html_module.escape(vid)}</strong></td>")
             html_content.append(f"<td>{_html_module.escape(severity)}</td>")
-            html_content.append(f"<td class='status-{_html_module.escape(status)}'>{status.replace('_', ' ')}</td>")
+            html_content.append(
+                f"<td class='status-{_html_module.escape(status)}'>{status.replace('_', ' ')}</td>"
+            )
             html_content.append(f"<td>{details}</td>")
             html_content.append("</tr>")
 
@@ -2643,7 +2762,8 @@ class Proc:
         html_content.append("</table>")
 
         # Client-side search, filter, and sort (self-contained, no dependencies)
-        html_content.append("""<script>
+        html_content.append(
+            """<script>
 (function(){
   var table = document.getElementById('vulnTable');
   var tbody = document.getElementById('vulnBody');
@@ -2707,12 +2827,15 @@ class Proc:
 
   applyFilters();
 })();
-</script>""")
+</script>"""
+        )
 
-        html_content.append(f"<div class='footer'>Generated by STIG Assessor v{_ver} &middot; Zero-Dependency Offline Reporter</div>")
+        html_content.append(
+            f"<div class='footer'>Generated by STIG Assessor v{_ver} &middot; Zero-Dependency Offline Reporter</div>"
+        )
         html_content.append("</div></body></html>")
 
-        with open(out_path, 'w', encoding='utf-8') as f:
+        with open(out_path, "w", encoding="utf-8") as f:
             f.write("\n".join(html_content))
 
         LOG.i(f"Exported HTML report to {out_path}")
@@ -2744,18 +2867,27 @@ class Proc:
         writer = csv.writer(output)
 
         # eMASS POAM Header
-        writer.writerow([
-            "Control Number", "Vulnerability Description", "Severity",
-            "Status", "Comments", "Checklist Name"
-        ])
+        writer.writerow(
+            [
+                "Control Number",
+                "Vulnerability Description",
+                "Severity",
+                "Status",
+                "Comments",
+                "Checklist Name",
+            ]
+        )
 
         stigs = root.find("STIGS")
         if stigs is not None:
             for istig in stigs.findall("iSTIG"):
                 for vuln in istig.findall("VULN"):
                     status_node = vuln.find("STATUS")
-                    status = status_node.text.strip(
-                    ) if status_node is not None and status_node.text else Status.NOT_REVIEWED
+                    status = (
+                        status_node.text.strip()
+                        if status_node is not None and status_node.text
+                        else Status.NOT_REVIEWED
+                    )
 
                     if status not in [Status.OPEN, Status.NOT_REVIEWED]:
                         continue
@@ -2772,11 +2904,15 @@ class Proc:
                             severity = sd.findtext("ATTRIBUTE_DATA", default="medium")
 
                     comment_node = vuln.find("COMMENTS")
-                    comment = comment_node.text.strip() if comment_node is not None and comment_node.text else ""
+                    comment = (
+                        comment_node.text.strip()
+                        if comment_node is not None and comment_node.text
+                        else ""
+                    )
 
-                    writer.writerow([
-                        vid, title, severity.upper(), status, comment, ckl_path.name
-                    ])
+                    writer.writerow(
+                        [vid, title, severity.upper(), status, comment, ckl_path.name]
+                    )
 
         return output.getvalue()
 
@@ -2826,6 +2962,7 @@ class Proc:
             raise ValidationError(f"Invalid status value: {new_status}")
 
         import re
+
         vid_pattern = re.compile(regex_vid) if regex_vid else None
         status_set = {s.lower() for s in status_filter} if status_filter else set()
 
@@ -2847,12 +2984,15 @@ class Proc:
                         for sd in vuln.findall("STIG_DATA"):
                             if sd.findtext("VULN_ATTRIBUTE") == "Severity":
                                 sev_val = sd.findtext(
-                                    "ATTRIBUTE_DATA", default="medium")
+                                    "ATTRIBUTE_DATA", default="medium"
+                                )
                         if sev_val.lower() != severity.lower():
                             match = False
 
                     if status_set:
-                        current_status = (vuln.findtext("STATUS") or Status.NOT_REVIEWED).strip()
+                        current_status = (
+                            vuln.findtext("STATUS") or Status.NOT_REVIEWED
+                        ).strip()
                         if current_status.lower() not in status_set:
                             match = False
 
@@ -2874,8 +3014,14 @@ class Proc:
                             if comment_node is None:
                                 comment_node = ET.SubElement(vuln, "COMMENTS")
 
-                            if append_comment and comment_node.text and comment_node.text.strip():
-                                comment_node.text = f"{comment_node.text.strip()}\n{new_comment}"
+                            if (
+                                append_comment
+                                and comment_node.text
+                                and comment_node.text.strip()
+                            ):
+                                comment_node.text = (
+                                    f"{comment_node.text.strip()}\n{new_comment}"
+                                )
                             else:
                                 comment_node.text = new_comment
 
@@ -2885,8 +3031,14 @@ class Proc:
                             if finding_node is None:
                                 finding_node = ET.SubElement(vuln, "FINDING_DETAILS")
 
-                            if append_finding and finding_node.text and finding_node.text.strip():
-                                finding_node.text = f"{finding_node.text.strip()}\n\n{new_finding}"
+                            if (
+                                append_finding
+                                and finding_node.text
+                                and finding_node.text.strip()
+                            ):
+                                finding_node.text = (
+                                    f"{finding_node.text.strip()}\n\n{new_finding}"
+                                )
                             else:
                                 finding_node.text = new_finding
 
@@ -2921,7 +3073,7 @@ class Proc:
         vids: List[str],
         approver: str,
         reason: str,
-        valid_until: str
+        valid_until: str,
     ) -> Dict[str, Any]:
         """
         Automated Waiver Engine pipeline.
@@ -2950,8 +3102,7 @@ class Proc:
             "═" * 40 + "\n"
             f"[WAIVER APPROVED: {approver}]\n"
             f"Valid Until: {valid_until}\n"
-            f"Reason: {reason}\n"
-            + "═" * 40
+            f"Reason: {reason}\n" + "═" * 40
         )
 
         stigs = root.find("STIGS")
@@ -2959,7 +3110,7 @@ class Proc:
             for istig in stigs.findall("iSTIG"):
                 for vuln in istig.findall("VULN"):
                     vid = XmlUtils.get_vid(vuln) or ""
-                    
+
                     if vid in vids:
                         status_node = vuln.find("STATUS")
                         if status_node is None:
@@ -2971,7 +3122,9 @@ class Proc:
                             comment_node = ET.SubElement(vuln, "COMMENTS")
 
                         if comment_node.text and comment_node.text.strip():
-                            comment_node.text = f"{waiver_block}\n\n{comment_node.text.strip()}"
+                            comment_node.text = (
+                                f"{waiver_block}\n\n{comment_node.text.strip()}"
+                            )
                         else:
                             comment_node.text = waiver_block
 
@@ -2981,9 +3134,4 @@ class Proc:
         self._export_xml_to_file(root, out_path)
 
         LOG.i(f"Applied waivers to {count} vulnerabilities")
-        return {
-            "ok": True,
-            "updates": count,
-            "output": str(out_path)
-        }
-
+        return {"ok": True, "updates": count, "output": str(out_path)}

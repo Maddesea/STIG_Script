@@ -1,19 +1,20 @@
 """Evidence Manager Tab module."""
+
 import os
+import re
 import sys
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import re
+from tkinter import filedialog, messagebox, ttk
 
+from stig_assessor.core.constants import (GUI_ENTRY_WIDTH_SMALL,
+                                          GUI_FONT_HEADING, GUI_FONT_MONO,
+                                          GUI_PADDING, GUI_PADDING_LARGE)
 from stig_assessor.ui.helpers import Debouncer, ToolTip
-from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_ENTRY_WIDTH_SMALL, GUI_FONT_MONO, GUI_FONT_HEADING
 from stig_assessor.xml.sanitizer import San
 
 
 def build_evidence_tab(app, frame):
-    ttk.Label(frame, text="Evidence Manager", font=GUI_FONT_HEADING).pack(
-        anchor="w"
-    )
+    ttk.Label(frame, text="Evidence Manager", font=GUI_FONT_HEADING).pack(anchor="w")
 
     import_frame = ttk.LabelFrame(
         frame, text="Import Evidence", padding=GUI_PADDING_LARGE
@@ -47,9 +48,7 @@ def build_evidence_tab(app, frame):
     debounced_vid = Debouncer(app.root, 300, _validate_vid)
     app.evid_vid.trace_add("write", debounced_vid)
 
-    ttk.Label(import_frame, text="Description:").grid(
-        row=0, column=2, sticky="w"
-    )
+    ttk.Label(import_frame, text="Description:").grid(row=0, column=2, sticky="w")
     app.evid_desc = tk.StringVar()
     ttk.Entry(import_frame, textvariable=app.evid_desc, width=30).grid(
         row=0, column=3, padx=GUI_PADDING
@@ -107,13 +106,14 @@ def build_evidence_tab(app, frame):
                 app.evid_stats_label.config(text=text)
         except (AttributeError, KeyError, TypeError, ValueError):
             import traceback
+
             traceback.print_exc()
 
         summary = app.evidence.summary()
         app.evid_status.set(
             f"Vulnerabilities: {summary['vulnerabilities']} | Files: {summary['files']} | Size: {summary['size_mb']:.2f} MB"
         )
-    
+
     app._refresh_evidence_summary = _refresh_evidence_summary
 
     def _import_evidence():
@@ -167,12 +167,12 @@ def build_evidence_tab(app, frame):
         command=_import_evidence,
     )
     app.btn_import_evid.grid(row=0, column=6, padx=GUI_PADDING)
-    
+
     def _clear_evid_inputs():
         app.evid_vid.set("")
         app.evid_desc.set("")
         app.evid_cat.set("general")
-        
+
     ttk.Button(
         import_frame,
         text="🗑 Clear",
@@ -183,7 +183,7 @@ def build_evidence_tab(app, frame):
         frame, text="Export / Package", padding=GUI_PADDING_LARGE
     )
     action_frame.pack(fill="x", pady=GUI_PADDING_LARGE)
-    
+
     def _export_evidence():
         path = filedialog.askdirectory(title="Select export directory")
         if not path:
@@ -203,9 +203,9 @@ def build_evidence_tab(app, frame):
 
         app._async(work, done)
 
-    ttk.Button(
-        action_frame, text="Export All…", command=_export_evidence
-    ).grid(row=0, column=0, padx=GUI_PADDING, pady=GUI_PADDING)
+    ttk.Button(action_frame, text="Export All…", command=_export_evidence).grid(
+        row=0, column=0, padx=GUI_PADDING, pady=GUI_PADDING
+    )
 
     def _package_evidence():
         path = filedialog.asksaveasfilename(
@@ -223,9 +223,7 @@ def build_evidence_tab(app, frame):
             if isinstance(result, Exception):
                 messagebox.showerror("Package error", str(result))
             else:
-                messagebox.showinfo(
-                    "Evidence Package", f"Package created:\n{result}"
-                )
+                messagebox.showinfo("Evidence Package", f"Package created:\n{result}")
                 app._refresh_evidence_summary()
 
         app._async(work, done)
@@ -242,9 +240,7 @@ def build_evidence_tab(app, frame):
         font=("", 9, "bold"),
         foreground=app._colors.get("text_muted", "gray"),
     )
-    app.evid_stats_label.grid(
-        row=0, column=3, padx=GUI_PADDING * 2, sticky="w"
-    )
+    app.evid_stats_label.grid(row=0, column=3, padx=GUI_PADDING * 2, sticky="w")
 
     def _import_evidence_package():
         path = filedialog.askopenfilename(
@@ -272,23 +268,27 @@ def build_evidence_tab(app, frame):
         command=_import_evidence_package,
     ).grid(row=0, column=2, padx=GUI_PADDING, pady=GUI_PADDING)
 
-    summary_frame = ttk.LabelFrame(
-        frame, text="Summary", padding=GUI_PADDING_LARGE
-    )
+    summary_frame = ttk.LabelFrame(frame, text="Summary", padding=GUI_PADDING_LARGE)
     summary_frame.pack(fill="both", expand=True, pady=GUI_PADDING_LARGE)
-    
+
     action_btn_frame = ttk.Frame(summary_frame)
     action_btn_frame.pack(side="top", fill="x", pady=(0, GUI_PADDING))
-    
+
     def _remove_selected_evidence():
         selected = app.evid_tree.selection()
         if not selected:
-            messagebox.showinfo("Wait", "Please select at least one evidence file from the list to remove.")
+            messagebox.showinfo(
+                "Wait",
+                "Please select at least one evidence file from the list to remove.",
+            )
             return
-            
-        if not messagebox.askyesno("Confirm Delete", f"Are you sure you want to permanently delete {len(selected)} selected evidence file(s)?"):
+
+        if not messagebox.askyesno(
+            "Confirm Delete",
+            f"Are you sure you want to permanently delete {len(selected)} selected evidence file(s)?",
+        ):
             return
-            
+
         removed_count = 0
         for item_id in selected:
             values = app.evid_tree.item(item_id, "values")
@@ -297,10 +297,10 @@ def build_evidence_tab(app, frame):
                 if getattr(app.evidence, "remove_file", None):
                     if app.evidence.remove_file(vid, filename):
                         removed_count += 1
-                
+
         app._refresh_evidence_summary()
         app.status_var.set(f"Removed {removed_count} evidence file(s).")
-        
+
     ttk.Button(
         action_btn_frame,
         text="🗑 Remove Selected",
@@ -308,9 +308,7 @@ def build_evidence_tab(app, frame):
     ).pack(side="left")
 
     cols = ("vid", "file", "category", "timestamp")
-    app.evid_tree = ttk.Treeview(
-        summary_frame, columns=cols, show="headings", height=8
-    )
+    app.evid_tree = ttk.Treeview(summary_frame, columns=cols, show="headings", height=8)
     app.evid_tree.heading("vid", text="V-ID")
     app.evid_tree.heading("file", text="Filename")
     app.evid_tree.heading("category", text="Category")
@@ -329,25 +327,28 @@ def build_evidence_tab(app, frame):
 
     # Advanced Context Menu for Evidence
     evid_ctx = tk.Menu(app.evid_tree, tearoff=0)
-    
+
     def _open_evid_location():
         sel = app.evid_tree.selection()
-        if not sel: return
-        vid = app.evid_tree.item(sel[0])['values'][0]
-        fname = app.evid_tree.item(sel[0])['values'][1]
+        if not sel:
+            return
+        vid = app.evid_tree.item(sel[0])["values"][0]
+        fname = app.evid_tree.item(sel[0])["values"][1]
         path = app.evidence.get_path(vid, fname)
         if path and path.exists():
             import subprocess
-            if os.name == 'nt':
-                subprocess.run(['explorer', '/select,', str(path)])
-            elif sys.platform == 'darwin':
-                subprocess.run(['open', '-R', str(path)])
+
+            if os.name == "nt":
+                subprocess.run(["explorer", "/select,", str(path)])
+            elif sys.platform == "darwin":
+                subprocess.run(["open", "-R", str(path)])
 
     def _copy_evid_path():
         sel = app.evid_tree.selection()
-        if not sel: return
-        vid = app.evid_tree.item(sel[0])['values'][0]
-        fname = app.evid_tree.item(sel[0])['values'][1]
+        if not sel:
+            return
+        vid = app.evid_tree.item(sel[0])["values"][0]
+        fname = app.evid_tree.item(sel[0])["values"][1]
         path = app.evidence.get_path(vid, fname)
         if path:
             app.root.clipboard_clear()
@@ -355,12 +356,14 @@ def build_evidence_tab(app, frame):
 
     def _open_evid_file():
         sel = app.evid_tree.selection()
-        if not sel: return
-        vid = app.evid_tree.item(sel[0])['values'][0]
-        fname = app.evid_tree.item(sel[0])['values'][1]
+        if not sel:
+            return
+        vid = app.evid_tree.item(sel[0])["values"][0]
+        fname = app.evid_tree.item(sel[0])["values"][1]
         path = app.evidence.get_path(vid, fname)
         if path and path.exists():
             import os
+
             try:
                 os.startfile(str(path))
             except Exception as e:
@@ -370,7 +373,10 @@ def build_evidence_tab(app, frame):
     evid_ctx.add_command(label="📂 Open File Location", command=_open_evid_location)
     evid_ctx.add_command(label="🔗 Copy Absolute Path", command=_copy_evid_path)
     evid_ctx.add_separator()
-    evid_ctx.add_command(label="Copy Cell Content", command=lambda: app._attach_tree_context_menu(app.evid_tree)) # Fallback to generic internally or just use manual copy
+    evid_ctx.add_command(
+        label="Copy Cell Content",
+        command=lambda: app._attach_tree_context_menu(app.evid_tree),
+    )  # Fallback to generic internally or just use manual copy
     evid_ctx.add_command(label="Remove This File", command=_remove_selected_evidence)
 
     def _show_evid_menu(event):

@@ -16,13 +16,18 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from stig_assessor.core.config import Cfg
 from stig_assessor.core.constants import (APP_NAME, BUILD_DATE,
-                                          STIG_VIEWER_VERSION, VERSION, Status,
-                                          GUI_PADDING, GUI_PADDING_LARGE, GUI_ENTRY_WIDTH,
-                                          GUI_PADDING_SECTION, GUI_BUTTON_WIDTH_WIDE,
-                                          GUI_FONT_MONO, GUI_FONT_NORMAL, GUI_FONT_HEADING,
-                                          GUI_ENTRY_WIDTH_SMALL, GUI_ENTRY_WIDTH_MEDIUM,
-                                          GUI_BUTTON_WIDTH, GUI_LISTBOX_HEIGHT, GUI_LISTBOX_WIDTH,
-                                          GUI_TEXT_WIDTH, GUI_TEXT_HEIGHT, GUI_WRAP_LENGTH)
+                                          GUI_BUTTON_WIDTH,
+                                          GUI_BUTTON_WIDTH_WIDE,
+                                          GUI_ENTRY_WIDTH,
+                                          GUI_ENTRY_WIDTH_MEDIUM,
+                                          GUI_ENTRY_WIDTH_SMALL,
+                                          GUI_FONT_HEADING, GUI_FONT_MONO,
+                                          GUI_FONT_NORMAL, GUI_LISTBOX_HEIGHT,
+                                          GUI_LISTBOX_WIDTH, GUI_PADDING,
+                                          GUI_PADDING_LARGE,
+                                          GUI_PADDING_SECTION, GUI_TEXT_HEIGHT,
+                                          GUI_TEXT_WIDTH, GUI_WRAP_LENGTH,
+                                          STIG_VIEWER_VERSION, VERSION, Status)
 from stig_assessor.core.deps import Deps
 from stig_assessor.core.logging import LOG
 from stig_assessor.evidence.manager import EvidenceMgr
@@ -30,26 +35,25 @@ from stig_assessor.exceptions import ValidationError
 from stig_assessor.processor.processor import Proc
 from stig_assessor.remediation.extractor import FixExt
 from stig_assessor.remediation.processor import FixResPro
+from stig_assessor.ui.gui.tabs.analytics import build_analytics_tab
+from stig_assessor.ui.gui.tabs.batch import build_batch_tab
+from stig_assessor.ui.gui.tabs.boilerplates import build_boilerplates_tab
+from stig_assessor.ui.gui.tabs.compare import build_compare_tab
+from stig_assessor.ui.gui.tabs.create import build_create_tab
+from stig_assessor.ui.gui.tabs.dashboard import build_dashboard_tab
+from stig_assessor.ui.gui.tabs.drift import build_drift_tab
+from stig_assessor.ui.gui.tabs.editor import build_editor_tab
+from stig_assessor.ui.gui.tabs.evidence import build_evidence_tab
+from stig_assessor.ui.gui.tabs.extract import build_extract_tab
+from stig_assessor.ui.gui.tabs.log_viewer import build_log_viewer_tab
+from stig_assessor.ui.gui.tabs.merge import build_merge_tab
+from stig_assessor.ui.gui.tabs.repair import build_repair_tab
+from stig_assessor.ui.gui.tabs.results import build_results_tab
+from stig_assessor.ui.gui.tabs.validate import build_validate_tab
 from stig_assessor.ui.helpers import Debouncer
 from stig_assessor.ui.presets import PresetMgr
 from stig_assessor.xml.sanitizer import San
 from stig_assessor.xml.schema import Sch
-
-from stig_assessor.ui.gui.tabs.create import build_create_tab
-from stig_assessor.ui.gui.tabs.merge import build_merge_tab
-from stig_assessor.ui.gui.tabs.editor import build_editor_tab
-from stig_assessor.ui.gui.tabs.extract import build_extract_tab
-from stig_assessor.ui.gui.tabs.results import build_results_tab
-from stig_assessor.ui.gui.tabs.evidence import build_evidence_tab
-from stig_assessor.ui.gui.tabs.validate import build_validate_tab
-from stig_assessor.ui.gui.tabs.repair import build_repair_tab
-from stig_assessor.ui.gui.tabs.batch import build_batch_tab
-from stig_assessor.ui.gui.tabs.boilerplates import build_boilerplates_tab
-from stig_assessor.ui.gui.tabs.compare import build_compare_tab
-from stig_assessor.ui.gui.tabs.analytics import build_analytics_tab
-from stig_assessor.ui.gui.tabs.drift import build_drift_tab
-from stig_assessor.ui.gui.tabs.dashboard import build_dashboard_tab
-from stig_assessor.ui.gui.tabs.log_viewer import build_log_viewer_tab
 
 # ──────────────────────────────────────────────────────────────────────────────
 # GUI CONSTANTS
@@ -67,44 +71,44 @@ VULN_ID_PATTERN = re.compile(r"^V-\d+$")
 
 # ── Theme color palettes (#1/#2) ─────────────────────────────────────────────
 _LIGHT_COLORS: Dict[str, str] = {
-    "bg": "#f8fafc",
-    "fg": "#0f172a",
-    "accent": "#2563eb",
-    "accent_hover": "#1d4ed8",
-    "accent_fg": "#ffffff",
-    "entry_bg": "#ffffff",
-    "entry_fg": "#0f172a",
-    "frame_bg": "#ffffff",
-    "select_bg": "#e0f2fe",
-    "status_bg": "#f1f5f9",
-    "tooltip_bg": "#1e293b",
-    "tooltip_fg": "#f8fafc",
-    "error": "#ef4444",
-    "warn": "#eab308",
-    "ok": "#16a34a",
-    "info": "#0ea5e9",
-    "treeview_bg": "#ffffff",
-    "treeview_fg": "#0f172a",
+    "bg": "#FAFAFA",
+    "fg": "#161616",
+    "accent": "#0F62FE",
+    "accent_hover": "#0043CE",
+    "accent_fg": "#FFFFFF",
+    "entry_bg": "#FFFFFF",
+    "entry_fg": "#161616",
+    "frame_bg": "#FFFFFF",
+    "select_bg": "#E5F0FF",
+    "status_bg": "#E8E8E8",
+    "tooltip_bg": "#161616",
+    "tooltip_fg": "#F4F4F4",
+    "error": "#DA1E28",
+    "warn": "#F1C21B",
+    "ok": "#198038",
+    "info": "#0043CE",
+    "treeview_bg": "#FFFFFF",
+    "treeview_fg": "#161616",
 }
 _DARK_COLORS: Dict[str, str] = {
-    "bg": "#02040a",
-    "fg": "#f0f6fc",
-    "accent": "#3b82f6",
-    "accent_hover": "#2563eb",
-    "accent_fg": "#ffffff",
-    "entry_bg": "#010409",
-    "entry_fg": "#f0f6fc",
-    "frame_bg": "#0d1117",
-    "select_bg": "#1f3a5f",
-    "status_bg": "#161b22",
-    "tooltip_bg": "#1f3a5f",
-    "tooltip_fg": "#f0f6fc",
-    "error": "#ef4444",
-    "warn": "#eab308",
-    "ok": "#22c55e",
-    "info": "#0ea5e9",
-    "treeview_bg": "#0d1117",
-    "treeview_fg": "#c9d1d9",
+    "bg": "#0B0F19",
+    "fg": "#F8FAFC",
+    "accent": "#1AB5E6",
+    "accent_hover": "#32C5F4",
+    "accent_fg": "#0B0F19",
+    "entry_bg": "#04060B",
+    "entry_fg": "#F8FAFC",
+    "frame_bg": "#151C2C",
+    "select_bg": "#214263",
+    "status_bg": "#151C2C",
+    "tooltip_bg": "#1AB5E6",
+    "tooltip_fg": "#0B0F19",
+    "error": "#FA4D56",
+    "warn": "#F1C21B",
+    "ok": "#24A148",
+    "info": "#4589FF",
+    "treeview_bg": "#04060B",
+    "treeview_fg": "#E2E8F0",
 }
 
 # Try to detect premium theme library
@@ -182,11 +186,11 @@ if Deps.HAS_TKINTER:
             self._tip = tw = tk.Toplevel(self.widget)
             tw.wm_overrideredirect(True)
             tw.wm_geometry(f"+{x}+{y}")
-            
+
             # Start transparent for fade-in animation
             if sys.platform == "win32" or sys.platform == "darwin":
                 tw.attributes("-alpha", 0.0)
-            
+
             # Adopt proper theme colors
             bg_color = "#f8fafc"
             fg_color = "#0f172a"
@@ -195,7 +199,7 @@ if Deps.HAS_TKINTER:
                 bg_color = "#1f3a5f"
                 fg_color = "#f0f6fc"
                 border_color = "#3b82f6"
-            
+
             label = tk.Label(
                 tw,
                 text=self.text,
@@ -212,11 +216,11 @@ if Deps.HAS_TKINTER:
                 pady=8,
             )
             label.pack()
-            
+
             # Fade-in animation
             if sys.platform == "win32" or sys.platform == "darwin":
                 self._fade_in(tw, 0.0)
-                
+
         def _fade_in(self, window: tk.Toplevel, alpha: float):
             if not window.winfo_exists():
                 return
@@ -234,7 +238,7 @@ if Deps.HAS_TKINTER:
 
     class GUI:
         """Graphical interface."""
-        
+
         editor_ckl_var: tk.StringVar
         _editor_load: Callable[[], None]
         evid_tree: ttk.Treeview
@@ -285,13 +289,13 @@ if Deps.HAS_TKINTER:
             self.root.bind_all("<Control-q>", lambda e: self._close())
             self.root.bind_all("<Escape>", lambda e: self._close())
             self.root.bind_all("<Control-comma>", lambda e: self._show_settings())
-            
+
             # Setup advanced Phase 2 shortcuts (Tab jumping 1-9 and Ctrl+F)
             self._setup_global_shortcuts()
 
             # Ctrl+Return — execute current tab action
             self.root.bind_all("<Control-Return>", lambda e: self._exec_current_tab())
-            
+
             # Navigate tabs
             def cycle_tabs(event):
                 if getattr(self, "notebook", None):
@@ -299,7 +303,7 @@ if Deps.HAS_TKINTER:
                     next_idx = (current + 1) % self.notebook.index("end")
                     self._switch_tab(next_idx)
                 return "break"
-                
+
             def cycle_tabs_reverse(event):
                 if getattr(self, "notebook", None):
                     current = self.notebook.index(self.notebook.select())
@@ -320,7 +324,9 @@ if Deps.HAS_TKINTER:
                 return
             tab_actions = [
                 getattr(self, "action_create", lambda: None),
-                getattr(self, "action_editor", lambda: None),  # Editor has no mass execution, but keeps index aligned
+                getattr(
+                    self, "action_editor", lambda: None
+                ),  # Editor has no mass execution, but keeps index aligned
                 getattr(self, "action_merge", lambda: None),
                 getattr(self, "action_extract", lambda: None),
                 getattr(self, "action_results", lambda: None),
@@ -379,20 +385,26 @@ if Deps.HAS_TKINTER:
                     background=colors["bg"],
                     foreground=colors["fg"],
                     fieldbackground=colors["entry_bg"],
-                    borderwidth=1,
+                    borderwidth=0,
                 )
                 style.configure("TFrame", background=colors["bg"])
-                style.configure("TLabelframe", background=colors["bg"])
+                style.configure("TLabelframe", background=colors["bg"], borderwidth=0)
                 style.configure(
                     "TLabelframe.Label",
                     background=colors["bg"],
                     foreground=colors["fg"],
+                    font=GUI_FONT_HEADING,
                 )
                 style.configure(
-                    "TLabel", background=colors["bg"], foreground=colors["fg"], font=("Segoe UI", 10)
+                    "TLabel",
+                    background=colors["bg"],
+                    foreground=colors["fg"],
+                    font=GUI_FONT_NORMAL,
                 )
-                style.configure("TNotebook", background=colors["bg"])
-                style.configure("TNotebook.Tab", padding=[12, 6], font=("Segoe UI", 10, "bold"))
+                style.configure("TNotebook", background=colors["bg"], borderwidth=0)
+                style.configure(
+                    "TNotebook.Tab", padding=[24, 12], font=GUI_FONT_HEADING, borderwidth=0
+                )
                 style.map(
                     "TNotebook.Tab",
                     background=[
@@ -408,13 +420,16 @@ if Deps.HAS_TKINTER:
                     "TEntry",
                     fieldbackground=colors["entry_bg"],
                     foreground=colors["entry_fg"],
+                    padding=[8, 8],
+                    borderwidth=1,
                 )
                 style.configure(
                     "TCombobox",
                     fieldbackground=colors["entry_bg"],
                     foreground=colors["entry_fg"],
+                    padding=[8, 8],
                 )
-                style.configure("TButton", padding=[8, 6], font=("Segoe UI", 10))
+                style.configure("TButton", padding=[16, 10], font=GUI_FONT_NORMAL, borderwidth=0)
                 style.map(
                     "TButton",
                     background=[
@@ -428,10 +443,11 @@ if Deps.HAS_TKINTER:
                     background=colors["treeview_bg"],
                     foreground=colors["treeview_fg"],
                     fieldbackground=colors["treeview_bg"],
-                    rowheight=28,
-                    font=("Segoe UI", 10)
+                    rowheight=36,
+                    font=GUI_FONT_NORMAL,
+                    borderwidth=0,
                 )
-                style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"))
+                style.configure("Treeview.Heading", font=GUI_FONT_HEADING, padding=[10, 10])
                 style.map(
                     "Treeview",
                     background=[("selected", colors["select_bg"])],
@@ -440,7 +456,9 @@ if Deps.HAS_TKINTER:
 
             # Accent button style (#3)
             style = ttk.Style()
-            style.configure("Accent.TButton", font=("Segoe UI", 10, "bold"), padding=[10, 6])
+            style.configure(
+                "Accent.TButton", font=GUI_FONT_HEADING, padding=[20, 12], borderwidth=0
+            )
             with suppress(tk.TclError):
                 style.map(
                     "Accent.TButton",
@@ -545,7 +563,9 @@ if Deps.HAS_TKINTER:
             help_menu = tk.Menu(menu, tearoff=0)
             menu.add_cascade(label="Help", menu=help_menu)
             help_menu.add_command(label="Quick-Start Guide", command=self._show_help)
-            help_menu.add_command(label="Keyboard Shortcuts", command=self._show_shortcuts)
+            help_menu.add_command(
+                label="Keyboard Shortcuts", command=self._show_shortcuts
+            )
             help_menu.add_separator()
             help_menu.add_command(label="About", command=self._about)
 
@@ -562,21 +582,23 @@ if Deps.HAS_TKINTER:
                 display_name = f
                 if len(f) > 50:
                     display_name = f"...{f[-47:]}"
-                
+
                 # Pass variable securely
                 def make_cmd(path=f):
                     return lambda: self._open_recent_file(path)
-                    
+
                 self._recent_menu.add_command(label=display_name, command=make_cmd())
-                
+
             self._recent_menu.add_separator()
-            self._recent_menu.add_command(label="Clear Recent Files", command=self._clear_recent_files)
+            self._recent_menu.add_command(
+                label="Clear Recent Files", command=self._clear_recent_files
+            )
 
         def _add_recent_file(self, path: str) -> None:
             """Add a file to the recent history."""
             if not path or not os.path.exists(path):
                 return
-                
+
             recent = self._settings.get("recent_files", [])
             path = os.path.abspath(path)
             if path in recent:
@@ -585,25 +607,31 @@ if Deps.HAS_TKINTER:
             recent = recent[:10]  # Keep max 10
             self._settings["recent_files"] = recent
             _save_settings(self._settings)
-            
+
             # Refresh if defined
             if hasattr(self, "_recent_menu"):
                 self._refresh_recent_menu()
-                
+
         def _clear_recent_files(self) -> None:
             self._settings["recent_files"] = []
             _save_settings(self._settings)
             self._refresh_recent_menu()
-            
+
         def _open_recent_file(self, path: str) -> None:
             if not os.path.exists(path):
                 messagebox.showerror("Error", f"File not found:\n{path}")
-                self._settings["recent_files"] = [f for f in self._settings.get("recent_files", []) if f != path]
+                self._settings["recent_files"] = [
+                    f for f in self._settings.get("recent_files", []) if f != path
+                ]
                 self._refresh_recent_menu()
                 return
-                
+
             # If it's a checklist, we can load it into the native Editor Tab!
-            if path.lower().endswith(".ckl") and hasattr(self, "editor_ckl_var") and hasattr(self, "_editor_load"):
+            if (
+                path.lower().endswith(".ckl")
+                and hasattr(self, "editor_ckl_var")
+                and hasattr(self, "_editor_load")
+            ):
                 self.editor_ckl_var.set(path)
                 try:
                     self._switch_tab(1)  # Editor Tab is index 1
@@ -611,9 +639,10 @@ if Deps.HAS_TKINTER:
                     pass
                 self._editor_load()
                 return
-                
+
             # Fallback to operating system shell execution for unsupported specific types
             import subprocess
+
             if os.name == "nt":
                 os.startfile(path)
             elif sys.platform == "darwin":
@@ -728,12 +757,18 @@ if Deps.HAS_TKINTER:
             if not name:
                 return
             preset = {
-                "xccdf": self.create_xccdf.get() if hasattr(self, 'create_xccdf') else "",
-                "asset": self.create_asset.get() if hasattr(self, 'create_asset') else "",
-                "ip": self.create_ip.get() if hasattr(self, 'create_ip') else "",
-                "mac": self.create_mac.get() if hasattr(self, 'create_mac') else "",
-                "mark": self.create_mark.get() if hasattr(self, 'create_mark') else "",
-                "apply_boilerplate": self.create_bp.get() if hasattr(self, 'create_bp') else False,
+                "xccdf": (
+                    self.create_xccdf.get() if hasattr(self, "create_xccdf") else ""
+                ),
+                "asset": (
+                    self.create_asset.get() if hasattr(self, "create_asset") else ""
+                ),
+                "ip": self.create_ip.get() if hasattr(self, "create_ip") else "",
+                "mac": self.create_mac.get() if hasattr(self, "create_mac") else "",
+                "mark": self.create_mark.get() if hasattr(self, "create_mark") else "",
+                "apply_boilerplate": (
+                    self.create_bp.get() if hasattr(self, "create_bp") else False
+                ),
             }
             try:
                 self.presets.save(name, preset)
@@ -749,17 +784,17 @@ if Deps.HAS_TKINTER:
             if not preset:
                 messagebox.showerror("Preset error", f"Preset '{name}' not found.")
                 return
-            if hasattr(self, 'create_xccdf'):
+            if hasattr(self, "create_xccdf"):
                 self.create_xccdf.set(preset.get("xccdf", ""))
-            if hasattr(self, 'create_asset'):
+            if hasattr(self, "create_asset"):
                 self.create_asset.set(preset.get("asset", ""))
-            if hasattr(self, 'create_ip'):
+            if hasattr(self, "create_ip"):
                 self.create_ip.set(preset.get("ip", ""))
-            if hasattr(self, 'create_mac'):
+            if hasattr(self, "create_mac"):
                 self.create_mac.set(preset.get("mac", ""))
-            if hasattr(self, 'create_mark'):
+            if hasattr(self, "create_mark"):
                 self.create_mark.set(preset.get("mark", "CUI"))
-            if hasattr(self, 'create_bp'):
+            if hasattr(self, "create_bp"):
                 self.create_bp.set(bool(preset.get("apply_boilerplate", False)))
             self.status_var.set(f"Preset '{name}' loaded")
 
@@ -855,7 +890,9 @@ if Deps.HAS_TKINTER:
                 poam_str = self.proc.export_poam(ckl_path)
                 with open(out_path, "w", encoding="utf-8") as f:
                     f.write(poam_str)
-                messagebox.showinfo("Export Successful", f"Successfully exported POAM to:\n{out_path}")
+                messagebox.showinfo(
+                    "Export Successful", f"Successfully exported POAM to:\n{out_path}"
+                )
             except Exception as exc:
                 messagebox.showerror("Export Error", str(exc))
 
@@ -879,7 +916,8 @@ if Deps.HAS_TKINTER:
             )
 
         def _refresh_evidence_summary(self):
-            if not hasattr(self, 'evid_tree'): return
+            if not hasattr(self, "evid_tree"):
+                return
             for item in self.evid_tree.get_children():
                 self.evid_tree.delete(item)
             try:
@@ -926,10 +964,11 @@ if Deps.HAS_TKINTER:
                     self.evid_stats_label.config(text=text)
             except Exception:
                 import traceback
+
                 traceback.print_exc()
 
             summary = self.evidence.summary()
-            if hasattr(self, 'evid_status'):
+            if hasattr(self, "evid_status"):
                 self.evid_status.set(
                     f"Vulnerabilities: {summary['vulnerabilities']} | Files: {summary['files']} | Size: {summary['size_mb']:.2f} MB"
                 )
@@ -1126,6 +1165,7 @@ Presets & Settings:
             widget.bind("<ButtonRelease-3>", on_paste)
             if platform.system() == "Darwin":
                 widget.bind("<ButtonRelease-2>", on_paste)
+
         # ────────────────────────────────────────────────────────────────
         # #8  Recent files Integration
         # ────────────────────────────────────────────────────────────────
@@ -1187,8 +1227,8 @@ Presets & Settings:
                 2: 3,  # Remediate/Results
                 3: 1,  # Merge
                 4: 9,  # Compare
-                5: 10, # Analytics
-                6: 5   # Validate
+                5: 10,  # Analytics
+                6: 5,  # Validate
             }
             self._wizard_idx = idx
             self._switch_tab(tab_map.get(idx, 0))
@@ -1516,14 +1556,16 @@ Presets & Settings:
             """Setup app-wide hotkeys."""
             # Tab jumping
             for i in range(1, 10):
-                self.root.bind(f"<Control-Key-{i}>", lambda e, idx=i-1: self._switch_tab(idx))
-            
+                self.root.bind(
+                    f"<Control-Key-{i}>", lambda e, idx=i - 1: self._switch_tab(idx)
+                )
+
             # Global Search Shortcut
             def _focus_search(e=None):
-                self._switch_tab(1) # Editor
+                self._switch_tab(1)  # Editor
                 if hasattr(self, "_editor_search_ent"):
                     self._editor_search_ent.focus_set()
                 return "break"
-                
+
             self.root.bind("<Control-f>", _focus_search)
             self.root.bind("<Control-F>", _focus_search)

@@ -234,7 +234,9 @@ class FixExt:
         re.IGNORECASE | re.DOTALL | re.VERBOSE,
     )
 
-    def __init__(self, xccdf: Union[str, Path], checklist: Optional[Union[str, Path]] = None):
+    def __init__(
+        self, xccdf: Union[str, Path], checklist: Optional[Union[str, Path]] = None
+    ):
         """
         Initialize fix extractor.
 
@@ -313,7 +315,7 @@ class FixExt:
                 raise ParseError("No vulnerability groups found in XCCDF")
 
             self.stats["total_groups"] = len(groups)
-            
+
             # --- Setup Filtering ---
             is_all = False
             if status_filter:
@@ -324,8 +326,9 @@ class FixExt:
                 status_set = None
 
             sev_set = {s.lower() for s in severity_filter} if severity_filter else set()
-            
+
             import re as _re
+
             vid_inc_re = _re.compile(vid_include) if vid_include else None
             vid_exc_re = _re.compile(_re.escape(vid_exclude)) if vid_exclude else None
             # Actually, vid_exclude is usually a regex search too
@@ -334,7 +337,7 @@ class FixExt:
                     vid_exc_re = _re.compile(vid_exclude)
                 except _re.error:
                     vid_exc_re = _re.compile(_re.escape(vid_exclude))
-            
+
             vid_list_set = {v.strip().upper() for v in vid_list} if vid_list else set()
 
             for idx, group in enumerate(groups, 1):
@@ -346,7 +349,7 @@ class FixExt:
                     # VID List Filter
                     if vid_list_set and fix.vid not in vid_list_set:
                         continue
-                    
+
                     # VID Regex Filters
                     if vid_inc_re and not vid_inc_re.search(fix.vid):
                         continue
@@ -360,7 +363,12 @@ class FixExt:
                     # Universal Status Filter
                     include = True
                     if not is_all and status_set and self.checklist_path:
-                        current_status = self.statuses.get(fix.vid, "not_reviewed").lower().replace(" ", "_").strip()
+                        current_status = (
+                            self.statuses.get(fix.vid, "not_reviewed")
+                            .lower()
+                            .replace(" ", "_")
+                            .strip()
+                        )
                         if current_status not in status_set:
                             include = False
 
@@ -387,8 +395,10 @@ class FixExt:
                 filter_msg.append(f"VID List: {len(vid_list)} items")
             if vid_include:
                 filter_msg.append(f"Inc: {vid_include}")
-            
-            filter_str = f" [Filtered by: {' | '.join(filter_msg)}]" if filter_msg else ""
+
+            filter_str = (
+                f" [Filtered by: {' | '.join(filter_msg)}]" if filter_msg else ""
+            )
 
             LOG.i(
                 f"Extracted {len(self.fixes)} fixes "
@@ -424,7 +434,9 @@ class FixExt:
                         status = (status_node.text or "").strip()
                         if status:
                             self.statuses[San.vuln(str(vid))] = status
-            LOG.i(f"Loaded {len(self.statuses)} statuses from {self.checklist_path.name}")
+            LOG.i(
+                f"Loaded {len(self.statuses)} statuses from {self.checklist_path.name}"
+            )
         except Exception as e:
             LOG.w(f"Failed to load statuses from checklist: {e}")
 
@@ -551,7 +563,11 @@ class FixExt:
         check_node = find("check")
         check_text_raw = ""
         if check_node is not None:
-            ct = check_node.find("ns:check-content", self.ns) if self.ns else check_node.find("check-content")
+            ct = (
+                check_node.find("ns:check-content", self.ns)
+                if self.ns
+                else check_node.find("check-content")
+            )
             check_text_raw = text(ct) if ct is not None else ""
 
         return Fix(
@@ -835,7 +851,8 @@ class FixExt:
         class BashTemplate(string.Template):
             delimiter = "%"
 
-        header_tmpl = BashTemplate("""#!/usr/bin/env bash
+        header_tmpl = BashTemplate(
+            """#!/usr/bin/env bash
 # Auto-generated remediation script
 # Generated: %{dt}
 # Mode: %{mode}
@@ -857,7 +874,8 @@ record_result() {
   local msg="$3"
   RESULTS+=('{"vid":"'"$vid"'","ok":'"$ok"',"msg":"'"${msg//\\"/\\\\\\"}"'","ts":"'"$$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)"'"}')
 }
-""")
+"""
+        )
 
         lines: List[str] = [
             header_tmpl.substitute(
@@ -909,7 +927,9 @@ record_result "%{vid}" true "dry_run"
             if fix.check_command:
                 check_block = fix.check_command
 
-                indented_check = "\n".join(f"  {line}" for line in fix.check_command.splitlines())
+                indented_check = "\n".join(
+                    f"  {line}" for line in fix.check_command.splitlines()
+                )
                 verify_block = f"""echo "  [VERIFY] Running post-fix verification..." | tee -a "$LOG_FILE"
 {{
 {indented_check}
@@ -937,7 +957,7 @@ record_result "%{vid}" true "dry_run"
                         title=fix.title[:60],
                         cmd=indented_cmd,
                         check_block=check_block,
-                        verify_block=verify_block
+                        verify_block=verify_block,
                     )
                 )
 
@@ -996,7 +1016,8 @@ record_result "%{vid}" true "dry_run"
         class PsTemplate(string.Template):
             delimiter = "%"
 
-        header_tmpl = PsTemplate("""#requires -RunAsAdministrator
+        header_tmpl = PsTemplate(
+            """#requires -RunAsAdministrator
 # Generated: %{dt}
 # Mode: %{mode}
 # Rollbacks Enabled: %{rollbacks}
@@ -1017,7 +1038,8 @@ function Add-Result([string]$$Vid, [bool]$$Success, [string]$$Message) {
         ts = [DateTime]::UtcNow.ToString('o')
     }
 }
-""")
+"""
+        )
         rollback_block = ""
         if enable_rollbacks and not dry_run:
             rollback_block = """
@@ -1043,7 +1065,8 @@ try {
             )
         ]
 
-        live_fix_tmpl = PsTemplate("""Write-Host "[%{idx}/%{total}] %{vid} - %{title}" -ForegroundColor Cyan
+        live_fix_tmpl = PsTemplate(
+            """Write-Host "[%{idx}/%{total}] %{vid} - %{title}" -ForegroundColor Cyan
 $$EvidLog = "evidence\\%{vid}_out.log"
 "--- PRE-FIX CHECK ---" | Out-File $$EvidLog -Encoding utf8
 try { %{check_block} | Out-File $$EvidLog -Append -Encoding utf8 } catch { "Check failed: $$($$_)" | Out-File $$EvidLog -Append }
@@ -1068,19 +1091,24 @@ try {
     "ERROR: $$($$_.Exception.Message)" | Out-File $$EvidLog -Append -Encoding utf8
     Add-Result "%{vid}" $$false $$_.Exception.Message
 }
-""")
+"""
+        )
 
-        dry_fix_tmpl = PsTemplate("""Write-Host "[%{idx}/%{total}] %{vid} - %{title}"
+        dry_fix_tmpl = PsTemplate(
+            """Write-Host "[%{idx}/%{total}] %{vid} - %{title}"
 Write-Host "  [DRY-RUN] Would execute:`n%{cmd}"
 Add-Result "%{vid}" $$true "dry_run"
 Continue
-""")
+"""
+        )
 
         for idx, fix in enumerate(fixes, 1):
             check_block = ""
             verify_block = ""
             if fix.check_command:
-                indented_check = "\n".join(f"    {line}" for line in fix.check_command.splitlines())
+                indented_check = "\n".join(
+                    f"    {line}" for line in fix.check_command.splitlines()
+                )
                 check_block = f"""Write-Host "  [CHECK] Running evidence collection..."
 try {{
 {indented_check}
@@ -1114,7 +1142,7 @@ try {{
                         title=fix.title[:60],
                         cmd=indented_cmd,
                         check_block=check_block,
-                        verify_block=verify_block
+                        verify_block=verify_block,
                     )
                 )
 
@@ -1239,7 +1267,8 @@ try {{
         class BashTemplate(string.Template):
             delimiter = "%"
 
-        header = BashTemplate("""#!/usr/bin/env bash
+        header = BashTemplate(
+            """#!/usr/bin/env bash
 # Auto-generated evidence gathering script
 # Generated: %{dt}
 
@@ -1263,11 +1292,13 @@ run_check() {
   echo "------------------------" >> "$out_file"
   return 0
 }
-""").substitute(dt=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"))
+"""
+        ).substitute(dt=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"))
 
         lines = [header]
-        
-        check_tmpl = BashTemplate("""
+
+        check_tmpl = BashTemplate(
+            """
 run_check "%{vid}" "%{title}"
 {
 %{cmd}
@@ -1277,14 +1308,15 @@ if [ $? -eq 0 ]; then
 else
   echo "%{vid},FAIL,$EVIDENCE_DIR/%{vid}.txt" >> "$MANIFEST"
 fi
-""")
+"""
+        )
 
         for fix in fixes:
             lines.append(
                 check_tmpl.substitute(
                     vid=fix.vid,
                     title=fix.title[:60].replace('"', '\\"'),
-                    cmd=fix.check_command
+                    cmd=fix.check_command,
                 )
             )
 
@@ -1292,7 +1324,7 @@ fi
 
         with FO.atomic(path) as handle:
             handle.write("\n".join(lines))
-        
+
         if not Cfg.IS_WIN:
             with suppress(OSError):
                 os.chmod(path, 0o750)
@@ -1310,9 +1342,7 @@ fi
         """
         path = San.path(path, mkpar=True)
         fixes = [
-            fix
-            for fix in self.fixes
-            if fix.check_command and fix.platform == "windows"
+            fix for fix in self.fixes if fix.check_command and fix.platform == "windows"
         ]
         if not fixes:
             LOG.w("No Windows fixes with check commands found")
@@ -1321,7 +1351,8 @@ fi
         class PsTemplate(string.Template):
             delimiter = "%"
 
-        header = PsTemplate("""# Auto-generated evidence gathering script
+        header = PsTemplate(
+            """# Auto-generated evidence gathering script
 # Generated: %{dt}
 
 $EvidenceDir = "stig_evidence_$$(Get-Date -Format 'yyyyMMdd_HHmmss')"
@@ -1349,21 +1380,24 @@ function Run-Check {
         "$vid,FAIL,$outFile" | Out-File $Manifest -Append
     }
 }
-""").substitute(dt=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"))
+"""
+        ).substitute(dt=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"))
 
         lines = [header]
 
         for fix in fixes:
-            cmd_escaped = fix.check_command.replace('"', '`"').replace('$', '`$')
+            cmd_escaped = fix.check_command.replace('"', '`"').replace("$", "`$")
             lines.append(
                 f'Run-Check -vid "{fix.vid}" -title "{fix.title[:60]}" -cmd @\'\n{fix.check_command}\n\'@'
             )
 
-        lines.append('\nWrite-Host "Evidence gathering complete. Results in $EvidenceDir"')
+        lines.append(
+            '\nWrite-Host "Evidence gathering complete. Results in $EvidenceDir"'
+        )
 
         with FO.atomic(path) as handle:
             handle.write("\n".join(lines))
-        
+
         LOG.i(f"PowerShell evidence script generated: {path} ({len(fixes)} checks)")
 
     def stats_summary(self) -> Dict[str, Any]:
@@ -1480,6 +1514,3 @@ function Run-Check {
 
 
 __all__ = ["FixExt"]
-
-
-

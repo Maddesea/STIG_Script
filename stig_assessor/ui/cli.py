@@ -9,6 +9,7 @@ import logging
 import re
 import shutil
 import sys
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 if hasattr(sys.stderr, "reconfigure"):
@@ -79,6 +80,7 @@ def prompt_missing(prompt_text: str) -> str:
             print()
             return ""
     return ""
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # ANSI COLOR SUPPORT
@@ -258,10 +260,15 @@ COMMON USE-CASES (Windows Operations):
         "--web", action="store_true", help="Launch native web interface"
     )
     parser.add_argument(
-        "--tui", action="store_true", help="Launch interactive text user interface (CLI)"
+        "--tui",
+        action="store_true",
+        help="Launch interactive text user interface (CLI)",
     )
     parser.add_argument(
-        "--interactive", "-i", action="store_true", help="Launch the guided interactive CLI wizard"
+        "--interactive",
+        "-i",
+        action="store_true",
+        help="Launch the guided interactive CLI wizard",
     )
 
     create_group = parser.add_argument_group("Create CKL from XCCDF")
@@ -317,8 +324,6 @@ COMMON USE-CASES (Windows Operations):
         default=".ckl",
         help="Output format for batch conversion (default: .ckl)",
     )
-
-
 
     merge_group = parser.add_argument_group("Merge Checklists")
     merge_group.add_argument(
@@ -400,12 +405,20 @@ COMMON USE-CASES (Windows Operations):
     waiver_group.add_argument(
         "--apply-waiver",
         help="Apply a waiver to a list of VIDs. Requires --checklist, --vids, --approver, --reason, and --until",
-        action="store_true"
+        action="store_true",
     )
-    waiver_group.add_argument("--vids", nargs="+", help="Space-separated list of vulnerability IDs (e.g. V-254440)")
-    waiver_group.add_argument("--approver", help="Name or ID of the waiver approval authority")
+    waiver_group.add_argument(
+        "--vids",
+        nargs="+",
+        help="Space-separated list of vulnerability IDs (e.g. V-254440)",
+    )
+    waiver_group.add_argument(
+        "--approver", help="Name or ID of the waiver approval authority"
+    )
     waiver_group.add_argument("--reason", help="Justification/Reason for the waiver")
-    waiver_group.add_argument("--until", help="Expiration date for the waiver (YYYY-MM-DD)")
+    waiver_group.add_argument(
+        "--until", help="Expiration date for the waiver (YYYY-MM-DD)"
+    )
 
     diff_group = parser.add_argument_group("Compare Checklists")
     diff_group.add_argument(
@@ -424,8 +437,8 @@ COMMON USE-CASES (Windows Operations):
     extract_group = parser.add_argument_group("Extract Fixes")
     extract_group.add_argument("--extract", help="XCCDF file to extract fixes from")
     extract_group.add_argument(
-        "--extract-ckl", 
-        help="Optional checklist file (.ckl/.cklb) to filter fixes by assessment status"
+        "--extract-ckl",
+        help="Optional checklist file (.ckl/.cklb) to filter fixes by assessment status",
     )
     extract_group.add_argument(
         "--status-filter",
@@ -569,60 +582,75 @@ COMMON USE-CASES (Windows Operations):
         "--bp-delete", action="store_true", help="Delete a boilerplate comment"
     )
     bp_group.add_argument(
-        "--bp-export", metavar="PATH",
+        "--bp-export",
+        metavar="PATH",
         help="Export all boilerplates to a JSON file",
     )
     bp_group.add_argument(
-        "--bp-import", metavar="PATH",
+        "--bp-import",
+        metavar="PATH",
         help="Import boilerplates from a JSON file (merges with current)",
     )
     bp_group.add_argument(
-        "--bp-reset", action="store_true",
+        "--bp-reset",
+        action="store_true",
         help="Reset all boilerplates to factory defaults",
     )
     bp_group.add_argument(
-        "--bp-clone", nargs=2, metavar=("FROM_VID", "TO_VID"),
+        "--bp-clone",
+        nargs=2,
+        metavar=("FROM_VID", "TO_VID"),
         help="Clone boilerplate templates from one VID to another",
     )
     bp_group.add_argument(
-        "--bp-import-ckl", metavar="PATH",
+        "--bp-import-ckl",
+        metavar="PATH",
         help="Import boilerplates directly from a CKL file",
     )
     bp_group.add_argument(
-        "--bp-reset-vid", metavar="VID",
+        "--bp-reset-vid",
+        metavar="VID",
         help="Reset boilerplate for a specific VID to wildcard defaults",
     )
     bp_group.add_argument(
-        "--bp-apply-ckl", metavar="PATH",
+        "--bp-apply-ckl",
+        metavar="PATH",
         help="Apply boilerplate templates to an existing checklist",
     )
     bp_group.add_argument(
-        "--bp-apply-mode", choices=["overwrite_empty", "prepend", "append", "merge", "overwrite_all"],
+        "--bp-apply-mode",
+        choices=["overwrite_empty", "prepend", "append", "merge", "overwrite_all"],
         default="overwrite_empty",
         help="How to apply boilerplates (default: overwrite_empty)",
     )
     bp_group.add_argument(
-        "--bp-out", metavar="PATH",
+        "--bp-out",
+        metavar="PATH",
         help="Output path for boilerplate application (optional)",
     )
     bp_group.add_argument(
-        "--bp-status-filter", nargs="+",
+        "--bp-status-filter",
+        nargs="+",
         help="Filter boilerplate application by finding status",
     )
     bp_group.add_argument(
-        "--bp-severity-filter", nargs="+",
+        "--bp-severity-filter",
+        nargs="+",
         help="Filter boilerplate application by finding severity",
     )
     bp_group.add_argument(
-        "--bp-vid-list", nargs="+",
+        "--bp-vid-list",
+        nargs="+",
         help="Filter boilerplate application by specific VIDs (space separated)",
     )
     bp_group.add_argument(
-        "--bp-date-override", metavar="YYYY-MM-DD",
+        "--bp-date-override",
+        metavar="YYYY-MM-DD",
         help="Override {date} variable in boilerplates",
     )
     bp_group.add_argument(
-        "--bp-duplicates", action="store_true",
+        "--bp-duplicates",
+        action="store_true",
         help="Analyze templates to find duplicate findings across VIDs",
     )
     bp_group.add_argument("--vid", help="Vulnerability ID (e.g. V-12345)")
@@ -681,32 +709,62 @@ COMMON USE-CASES (Windows Operations):
         "--stats-out", help="Output file for statistics (default: stdout)"
     )
     stats_group.add_argument(
-        "--export-html", help="Generate a standalone HTML compliance report from a checklist"
+        "--export-html",
+        help="Generate a standalone HTML compliance report from a checklist",
     )
     stats_group.add_argument(
-        "--fleet-stats", help="Generate aggregate fleet compliance statistics from a directory or ZIP of checklists"
+        "--fleet-stats",
+        help="Generate aggregate fleet compliance statistics from a directory or ZIP of checklists",
     )
 
     # Productivity Enhancements
     prod_group = parser.add_argument_group("Productivity Enhancements")
-    prod_group.add_argument("--bulk-edit", help="Bulk edit vulnerabilities in checklist")
+    prod_group.add_argument(
+        "--bulk-edit", help="Bulk edit vulnerabilities in checklist"
+    )
     prod_group.add_argument("--bulk-out", help="Output path for bulk edited checklist")
-    prod_group.add_argument("--filter-severity", choices=["high", "medium", "low"], help="Filter bulk operations by severity")
-    prod_group.add_argument("--filter-status", nargs="+", choices=["Open", "Not_Reviewed", "Not_Applicable", "NotAFinding"], help="Filter bulk operations by current status")
+    prod_group.add_argument(
+        "--filter-severity",
+        choices=["high", "medium", "low"],
+        help="Filter bulk operations by severity",
+    )
+    prod_group.add_argument(
+        "--filter-status",
+        nargs="+",
+        choices=["Open", "Not_Reviewed", "Not_Applicable", "NotAFinding"],
+        help="Filter bulk operations by current status",
+    )
     prod_group.add_argument("--filter-vid", help="Filter bulk operations by VID Regex")
     prod_group.add_argument("--apply-status", help="Status to apply to matching items")
-    prod_group.add_argument("--apply-comment", help="Comment to apply to matching items")
-    prod_group.add_argument("--apply-finding", help="Finding Details to apply to matching items")
-    prod_group.add_argument("--append-comment", action="store_true", help="Append comment instead of overwrite")
-    prod_group.add_argument("--append-finding", action="store_true", help="Append finding instead of overwrite")
-    prod_group.add_argument("--preview", action="store_true", help="Preview changes without executing them")
-    prod_group.add_argument("--export-poam", help="Export Open/Not Reviewed findings to an eMASS POAM (CSV)")
+    prod_group.add_argument(
+        "--apply-comment", help="Comment to apply to matching items"
+    )
+    prod_group.add_argument(
+        "--apply-finding", help="Finding Details to apply to matching items"
+    )
+    prod_group.add_argument(
+        "--append-comment",
+        action="store_true",
+        help="Append comment instead of overwrite",
+    )
+    prod_group.add_argument(
+        "--append-finding",
+        action="store_true",
+        help="Append finding instead of overwrite",
+    )
+    prod_group.add_argument(
+        "--preview", action="store_true", help="Preview changes without executing them"
+    )
+    prod_group.add_argument(
+        "--export-poam", help="Export Open/Not Reviewed findings to an eMASS POAM (CSV)"
+    )
 
     args = parser.parse_args(argv)
 
     # ------------------------------------------------------------- Interactive Wizard
     if getattr(args, "interactive", False) or (argv is None and len(sys.argv) == 1):
         from stig_assessor.ui.wizard import launch_wizard
+
         launch_wizard()
         return 0
 
@@ -790,6 +848,7 @@ COMMON USE-CASES (Windows Operations):
                 )
                 return 1
             from stig_assessor.ui.gui.core import GUI
+
             gui = GUI()
             gui.run()
             return 0
@@ -814,23 +873,44 @@ COMMON USE-CASES (Windows Operations):
         if args.tui:
             try:
                 from stig_assessor.ui.tui import start_tui
+
                 start_tui()
                 return 0
             except ImportError:
-                print("ERROR: Curses environment is incomplete or unsupported on this OS. Please use --gui or --web instead.", file=sys.stderr)
+                print(
+                    "ERROR: Curses environment is incomplete or unsupported on this OS. Please use --gui or --web instead.",
+                    file=sys.stderr,
+                )
                 return 1
 
         proc = Proc()
 
         if getattr(args, "apply_waiver", False):
-            if not all([args.base, args.vids, args.approver, args.reason, getattr(args, "until", None)]):
-                parser.error("--apply-waiver requires --base (checklist file), --vids, --approver, --reason, and --until")
-            out_file = args.merge_out or args.base
-            LOG.i(f"Applying waivers to {args.base} for VIDs: {args.vids}")
+            if not all(
+                [
+                    args.checklist,
+                    args.vids,
+                    args.approver,
+                    args.reason,
+                    getattr(args, "until", None),
+                ]
+            ):
+                parser.error(
+                    "--apply-waiver requires --checklist, --vids, --approver, --reason, and --until"
+                )
+            out_file = args.results_out or args.checklist
+            LOG.i(f"Applying waivers to {args.checklist} for VIDs: {args.vids}")
             res = proc.apply_waivers(
-                args.base, out_file, args.vids, args.approver, args.reason, getattr(args, "until")
+                args.checklist,
+                out_file,
+                args.vids,
+                args.approver,
+                args.reason,
+                getattr(args, "until"),
             )
-            print(f"Waivers applied directly to {res['updates']} findings. Output saved to {out_file}")
+            print(
+                f"Waivers applied directly to {res['updates']} findings. Output saved to {out_file}"
+            )
             return 0
 
         if args.convert_to_cklb:
@@ -1005,7 +1085,9 @@ COMMON USE-CASES (Windows Operations):
             if args.diff_format == "json":
                 print(json.dumps(result, indent=2, ensure_ascii=False))
             elif args.diff_format == "html":
-                from stig_assessor.processor.html_diff import generate_html_diff
+                from stig_assessor.processor.html_diff import \
+                    generate_html_diff
+
                 out_html = Path(ckl1).with_name(f"{Path(ckl1).stem}_diff.html")
                 generate_html_diff(ckl1, ckl2, str(out_html))
                 print(format_color(f"HTML Diff Report generated: {out_html}", "green"))
@@ -1024,12 +1106,12 @@ COMMON USE-CASES (Windows Operations):
 
             with Spinner("Extracting fixes..."):
                 extractor = FixExt(args.extract, checklist=args.extract_ckl)
-                
+
                 # Handle 'All' status filter
                 status_filter = args.status_filter
                 if status_filter and "All" in status_filter:
                     status_filter = None
-                
+
                 extractor.extract(
                     status_filter=status_filter,
                     severity_filter=args.extract_severity,
@@ -1037,10 +1119,11 @@ COMMON USE-CASES (Windows Operations):
                     vid_include=args.extract_vid_include,
                     vid_exclude=args.extract_vid_exclude,
                 )
-                
+
                 if args.extract_severity:
                     extractor.fixes = [
-                        f for f in extractor.fixes 
+                        f
+                        for f in extractor.fixes
                         if f.severity.lower() in args.extract_severity
                     ]
 
@@ -1070,8 +1153,12 @@ COMMON USE-CASES (Windows Operations):
                     )
                 if not getattr(args, "no_html", False):
                     try:
-                        from stig_assessor.remediation.html_playbook import generate_html_playbook
-                        generate_html_playbook(extractor, outdir / "remediation_playbook.html")
+                        from stig_assessor.remediation.html_playbook import \
+                            generate_html_playbook
+
+                        generate_html_playbook(
+                            extractor, outdir / "remediation_playbook.html"
+                        )
                     except (ImportError, OSError, ValueError, RuntimeError) as e:
                         LOG.w(f"Could not generate HTML playbook: {e}")
 
@@ -1374,20 +1461,12 @@ COMMON USE-CASES (Windows Operations):
 
         if args.bp_export:
             proc.boiler.export(args.bp_export)
-            print(
-                format_color(
-                    f"Boilerplates exported to {args.bp_export}", "green"
-                )
-            )
+            print(format_color(f"Boilerplates exported to {args.bp_export}", "green"))
             return 0
 
         if args.bp_import:
             proc.boiler.imp(args.bp_import)
-            print(
-                format_color(
-                    f"Boilerplates imported from {args.bp_import}", "green"
-                )
-            )
+            print(format_color(f"Boilerplates imported from {args.bp_import}", "green"))
             return 0
 
         if args.bp_reset:
@@ -1397,26 +1476,40 @@ COMMON USE-CASES (Windows Operations):
 
         if args.bp_reset_vid:
             if proc.boiler.reset_vid(args.bp_reset_vid):
-                print(format_color(f"Reset {args.bp_reset_vid} to wildcard defaults", "green"))
+                print(
+                    format_color(
+                        f"Reset {args.bp_reset_vid} to wildcard defaults", "green"
+                    )
+                )
             else:
-                print(format_color(f"No custom templates found for {args.bp_reset_vid}", "yellow"))
+                print(
+                    format_color(
+                        f"No custom templates found for {args.bp_reset_vid}", "yellow"
+                    )
+                )
             return 0
 
         if args.bp_import_ckl:
             result = proc.boiler.import_from_checklist(args.bp_import_ckl)
             print(
                 format_color(
-                    f"Imported {result['imported']} boilerplates from {args.bp_import_ckl} (Skipped: {result['skipped']})", 
-                    "green"
+                    f"Imported {result['imported']} boilerplates from {args.bp_import_ckl} (Skipped: {result['skipped']})",
+                    "green",
                 )
             )
             return 0
-            
+
         if args.bp_apply_ckl:
-            out_path = args.bp_out if getattr(args, "bp_out", None) else Path(args.bp_apply_ckl).with_name(f"{Path(args.bp_apply_ckl).stem}_bp.ckl")
+            out_path = (
+                args.bp_out
+                if getattr(args, "bp_out", None)
+                else Path(args.bp_apply_ckl).with_name(
+                    f"{Path(args.bp_apply_ckl).stem}_bp.ckl"
+                )
+            )
             result = proc.apply_boilerplates(
-                args.bp_apply_ckl, 
-                str(out_path), 
+                args.bp_apply_ckl,
+                str(out_path),
                 apply_mode=args.bp_apply_mode,
                 status_filter=getattr(args, "bp_status_filter", None),
                 severity_filter=getattr(args, "bp_severity_filter", None),
@@ -1425,22 +1518,26 @@ COMMON USE-CASES (Windows Operations):
             )
             print(
                 format_color(
-                    f"Applied boilerplates to {result['updated']} findings. Saved to {out_path}", 
-                    "green"
+                    f"Applied boilerplates to {result['updated']} findings. Saved to {out_path}",
+                    "green",
                 )
             )
             return 0
-            
+
         if getattr(args, "bp_duplicates", False):
             dups = proc.boiler.find_duplicates()
             if not dups:
                 print(format_color("No duplicate templates found.", "green"))
                 return 0
-            
+
             print(format_color(f"Found {len(dups)} duplicate text entries:", "yellow"))
             for duplicate in dups:
-                print(f"[{duplicate['status']}] {duplicate['field']} (used in {duplicate['count']} VIDs):")
-                print(f"   Sample VIDs: {', '.join(duplicate['vids'][:5])}{'...' if duplicate['count'] > 5 else ''}")
+                print(
+                    f"[{duplicate['status']}] {duplicate['field']} (used in {duplicate['count']} VIDs):"
+                )
+                print(
+                    f"   Sample VIDs: {', '.join(duplicate['vids'][:5])}{'...' if duplicate['count'] > 5 else ''}"
+                )
                 print(f"   Text: {duplicate['text_preview']}\n")
             return 0
 
@@ -1455,11 +1552,7 @@ COMMON USE-CASES (Windows Operations):
                     )
                 )
             else:
-                print(
-                    format_color(
-                        f"Source VID {vid_from} not found", "yellow"
-                    )
-                )
+                print(format_color(f"Source VID {vid_from} not found", "yellow"))
             return 0
 
         if args.validate:
@@ -1494,7 +1587,6 @@ COMMON USE-CASES (Windows Operations):
                 format_color(json.dumps(result, indent=2, ensure_ascii=False), "green")
             )
             return 0
-
 
         if args.verify_integrity:
             result = proc.verify_integrity(args.verify_integrity)
@@ -1531,11 +1623,17 @@ COMMON USE-CASES (Windows Operations):
         # Productivity Features
         if getattr(args, "bulk_edit", None):
             if not getattr(args, "apply_status", None) and not args.preview:
-                parser.error("--bulk-edit requires --apply-status unless --preview is used")
-            out = args.bulk_out or str(Path(args.bulk_edit).with_name(f"{Path(args.bulk_edit).stem}_updated.ckl"))
+                parser.error(
+                    "--bulk-edit requires --apply-status unless --preview is used"
+                )
+            out = args.bulk_out or str(
+                Path(args.bulk_edit).with_name(
+                    f"{Path(args.bulk_edit).stem}_updated.ckl"
+                )
+            )
             result = proc.bulk_edit(
-                args.bulk_edit, 
-                out, 
+                args.bulk_edit,
+                out,
                 severity=getattr(args, "filter_severity", None),
                 regex_vid=getattr(args, "filter_vid", None),
                 status_filter=getattr(args, "filter_status", None),
@@ -1544,22 +1642,24 @@ COMMON USE-CASES (Windows Operations):
                 new_finding=getattr(args, "apply_finding", "") or "",
                 append_comment=getattr(args, "append_comment", False),
                 append_finding=getattr(args, "append_finding", False),
-                preview=args.preview
+                preview=args.preview,
             )
             print(json.dumps(result, indent=2, ensure_ascii=False))
             return 0
 
-
         if args.export_poam:
             poam_str = proc.export_poam(args.export_poam)
-            poam_out = Path(args.export_poam).with_name(f"{Path(args.export_poam).stem}_poam.csv")
+            poam_out = Path(args.export_poam).with_name(
+                f"{Path(args.export_poam).stem}_poam.csv"
+            )
             with open(poam_out, "w", encoding="utf-8") as f:
                 f.write(poam_str)
             print(f"eMASS POAM exported successfully to {poam_out}")
             return 0
 
         if args.export_html:
-            from stig_assessor.processor.html_report import generate_html_report
+            from stig_assessor.processor.html_report import \
+                generate_html_report
 
             ckl_input = Path(args.export_html)
             html_out = ckl_input.with_suffix(".html")

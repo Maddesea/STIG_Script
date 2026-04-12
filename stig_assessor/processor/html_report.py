@@ -35,14 +35,16 @@ def _parse_checklist(path: Path) -> Dict[str, Any]:
         release = data.get("stig_data", {}).get("releaseinfo", "")
         vulns = []
         for rev in data.get("reviews", []):
-            vulns.append({
-                "vid": rev.get("Vuln_Num", ""),
-                "severity": rev.get("Severity", "medium"),
-                "rule_title": rev.get("Rule_Title", ""),
-                "status": rev.get("status", Status.NOT_REVIEWED),
-                "finding": rev.get("detail", ""),
-                "comment": rev.get("comment", ""),
-            })
+            vulns.append(
+                {
+                    "vid": rev.get("Vuln_Num", ""),
+                    "severity": rev.get("Severity", "medium"),
+                    "rule_title": rev.get("Rule_Title", ""),
+                    "status": rev.get("status", Status.NOT_REVIEWED),
+                    "finding": rev.get("detail", ""),
+                    "comment": rev.get("comment", ""),
+                }
+            )
         return {
             "asset": asset_name,
             "title": stig_title,
@@ -96,7 +98,9 @@ def _parse_checklist(path: Path) -> Dict[str, Any]:
                     elif attr == "Rule_Title":
                         vdata["rule_title"] = val
 
-                vdata["status"] = (vuln.findtext("STATUS") or Status.NOT_REVIEWED).strip()
+                vdata["status"] = (
+                    vuln.findtext("STATUS") or Status.NOT_REVIEWED
+                ).strip()
                 vdata["finding"] = (vuln.findtext("FINDING_DETAILS") or "").strip()
                 vdata["comment"] = (vuln.findtext("COMMENTS") or "").strip()
                 vulns.append(vdata)
@@ -173,7 +177,9 @@ def _svg_donut(stats: Dict[str, Any]) -> str:
         offset += pct
 
     compliance_pct = stats["compliance_pct"]
-    color_class = "good" if compliance_pct >= 80 else ("warn" if compliance_pct >= 50 else "bad")
+    color_class = (
+        "good" if compliance_pct >= 80 else ("warn" if compliance_pct >= 50 else "bad")
+    )
 
     svg = f"""<svg viewBox="0 0 120 120" class="donut-chart">
         <circle cx="60" cy="60" r="40" fill="none" stroke="#1e293b" stroke-width="20"/>
@@ -210,7 +216,7 @@ def _build_html(data: Dict[str, Any], stats: Dict[str, Any]) -> str:
         label, bg, fg = badge.get(status, (status, "#94a3b8", "#fff"))
         legend_items.append(
             f'<span class="legend-item"><span class="legend-dot" style="background:{bg}"></span>'
-            f'{e(label)} <strong>{count}</strong></span>'
+            f"{e(label)} <strong>{count}</strong></span>"
         )
 
     # Build severity breakdown
@@ -242,9 +248,9 @@ def _build_html(data: Dict[str, Any], stats: Dict[str, Any]) -> str:
         title = e(v.get("rule_title", "")[:120])
         finding = e(v.get("finding", "")) or "No finding details provided."
         comment = e(v.get("comment", "")) or "No comments provided."
-        
+
         row_cls = f'status-{st_label.lower().replace("_","")}'
-        
+
         finding_rows.append(
             f'<tr class="{row_cls} main-row" onclick="toggleDetails(\'{vid}\')" style="cursor:pointer">'
             f'<td class="vid"><span class="expander" id="exp-{vid}">&#9654;</span> {vid}</td>'
@@ -258,7 +264,7 @@ def _build_html(data: Dict[str, Any], stats: Dict[str, Any]) -> str:
             f'<div class="details-content">'
             f'<div class="detail-block"><strong>Finding Details:</strong><pre>{finding}</pre></div>'
             f'<div class="detail-block"><strong>Comments:</strong><pre>{comment}</pre></div>'
-            f'</div></td></tr>'
+            f"</div></td></tr>"
         )
 
     return f"""<!DOCTYPE html>

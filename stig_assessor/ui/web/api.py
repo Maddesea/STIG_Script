@@ -3,10 +3,10 @@
 import base64
 import shutil
 import tempfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Dict, List
 
-import xml.etree.ElementTree as ET
 from stig_assessor.core.state import GLOBAL_STATE
 from stig_assessor.evidence.manager import EVIDENCE
 from stig_assessor.processor.processor import Proc
@@ -317,6 +317,7 @@ def handle_bp_reset(payload: dict) -> dict:
         "message": "Boilerplates reset to factory defaults",
     }
 
+
 def handle_evidence_summary(payload: dict) -> dict:
     return {"status": "success", "summary": EVIDENCE.summary()}
 
@@ -377,7 +378,7 @@ def handle_evidence_package(payload: dict) -> dict:
 def handle_extract_fixes(payload: dict) -> dict:
     b64_content = payload.get("b64_content", "") or payload.get("content_b64", "")
     filename = payload.get("filename", "upload.xml")
-    
+
     ckl_b64 = payload.get("ckl_b64", "")
     status_filter = payload.get("status_filter", ["Open", "Not_Reviewed"])
 
@@ -401,8 +402,10 @@ def handle_extract_fixes(payload: dict) -> dict:
         severity_filter = payload.get("severity_filter") or None
         vid_include_regex = payload.get("vid_include_regex") or None
         vid_exclude_regex = payload.get("vid_exclude_regex") or None
-        vid_list = payload.get("vid_include") # This is often passed as 'vid_include' array from UI
-        
+        vid_list = payload.get(
+            "vid_include"
+        )  # This is often passed as 'vid_include' array from UI
+
         extractor.extract(
             status_filter=status_filter if ckl_path else None,
             severity_filter=severity_filter,
@@ -413,13 +416,15 @@ def handle_extract_fixes(payload: dict) -> dict:
 
         extractor.to_json(dir_path / "fixes.json")
         extractor.to_csv(dir_path / "fixes.csv")
-        extractor.to_bash(dir_path / "remediate.sh", dry_run=payload.get("dry_run", False))
+        extractor.to_bash(
+            dir_path / "remediate.sh", dry_run=payload.get("dry_run", False)
+        )
         extractor.to_powershell(
             dir_path / "remediate.ps1",
             dry_run=payload.get("dry_run", False),
             enable_rollbacks=enable_rollbacks,
         )
-        
+
         # Automated Evidence Gathering
         if payload.get("do_evidence", True):
             extractor.to_evidence_bash(dir_path / "gather_evidence.sh")
@@ -427,7 +432,9 @@ def handle_extract_fixes(payload: dict) -> dict:
 
         # Generate HTML playbook by default now
         try:
-            from stig_assessor.remediation.html_playbook import generate_html_playbook
+            from stig_assessor.remediation.html_playbook import \
+                generate_html_playbook
+
             generate_html_playbook(extractor, dir_path / "remediation_playbook.html")
         except Exception:
             pass
@@ -481,7 +488,7 @@ def handle_extract_preview(payload: dict) -> dict:
         severity_filter = payload.get("severity_filter") or None
         vid_include_regex = payload.get("vid_include_regex") or None
         vid_exclude_regex = payload.get("vid_exclude_regex") or None
-        
+
         extractor.extract(
             status_filter=status_filter if ckl_path else None,
             severity_filter=severity_filter,
@@ -491,24 +498,30 @@ def handle_extract_preview(payload: dict) -> dict:
 
         results = []
         for f in extractor.fixes:
-            has_cmd = "Both" if f.fix_command and f.check_command else "Fix" if f.fix_command else "Check" if f.check_command else "None"
-            results.append({
-                "vid": f.vid,
-                "severity": f.severity,
-                "platform": f.platform,
-                "has_cmd": has_cmd,
-                "fix_text": f.fix_text or "",
-                "check_text": f.check_text or "",
-                "fix_command": f.fix_command or "",
-                "check_command": f.check_command or ""
-            })
+            has_cmd = (
+                "Both"
+                if f.fix_command and f.check_command
+                else "Fix" if f.fix_command else "Check" if f.check_command else "None"
+            )
+            results.append(
+                {
+                    "vid": f.vid,
+                    "severity": f.severity,
+                    "platform": f.platform,
+                    "has_cmd": has_cmd,
+                    "fix_text": f.fix_text or "",
+                    "check_text": f.check_text or "",
+                    "fix_command": f.fix_command or "",
+                    "check_command": f.check_command or "",
+                }
+            )
 
         return {
             "status": "success",
             "data": {
                 "fixes": results,
                 "stats": extractor.stats_summary(),
-            }
+            },
         }
     finally:
         _cleanup_paths([in_path, ckl_path])
@@ -579,6 +592,7 @@ def handle_stats(payload: dict) -> dict:
             findings_details = _build_analytics_details(proc, ckl_path)
         except Exception as e:
             from stig_assessor.core.logging import LOG
+
             LOG.e(f"Failed to extract per-finding detail rows: {e}")
 
         return {
@@ -609,16 +623,18 @@ def _build_analytics_details(proc: Proc, ckl_path: Path) -> List[Dict[str, str]]
     root = tree.getroot()
     vulns = proc._extract_vuln_data(root)
     for vid, vdata in vulns.items():
-        details.append({
-            "vid": vid,
-            "status": vdata.get("status", "Not_Reviewed"),
-            "severity": vdata.get("severity", "medium"),
-            "details": vdata.get("finding_details", ""),
-            "rule_title": vdata.get("rule_title", ""),
-            "check_content": vdata.get("check_content", ""),
-            "fix_text": vdata.get("fix_text", ""),
-            "comments": vdata.get("comments", ""),
-        })
+        details.append(
+            {
+                "vid": vid,
+                "status": vdata.get("status", "Not_Reviewed"),
+                "severity": vdata.get("severity", "medium"),
+                "details": vdata.get("finding_details", ""),
+                "rule_title": vdata.get("rule_title", ""),
+                "check_content": vdata.get("check_content", ""),
+                "fix_text": vdata.get("fix_text", ""),
+                "comments": vdata.get("comments", ""),
+            }
+        )
     return details
 
 
@@ -819,24 +835,29 @@ def handle_verify_integrity(payload: dict) -> dict:
 def handle_export_poam(payload: dict) -> dict:
     ckl_b64 = payload.get("ckl_b64", "")
     filename = payload.get("filename", "upload.ckl")
-    
+
     ckl_path = None
     try:
         ckl_path = _decode_to_temp(ckl_b64, ".ckl")
         proc = Proc()
         csv_str = proc.export_poam(ckl_path)
-        
+
         # Convert CSV string to base64 so it downloads nicely
         import base64
+
         csv_b64 = base64.b64encode(csv_str.encode("utf-8")).decode("utf-8")
-        
+
         return {
             "status": "success",
             "message": "POAM generated successfully",
             "data": {
                 "poam_b64": csv_b64,
-                "filename": filename.replace(".ckl", "_poam.csv") if ".ckl" in filename else f"{filename}_poam.csv"
-            }
+                "filename": (
+                    filename.replace(".ckl", "_poam.csv")
+                    if ".ckl" in filename
+                    else f"{filename}_poam.csv"
+                ),
+            },
         }
     finally:
         _cleanup_paths([ckl_path])
@@ -851,7 +872,10 @@ def handle_apply_waiver(payload: dict) -> dict:
     valid_until = payload.get("valid_until", "")
 
     if not all([vids, approver, reason, valid_until]):
-        return {"status": "error", "message": "Missing required waiver fields: vids, approver, reason, valid_until"}
+        return {
+            "status": "error",
+            "message": "Missing required waiver fields: vids, approver, reason, valid_until",
+        }
 
     ckl_path = None
     out_path = None
@@ -863,7 +887,9 @@ def handle_apply_waiver(payload: dict) -> dict:
         GLOBAL_STATE.add_temp(out_path)
 
         proc = Proc()
-        result = proc.apply_waivers(ckl_path, out_path, vids, approver, reason, valid_until)
+        result = proc.apply_waivers(
+            ckl_path, out_path, vids, approver, reason, valid_until
+        )
         out_b64 = _encode_from_temp(out_path)
 
         return {
@@ -871,9 +897,13 @@ def handle_apply_waiver(payload: dict) -> dict:
             "message": f"Successfully applied waivers to {result.get('updates', 0)} vulnerabilities.",
             "data": {
                 "ckl_b64": out_b64,
-                "filename": filename.replace(".ckl", "_waiver.ckl") if ".ckl" in filename else f"{filename}_waiver.ckl",
-                "updates": result.get("updates", 0)
-            }
+                "filename": (
+                    filename.replace(".ckl", "_waiver.ckl")
+                    if ".ckl" in filename
+                    else f"{filename}_waiver.ckl"
+                ),
+                "updates": result.get("updates", 0),
+            },
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -884,12 +914,12 @@ def handle_apply_waiver(payload: dict) -> dict:
 def handle_bulk_edit(payload: dict) -> dict:
     ckl_b64 = payload.get("ckl_b64", "")
     filename = payload.get("filename", "upload.ckl")
-    
+
     severity = payload.get("severity")
     # Make severity None if empty string to match backend signature
     if severity == "":
         severity = None
-        
+
     regex_vid = payload.get("regex_vid")
     if regex_vid == "":
         regex_vid = None
@@ -901,19 +931,19 @@ def handle_bulk_edit(payload: dict) -> dict:
     append_comment = payload.get("append_comment", False)
     append_finding = payload.get("append_finding", False)
     preview_mode = payload.get("preview", False)
-    
+
     if not new_status:
         return {"status": "error", "message": "new_status is required"}
-        
+
     ckl_path = None
     out_path = None
-    
+
     try:
         ckl_path = _decode_to_temp(ckl_b64, ".ckl")
         with tempfile.NamedTemporaryFile(suffix=".ckl", delete=False) as tf:
             out_path = Path(tf.name)
         GLOBAL_STATE.add_temp(out_path)
-        
+
         proc = Proc()
         result = proc.bulk_edit(
             ckl_path,
@@ -941,16 +971,20 @@ def handle_bulk_edit(payload: dict) -> dict:
             }
 
         out_b64 = _encode_from_temp(out_path)
-        
+
         return {
             "status": "success",
             "message": f"Successfully updated {result.get('updates', 0)} vulnerabilities.",
             "data": {
                 "ckl_b64": out_b64,
-                "filename": filename.replace(".ckl", "_bulk_updated.ckl") if ".ckl" in filename else f"{filename}_updated.ckl",
+                "filename": (
+                    filename.replace(".ckl", "_bulk_updated.ckl")
+                    if ".ckl" in filename
+                    else f"{filename}_updated.ckl"
+                ),
                 "updates": result.get("updates", 0),
                 "affected_vids": result.get("affected_vids", []),
-            }
+            },
         }
     finally:
         _cleanup_paths([ckl_path, out_path])
@@ -965,7 +999,7 @@ def handle_export_html(payload: dict) -> dict:
 
     try:
         from stig_assessor.processor.html_report import generate_html_report
-        
+
         ckl_path = _decode_to_temp(ckl_b64, ".ckl")
         with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tf:
             out_path = Path(tf.name)
@@ -980,8 +1014,12 @@ def handle_export_html(payload: dict) -> dict:
             "message": "HTML Report generated successfully.",
             "data": {
                 "html_b64": out_b64,
-                "filename": filename.replace(".ckl", ".html") if ".ckl" in filename else filename,
-            }
+                "filename": (
+                    filename.replace(".ckl", ".html")
+                    if ".ckl" in filename
+                    else filename
+                ),
+            },
         }
     finally:
         _cleanup_paths([ckl_path, out_path])
@@ -997,20 +1035,20 @@ def handle_assess_update(payload: dict) -> dict:
 
     if not vid:
         return {"status": "error", "message": "vid is required"}
-    
+
     ckl_path = None
     out_path = None
-    
+
     try:
         ckl_path = _decode_to_temp(ckl_b64, ".ckl")
-        
+
         proc = Proc()
         tree = proc._load_file_as_xml(ckl_path)
         root = tree.getroot()
-        
+
         vulns = root.findall(".//VULN")
         updated = False
-        
+
         for vuln in vulns:
             attrs = vuln.findall("VULN_ATTRIBUTE")
             if any(a.text == "Vuln_Num" for a in attrs):
@@ -1024,50 +1062,49 @@ def handle_assess_update(payload: dict) -> dict:
                         if data_node is not None:
                             vuln_vid = data_node.text
                             break
-                            
+
                 if vuln_vid == vid:
                     status_node = vuln.find("STATUS")
                     if status_node is not None:
                         status_node.text = new_status
                     else:
                         ET.SubElement(vuln, "STATUS").text = new_status
-                        
+
                     finding_node = vuln.find("FINDING_DETAILS")
                     if finding_node is not None:
                         finding_node.text = new_details
                     else:
                         ET.SubElement(vuln, "FINDING_DETAILS").text = new_details
-                        
+
                     comments_node = vuln.find("COMMENTS")
                     if comments_node is not None:
                         comments_node.text = new_comments
                     else:
                         ET.SubElement(vuln, "COMMENTS").text = new_comments
-                        
+
                     updated = True
                     break
-                    
+
         if not updated:
-            return {"status": "error", "message": f"Vulnerability {vid} not found in this CKL."}
-            
+            return {
+                "status": "error",
+                "message": f"Vulnerability {vid} not found in this CKL.",
+            }
+
         with tempfile.NamedTemporaryFile(suffix=".ckl", delete=False) as tf:
             out_path = Path(tf.name)
         GLOBAL_STATE.add_temp(out_path)
-        
+
         # Write repaired checklist
         XmlUtils.indent_xml(root)
         proc._export_xml_to_file(root, out_path)
-        
+
         out_b64 = _encode_from_temp(out_path)
-        
+
         return {
             "status": "success",
             "message": f"Successfully updated {vid}.",
-            "data": {
-                "ckl_b64": out_b64,
-                "filename": filename,
-                "updated": 1
-            }
+            "data": {"ckl_b64": out_b64, "filename": filename, "updated": 1},
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -1222,7 +1259,10 @@ def handle_bp_duplicates(payload: dict) -> dict:
     """Find duplicate boilerplate templates."""
     proc = Proc()
     duplicates = proc.boiler.find_duplicates()
-    return {"status": "success", "data": {"duplicates": duplicates, "count": len(duplicates)}}
+    return {
+        "status": "success",
+        "data": {"duplicates": duplicates, "count": len(duplicates)},
+    }
 
 
 def route_request(path: str, payload: dict) -> dict:

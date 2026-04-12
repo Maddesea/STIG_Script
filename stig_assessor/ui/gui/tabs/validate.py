@@ -1,16 +1,16 @@
 """Validate Checklist Tab module."""
-import tkinter as tk
-from tkinter import ttk, filedialog
-import sys
 
+import sys
+import tkinter as tk
+from tkinter import filedialog, ttk
+
+from stig_assessor.core.constants import (GUI_FONT_HEADING, GUI_FONT_MONO,
+                                          GUI_PADDING, GUI_PADDING_LARGE)
 from stig_assessor.ui.helpers import Debouncer
-from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_FONT_MONO, GUI_FONT_HEADING
 
 
 def build_validate_tab(app, frame):
-    ttk.Label(frame, text="Validate Checklist", font=GUI_FONT_HEADING).pack(
-        anchor="w"
-    )
+    ttk.Label(frame, text="Validate Checklist", font=GUI_FONT_HEADING).pack(anchor="w")
 
     input_frame = ttk.Frame(frame)
     input_frame.pack(fill="x", pady=GUI_PADDING_LARGE)
@@ -18,7 +18,7 @@ def build_validate_tab(app, frame):
     app.validate_ckl = tk.StringVar()
     ent_vc = ttk.Entry(input_frame, textvariable=app.validate_ckl, width=60)
     ent_vc.pack(side="left", padx=GUI_PADDING)
-    
+
     def _browse_validate_ckl():
         path = filedialog.askopenfilename(
             title="Select CKL",
@@ -34,7 +34,7 @@ def build_validate_tab(app, frame):
         text="📂 Browse…",
         command=_browse_validate_ckl,
     ).pack(side="left", padx=GUI_PADDING)
-    
+
     def _do_validate():
         if not app.validate_ckl.get():
             app._show_inline_error(
@@ -58,9 +58,7 @@ def build_validate_tab(app, frame):
                     values=("Error", "System", str(result)),
                     tags=("error",),
                 )
-                app.validate_summary_var.set(
-                    "✘ Validation failed due to system error."
-                )
+                app.validate_summary_var.set("✘ Validation failed due to system error.")
                 return
             ok, errors, warnings_, info = result
 
@@ -90,9 +88,7 @@ def build_validate_tab(app, frame):
                     )
 
             if ok:
-                app.validate_summary_var.set(
-                    "✔ Checklist is STIG Viewer compatible."
-                )
+                app.validate_summary_var.set("✔ Checklist is STIG Viewer compatible.")
                 # Add dummy success row if nothing else
                 if not errors and not warnings_ and not info:
                     app.validate_tree.insert(
@@ -130,32 +126,40 @@ def build_validate_tab(app, frame):
         text="🗑 Clear Form",
         command=_clear_validate_form,
     ).pack(side="left", padx=GUI_PADDING)
-    
+
     def _export_validate_results():
         if not app.validate_tree.get_children():
             from tkinter import messagebox
-            messagebox.showinfo("No Results", "There are no validation results to export.")
+
+            messagebox.showinfo(
+                "No Results", "There are no validation results to export."
+            )
             return
-            
+
         path = filedialog.asksaveasfilename(
             title="Export Validation Results",
             defaultextension=".csv",
-            filetypes=[("CSV Files", "*.csv")]
+            filetypes=[("CSV Files", "*.csv")],
         )
         if not path:
             return
-            
+
         try:
             import csv
-            with open(path, 'w', newline='', encoding='utf-8') as f:
+
+            with open(path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 writer.writerow(["Severity", "Type", "Message"])
                 for child in app.validate_tree.get_children():
                     writer.writerow(app.validate_tree.item(child)["values"])
             from tkinter import messagebox
-            messagebox.showinfo("Export Successful", f"Validation results exported to:\n{path}")
+
+            messagebox.showinfo(
+                "Export Successful", f"Validation results exported to:\n{path}"
+            )
         except Exception as e:
             from tkinter import messagebox
+
             messagebox.showerror("Export Failed", str(e))
 
     ttk.Button(
@@ -184,9 +188,7 @@ def build_validate_tab(app, frame):
 
     # #12 Validation data grid (TreeView) instead of ScrolledText
     columns = ("severity", "type", "message")
-    app.validate_tree = ttk.Treeview(
-        frame, columns=columns, show="headings", height=18
-    )
+    app.validate_tree = ttk.Treeview(frame, columns=columns, show="headings", height=18)
     app.validate_tree.heading(
         "severity",
         text="Severity",
@@ -208,9 +210,7 @@ def build_validate_tab(app, frame):
         frame, orient="vertical", command=app.validate_tree.yview
     )
     app.validate_tree.configure(yscrollcommand=tree_scroll.set)
-    app.validate_tree.pack(
-        side="left", fill="both", expand=True, pady=GUI_PADDING
-    )
+    app.validate_tree.pack(side="left", fill="both", expand=True, pady=GUI_PADDING)
     tree_scroll.pack(side="right", fill="y", pady=GUI_PADDING)
     # Color tags for tree rows
     app.validate_tree.tag_configure(
@@ -219,9 +219,7 @@ def build_validate_tab(app, frame):
     app.validate_tree.tag_configure(
         "warn", foreground=app._colors.get("warn", "#CC8800")
     )
-    app.validate_tree.tag_configure(
-        "ok", foreground=app._colors.get("ok", "#008800")
-    )
+    app.validate_tree.tag_configure("ok", foreground=app._colors.get("ok", "#008800"))
     app.validate_tree.tag_configure(
         "info", foreground=app._colors.get("info", "#0055AA")
     )

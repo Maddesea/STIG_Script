@@ -255,37 +255,47 @@ class XmlUtils:
     def parse_description(raw_desc: str) -> dict[str, str]:
         """
         Parse pseudo-XML embedded within a DISA STIG description block.
-        
+
         Extracts embedded metadata elements such as VulnDiscussion, FalsePositives.
         If no embedded tags are found, returns the entire string under 'VulnDiscussion'.
         """
         if not raw_desc:
             return {}
-            
+
         import html
         import re
-        
+
         desc_unescaped = html.unescape(raw_desc).strip()
-        
+
         # If it doesn't look like pseudo-XML, assume it's entirely VulnDiscussion
-        if not desc_unescaped.startswith('<') or '</' not in desc_unescaped:
+        if not desc_unescaped.startswith("<") or "</" not in desc_unescaped:
             return {"VulnDiscussion": raw_desc}
-            
+
         tags = [
-            "VulnDiscussion", "FalsePositives", "FalseNegatives", "Documentable",
-            "Mitigations", "SeverityOverrideGuidance", "PotentialImpacts",
-            "ThirdPartyTools", "MitigationControl", "Responsibility", "IAControls"
+            "VulnDiscussion",
+            "FalsePositives",
+            "FalseNegatives",
+            "Documentable",
+            "Mitigations",
+            "SeverityOverrideGuidance",
+            "PotentialImpacts",
+            "ThirdPartyTools",
+            "MitigationControl",
+            "Responsibility",
+            "IAControls",
         ]
-        
+
         result = {}
         for tag in tags:
-            match = re.search(rf"<{tag}>(.*?)</{tag}>", desc_unescaped, re.DOTALL | re.IGNORECASE)
+            match = re.search(
+                rf"<{tag}>(.*?)</{tag}>", desc_unescaped, re.DOTALL | re.IGNORECASE
+            )
             result[tag] = match.group(1).strip() if match else ""
-            
+
         # If regex missed VulnDiscussion and everything else is blank, fallback
         if not result.get("VulnDiscussion") and not any(result.values()):
             return {"VulnDiscussion": raw_desc}
-            
+
         return result
 
     @staticmethod

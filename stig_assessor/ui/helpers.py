@@ -241,16 +241,25 @@ try:
 
     class TextContextMenu:
         """Right-click context menu for Text/ScrolledText widgets providing native clipboard actions."""
+
         def __init__(self, widget: tk.Text):
             self.widget = widget
             self.menu = tk.Menu(widget, tearoff=0)
-            self.menu.add_command(label="Cut", command=lambda: widget.event_generate("<<Cut>>"))
-            self.menu.add_command(label="Copy", command=lambda: widget.event_generate("<<Copy>>"))
-            self.menu.add_command(label="Paste", command=lambda: widget.event_generate("<<Paste>>"))
+            self.menu.add_command(
+                label="Cut", command=lambda: widget.event_generate("<<Cut>>")
+            )
+            self.menu.add_command(
+                label="Copy", command=lambda: widget.event_generate("<<Copy>>")
+            )
+            self.menu.add_command(
+                label="Paste", command=lambda: widget.event_generate("<<Paste>>")
+            )
             self.menu.add_separator()
             self.menu.add_command(label="Select All", command=self._select_all)
-            self.menu.add_command(label="Clear", command=lambda: widget.delete("1.0", tk.END))
-            
+            self.menu.add_command(
+                label="Clear", command=lambda: widget.delete("1.0", tk.END)
+            )
+
             widget.bind("<Button-2>", self._show)
             widget.bind("<Button-3>", self._show)
 
@@ -265,7 +274,7 @@ try:
             else:
                 self.menu.entryconfig("Cut", state="disabled")
                 self.menu.entryconfig("Copy", state="disabled")
-            
+
             # Check clipboard for Paste enablement
             try:
                 if self.widget.clipboard_get():
@@ -274,7 +283,7 @@ try:
                     self.menu.entryconfig("Paste", state="disabled")
             except tk.TclError:
                 self.menu.entryconfig("Paste", state="disabled")
-                
+
             try:
                 self.menu.tk_popup(event.x_root, event.y_root)
             finally:
@@ -288,7 +297,20 @@ try:
         """Helper for drawing modern, high-quality charts on a tk.Canvas."""
 
         @staticmethod
-        def draw_bar(canvas: tk.Canvas, x, y_bottom, width, height, color, label, count, font_normal, font_bold, fg_color, text_color):
+        def draw_bar(
+            canvas: tk.Canvas,
+            x,
+            y_bottom,
+            width,
+            height,
+            color,
+            label,
+            count,
+            font_normal,
+            font_bold,
+            fg_color,
+            text_color,
+        ):
             """Draw a single 'premium' bar with rounded top and subtle shadow."""
             # Shadow effect
             shadow_offset = 3
@@ -299,23 +321,23 @@ try:
                 y_bottom + shadow_offset,
                 fill="#000000",
                 stipple="gray25",  # Faux transparency
-                outline=""
+                outline="",
             )
 
             # Main bar body
             canvas.create_rectangle(
+                x, y_bottom - height, x + width, y_bottom, fill=color, outline=color
+            )
+
+            # Subtle "shine" gradient (lighter top edge)
+            canvas.create_line(
                 x,
                 y_bottom - height,
                 x + width,
-                y_bottom,
-                fill=color,
-                outline=color
-            )
-            
-            # Subtle "shine" gradient (lighter top edge)
-            canvas.create_line(
-                x, y_bottom - height, x + width, y_bottom - height,
-                fill="#ffffff", width=1, dash=(2, 2)
+                y_bottom - height,
+                fill="#ffffff",
+                width=1,
+                dash=(2, 2),
             )
 
             # Bar label (the count)

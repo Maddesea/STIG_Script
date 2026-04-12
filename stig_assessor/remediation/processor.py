@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Tuple, Union
 from stig_assessor.core.config import Cfg
 from stig_assessor.core.constants import Status
 from stig_assessor.core.logging import LOG
-from stig_assessor.exceptions import ParseError, FileError
+from stig_assessor.exceptions import FileError, ParseError
 from stig_assessor.io.file_ops import FO
 from stig_assessor.remediation.models import FixResult
 # Import from modular package
@@ -222,17 +222,17 @@ class FixResPro:
 
         Returns:
             Tuple of (total_unique_count, total_skipped_count)
-            
+
         Raises:
             FileError: If directory cannot be read
         """
         directory = Path(directory)
         if not directory.is_dir():
             raise FileError(f"Directory not found or not a directory: {directory}")
-            
+
         total_unique = 0
         total_skipped = 0
-        
+
         for path in directory.rglob("*"):
             if path.is_file() and path.suffix.lower() in [".json", ".csv"]:
                 try:
@@ -241,7 +241,7 @@ class FixResPro:
                     total_skipped += skipped
                 except ParseError as e:
                     LOG.w(f"Skipping {path.name}: {e}")
-                    
+
         return total_unique, total_skipped
 
     def update_ckl(
@@ -282,7 +282,9 @@ class FixResPro:
         out = San.path(out, mkpar=True)
 
         with LOG.context(op="apply_results", file=checklist.name):
-            LOG.i(f"Applying remediation results to checklist ({len(self.results)} vulns)")
+            LOG.i(
+                f"Applying remediation results to checklist ({len(self.results)} vulns)"
+            )
 
             try:
                 tree = FO.parse_xml(checklist)

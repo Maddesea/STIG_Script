@@ -1,15 +1,19 @@
 """Import Results Tab module."""
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+
 import os
+import tkinter as tk
 from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
 from typing import List
 
-from stig_assessor.ui.helpers import Debouncer, ToolTip
+from stig_assessor.core.constants import (GUI_BUTTON_WIDTH_WIDE,
+                                          GUI_ENTRY_WIDTH, GUI_PADDING,
+                                          GUI_PADDING_LARGE,
+                                          GUI_PADDING_SECTION)
 from stig_assessor.core.logging import LOG
-from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_ENTRY_WIDTH, GUI_PADDING_SECTION, GUI_BUTTON_WIDTH_WIDE
-from stig_assessor.remediation.processor import FixResPro
 from stig_assessor.exceptions import ValidationError
+from stig_assessor.remediation.processor import FixResPro
+from stig_assessor.ui.helpers import Debouncer, ToolTip
 
 
 def build_results_tab(app, frame):
@@ -63,7 +67,7 @@ def build_results_tab(app, frame):
         app.results_files,
         _remove_results_file,
     )
-    
+
     def _add_results_files():
         paths = filedialog.askopenfilenames(
             title="Select Remediation Results (Ctrl+Click for multiple)",
@@ -116,11 +120,11 @@ def build_results_tab(app, frame):
     def _add_results_folder():
         directory = filedialog.askdirectory(
             title="Select Folder containing Remediation Results",
-            initialdir=app._last_dir()
+            initialdir=app._last_dir(),
         )
         if not directory:
             return
-            
+
         added = 0
         path_dir = Path(directory)
         for p in path_dir.rglob("*"):
@@ -130,7 +134,7 @@ def build_results_tab(app, frame):
                     app.results_files.append(str_p)
                     app.results_list.insert(tk.END, p.name)
                     added += 1
-                    
+
         if added:
             app.status_var.set(
                 f"✓ Added {added} file(s) from folder - Total: {len(app.results_files)} queued"
@@ -215,9 +219,7 @@ def build_results_tab(app, frame):
     target_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
     target_frame.columnconfigure(1, weight=1)
 
-    ttk.Label(target_frame, text="Target CKL: *").grid(
-        row=0, column=0, sticky="w"
-    )
+    ttk.Label(target_frame, text="Target CKL: *").grid(row=0, column=0, sticky="w")
     app.results_ckl = tk.StringVar()
     ent_rc = ttk.Entry(
         target_frame,
@@ -225,7 +227,7 @@ def build_results_tab(app, frame):
         width=GUI_ENTRY_WIDTH,
     )
     ent_rc.grid(row=0, column=1, padx=GUI_PADDING, sticky="we")
-    
+
     def _browse_results_ckl():
         path = filedialog.askopenfilename(
             title="Select checklist",
@@ -252,9 +254,7 @@ def build_results_tab(app, frame):
     )
     app._results_ckl_err.grid(row=0, column=3, sticky="w", padx=GUI_PADDING)
 
-    ttk.Label(target_frame, text="Output CKL: *").grid(
-        row=1, column=0, sticky="w"
-    )
+    ttk.Label(target_frame, text="Output CKL: *").grid(row=1, column=0, sticky="w")
     app.results_out = tk.StringVar()
     ent_out = ttk.Entry(
         target_frame,
@@ -262,7 +262,7 @@ def build_results_tab(app, frame):
         width=GUI_ENTRY_WIDTH,
     )
     ent_out.grid(row=1, column=1, padx=GUI_PADDING, sticky="we")
-    
+
     def _browse_results_out():
         path = filedialog.asksaveasfilename(
             title="Save updated CKL As",
@@ -413,13 +413,16 @@ def build_results_tab(app, frame):
                             f"Loading {idx}/{len(files_to_process)}: {Path(result_file).name}",
                         )
                     )
-                    app.queue.put(
-                        ("progress", (idx / len(files_to_process)) * 100)
-                    )
+                    app.queue.put(("progress", (idx / len(files_to_process)) * 100))
                     imported, skipped = combined_processor.load(result_file)
                     total_loaded += imported
                     total_skipped += skipped
-                except (FileNotFoundError, PermissionError, ValueError, ValidationError) as exc:
+                except (
+                    FileNotFoundError,
+                    PermissionError,
+                    ValueError,
+                    ValidationError,
+                ) as exc:
                     LOG.e(f"Failed to load {result_file}: {exc}")
                     failed_files.append((Path(result_file).name, str(exc)))
                     continue
@@ -460,7 +463,9 @@ def build_results_tab(app, frame):
                 proc_results = result.get("processor_results", {})
                 for vid, r in proc_results.items():
                     status_text = "Pass" if r.ok else "Fail"
-                    app._res_preview_tree.insert("", tk.END, values=(vid, status_text, r.message))
+                    app._res_preview_tree.insert(
+                        "", tk.END, values=(vid, status_text, r.message)
+                    )
 
                 summary = (
                     f"✔ Batch import complete!\n"
@@ -483,7 +488,9 @@ def build_results_tab(app, frame):
     # Actions
     def _clear_results_form():
         if app.results_files:
-            if not messagebox.askyesno("Confirm Clear", "Clear all form inputs and the batch file queue?"):
+            if not messagebox.askyesno(
+                "Confirm Clear", "Clear all form inputs and the batch file queue?"
+            ):
                 return
             app.results_files.clear()
             app.results_list.delete(0, tk.END)
@@ -495,21 +502,27 @@ def build_results_tab(app, frame):
         app.results_auto.set(True)
         app.results_dry.set(False)
 
-    app._res_preview_frame = ttk.LabelFrame(frame, text="Results Preview", padding=GUI_PADDING)
+    app._res_preview_frame = ttk.LabelFrame(
+        frame, text="Results Preview", padding=GUI_PADDING
+    )
     app._res_preview_frame.pack(fill="both", expand=True, pady=(0, GUI_PADDING))
 
     res_cols = ("vid", "status", "msg")
-    app._res_preview_tree = ttk.Treeview(app._res_preview_frame, columns=res_cols, show="headings", height=5)
+    app._res_preview_tree = ttk.Treeview(
+        app._res_preview_frame, columns=res_cols, show="headings", height=5
+    )
     app._res_preview_tree.heading("vid", text="VID")
     app._res_preview_tree.heading("status", text="Pass / Fail")
     app._res_preview_tree.heading("msg", text="Message")
-    
+
     app._res_preview_tree.column("vid", width=120)
     app._res_preview_tree.column("status", width=100)
     app._res_preview_tree.column("msg", width=400)
     app._res_preview_tree.pack(side="left", fill="both", expand=True)
 
-    res_scroll = ttk.Scrollbar(app._res_preview_frame, orient="vertical", command=app._res_preview_tree.yview)
+    res_scroll = ttk.Scrollbar(
+        app._res_preview_frame, orient="vertical", command=app._res_preview_tree.yview
+    )
     res_scroll.pack(side="right", fill="y")
     app._res_preview_tree.config(yscrollcommand=res_scroll.set)
 
@@ -532,10 +545,10 @@ def build_results_tab(app, frame):
         style="Accent.TButton",
     )
     btn_results.pack(side="left", padx=(0, GUI_PADDING_LARGE))
-    
-    ttk.Button(
-        btn_row, text="🗑 Clear Form", command=_clear_results_form
-    ).pack(side="left")
-    
+
+    ttk.Button(btn_row, text="🗑 Clear Form", command=_clear_results_form).pack(
+        side="left"
+    )
+
     app._action_buttons.append(btn_results)
     app.action_results = _do_results

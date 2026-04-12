@@ -1,10 +1,14 @@
 """Create CKL Tab module."""
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-from pathlib import Path
 
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+
+from stig_assessor.core.constants import (GUI_BUTTON_WIDTH_WIDE,
+                                          GUI_ENTRY_WIDTH, GUI_PADDING,
+                                          GUI_PADDING_LARGE,
+                                          GUI_PADDING_SECTION)
 from stig_assessor.ui.helpers import Debouncer, ToolTip
-from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_ENTRY_WIDTH, GUI_PADDING_SECTION, GUI_BUTTON_WIDTH_WIDE
 from stig_assessor.xml.schema import Sch
 
 
@@ -66,9 +70,9 @@ def build_create_tab(app, frame):
         if path:
             app.create_out.set(path)
 
-    ttk.Button(
-        files_frame, text="📂 Browse…", command=_browse_create_out
-    ).grid(row=1, column=2)
+    ttk.Button(files_frame, text="📂 Browse…", command=_browse_create_out).grid(
+        row=1, column=2
+    )
 
     def _clear_create_form():
         app.create_xccdf.set("")
@@ -79,24 +83,18 @@ def build_create_tab(app, frame):
         app.create_bp.set(False)
         app.create_mark.set("CUI")
 
-    ttk.Button(
-        files_frame, text="🗑 Clear Form", command=_clear_create_form
-    ).grid(row=1, column=3, padx=GUI_PADDING_LARGE)
+    ttk.Button(files_frame, text="🗑 Clear Form", command=_clear_create_form).grid(
+        row=1, column=3, padx=GUI_PADDING_LARGE
+    )
 
     # Asset Info Frame
-    asset_frame = ttk.LabelFrame(
-        frame, text="Asset Details", padding=GUI_PADDING_LARGE
-    )
+    asset_frame = ttk.LabelFrame(frame, text="Asset Details", padding=GUI_PADDING_LARGE)
     asset_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
     asset_frame.columnconfigure(1, weight=1)
 
     r = 0
-    ttk.Label(asset_frame, text="Asset Name: *").grid(
-        row=r, column=0, sticky="w"
-    )
-    app.create_asset = tk.StringVar(
-        value=app._settings.get("create_asset", "")
-    )
+    ttk.Label(asset_frame, text="Asset Name: *").grid(row=r, column=0, sticky="w")
+    app.create_asset = tk.StringVar(value=app._settings.get("create_asset", ""))
     ttk.Entry(
         asset_frame,
         textvariable=app.create_asset,
@@ -124,14 +122,12 @@ def build_create_tab(app, frame):
 
     ttk.Label(asset_frame, text="IP Address:").grid(row=r, column=0, sticky="w")
     app.create_ip = tk.StringVar(value=app._settings.get("create_ip", ""))
-    ttk.Entry(
-        asset_frame, textvariable=app.create_ip, width=GUI_ENTRY_WIDTH
-    ).grid(row=r, column=1, padx=GUI_PADDING, sticky="we")
+    ttk.Entry(asset_frame, textvariable=app.create_ip, width=GUI_ENTRY_WIDTH).grid(
+        row=r, column=1, padx=GUI_PADDING, sticky="we"
+    )
     r += 1
 
-    ttk.Label(asset_frame, text="MAC Address:").grid(
-        row=r, column=0, sticky="w"
-    )
+    ttk.Label(asset_frame, text="MAC Address:").grid(row=r, column=0, sticky="w")
     app.create_mac = tk.StringVar(value=app._settings.get("create_mac", ""))
     ttk.Entry(
         asset_frame,
@@ -141,9 +137,7 @@ def build_create_tab(app, frame):
     r += 1
 
     ttk.Label(asset_frame, text="Marking:").grid(row=r, column=0, sticky="w")
-    app.create_mark = tk.StringVar(
-        value=app._settings.get("create_mark", "CUI")
-    )
+    app.create_mark = tk.StringVar(value=app._settings.get("create_mark", "CUI"))
     ttk.Combobox(
         asset_frame,
         textvariable=app.create_mark,

@@ -200,7 +200,7 @@ class EvidenceMgr:
             )
             with self._lock:
                 self._meta[vid].append(meta)
-                
+
             self._save()
 
             LOG.i(f"Evidence imported to {dest}")
@@ -222,7 +222,7 @@ class EvidenceMgr:
                             file_path.unlink()
                     else:
                         new_entries.append(entry)
-                
+
                 if removed:
                     if new_entries:
                         self._meta[vid] = new_entries
@@ -231,10 +231,10 @@ class EvidenceMgr:
                         # try to delete empty directory
                         with suppress(OSError):
                             (self.base / vid).rmdir()
-                        
+
         if removed:
             self._save()
-            
+
         return removed
 
     # ----------------------------------------------------------------------- export
@@ -385,7 +385,9 @@ class EvidenceMgr:
                     3,
                     12,
                 ):
-                    shutil.unpack_archive(package, extract_dir=tmp_path, filter="data")  # pylint: disable=unexpected-keyword-arg
+                    shutil.unpack_archive(
+                        package, extract_dir=tmp_path, filter="data"
+                    )  # pylint: disable=unexpected-keyword-arg
                 else:
                     with zipfile.ZipFile(package, "r") as archive:
                         for member in archive.namelist():
@@ -477,4 +479,3 @@ class EvidenceMgr:
 
 # Module-level singleton instance
 EVIDENCE = EvidenceMgr()
-

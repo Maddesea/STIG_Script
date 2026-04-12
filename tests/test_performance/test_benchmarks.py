@@ -127,6 +127,7 @@ class TestLargeFileProcessing(PerformanceBenchmark):
         ckl_path = self.temp_dir / "large_15000.ckl"
         self.start_timer()
         from stig_assessor.io.file_ops import FO
+
         content = FO.read(ckl_path)
         tree = ET.fromstring(content)
         duration = self.end_timer()
@@ -147,6 +148,7 @@ class TestLargeFileProcessing(PerformanceBenchmark):
         # Full processing workflow
         from stig_assessor.processor.processor import Proc
         from stig_assessor.validation.validator import Val
+
         Val().validate(ckl_path)
         duration = self.end_timer()
 
@@ -172,6 +174,7 @@ class TestMergePerformance(PerformanceBenchmark):
 
         self.start_timer()
         from stig_assessor.processor.processor import Proc
+
         proc = Proc()
         proc.merge(base=files[0], histories=files[1:], out=out_merge)
         duration = self.end_timer()
@@ -191,6 +194,7 @@ class TestMergePerformance(PerformanceBenchmark):
 
         self.start_timer()
         from stig_assessor.processor.processor import Proc
+
         proc = Proc()
         proc.merge(base=files[0], histories=files[1:], out=out_merge)
         duration = self.end_timer()
@@ -237,6 +241,7 @@ class TestRemediationPerformance(PerformanceBenchmark):
         ckl_path = self.temp_dir / "large_1000.ckl"
         self.start_timer()
         from stig_assessor.remediation.processor import FixResPro
+
         processor = FixResPro()
         processor.load(results_path)
         processor.update_ckl(ckl_path, self.temp_dir / "large_1000_updated.ckl")
@@ -268,8 +273,10 @@ class TestMemoryUsage(PerformanceBenchmark):
         self.create_large_ckl(15000)
 
         ckl_path = self.temp_dir / "large_15000.ckl"
+
         def process_file():
             from stig_assessor.processor.processor import Proc
+
             proc = Proc()
             proc._load_file_as_xml(ckl_path)
 

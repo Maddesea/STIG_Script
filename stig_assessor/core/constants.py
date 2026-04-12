@@ -96,26 +96,26 @@ COMPRESSION_THRESHOLD = 1024  # Bytes before considering compression
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Widget sizing
-GUI_ENTRY_WIDTH = 70
-GUI_ENTRY_WIDTH_SMALL = 25
-GUI_ENTRY_WIDTH_MEDIUM = 40
-GUI_BUTTON_WIDTH = 15
-GUI_BUTTON_WIDTH_WIDE = 25
-GUI_LISTBOX_HEIGHT = 6
-GUI_LISTBOX_WIDTH = 60
+GUI_ENTRY_WIDTH = 75
+GUI_ENTRY_WIDTH_SMALL = 28
+GUI_ENTRY_WIDTH_MEDIUM = 45
+GUI_BUTTON_WIDTH = 18
+GUI_BUTTON_WIDTH_WIDE = 28
+GUI_LISTBOX_HEIGHT = 8
+GUI_LISTBOX_WIDTH = 65
 GUI_TEXT_WIDTH = 120
 GUI_TEXT_HEIGHT = 25
-GUI_WRAP_LENGTH = 860
+GUI_WRAP_LENGTH = 1000
 
 # Layout spacing
-GUI_PADDING = 8
-GUI_PADDING_LARGE = 16
-GUI_PADDING_SECTION = 24
+GUI_PADDING = 24
+GUI_PADDING_LARGE = 48
+GUI_PADDING_SECTION = 72
 
 # Font settings
-GUI_FONT_MONO = ("Cascadia Code", 10)
-GUI_FONT_NORMAL = ("Inter", 10)
-GUI_FONT_HEADING = ("Inter", 12, "bold")
+GUI_FONT_MONO = ("Cascadia Code", 11)
+GUI_FONT_NORMAL = ("Segoe UI", 12)
+GUI_FONT_HEADING = ("Segoe UI", 16, "bold")
 
 
 # ──────────────────────────────────────────────────────────────────────────────

@@ -1,23 +1,24 @@
 """HTML Remediation Playbook Generator for STIG Assessor."""
 
-from typing import List, Dict, Any
+import base64
 import html
 import json
-import base64
+from typing import Any, Dict, List
+
 
 def generate_html_playbook(extractor: Any, out_path: str) -> str:
     """
     Generate an interactive offline HTML remediation playbook from extracted fixes.
-    
+
     Args:
         extractor: The FixExt instance containing .fixes
         out_path: Output HTML file path
-        
+
     Returns:
         The path to the generated HTML file.
     """
     fixes = extractor.fixes
-    
+
     high = [f for f in fixes if f.severity.lower() == "high"]
     medium = [f for f in fixes if f.severity.lower() == "medium"]
     low = [f for f in fixes if f.severity.lower() == "low"]
@@ -264,7 +265,7 @@ def generate_html_playbook(extractor: Any, out_path: str) -> str:
 
     <div id="tab-all" class="tab-content active">
 """
-    
+
     def render_fix(f):
         sev_class = f.severity.lower()
         cmd_html = ""
@@ -272,7 +273,7 @@ def generate_html_playbook(extractor: Any, out_path: str) -> str:
         if f.fix_command:
             safe_id = f.vid.replace("-", "_")
             # Base64 encode command to safely store in attribute for JS
-            b64_cmd = base64.b64encode(f.fix_command.encode('utf-8')).decode('ascii')
+            b64_cmd = base64.b64encode(f.fix_command.encode("utf-8")).decode("ascii")
             cmd_html += f"""
         <div class="code-block" id="fix-code-{safe_id}">
             <div style="font-size: 0.7rem; color: var(--tx-muted); margin-bottom: 5px; text-transform: uppercase;">Fix Command</div>
@@ -282,7 +283,9 @@ def generate_html_playbook(extractor: Any, out_path: str) -> str:
 """
         if f.check_command:
             safe_id = f.vid.replace("-", "_")
-            b64_check = base64.b64encode(f.check_command.encode('utf-8')).decode('ascii')
+            b64_check = base64.b64encode(f.check_command.encode("utf-8")).decode(
+                "ascii"
+            )
             cmd_html += f"""
         <div class="code-block" style="margin-top: 10px; border-color: rgba(59, 130, 246, 0.3);" id="check-code-{safe_id}">
              <div style="font-size: 0.7rem; color: var(--tx-muted); margin-bottom: 5px; text-transform: uppercase;">Check / Evidence Command</div>
@@ -334,19 +337,22 @@ def generate_html_playbook(extractor: Any, out_path: str) -> str:
 
     for f in fixes:
         html_content += render_fix(f)
-        
+
     html_content += "</div>\n"
-    
+
     html_content += '<div id="tab-high" class="tab-content">\n'
-    for f in high: html_content += render_fix(f)
+    for f in high:
+        html_content += render_fix(f)
     html_content += "</div>\n"
 
     html_content += '<div id="tab-medium" class="tab-content">\n'
-    for f in medium: html_content += render_fix(f)
+    for f in medium:
+        html_content += render_fix(f)
     html_content += "</div>\n"
 
     html_content += '<div id="tab-low" class="tab-content">\n'
-    for f in low: html_content += render_fix(f)
+    for f in low:
+        html_content += render_fix(f)
     html_content += "</div>\n"
 
     html_content += """
@@ -437,7 +443,7 @@ window.onload = function() {
 </html>
 """
 
-    with open(out_path, 'w', encoding='utf-8') as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         f.write(html_content)
-        
+
     return out_path

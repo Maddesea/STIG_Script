@@ -1,10 +1,14 @@
 """Repair CKL Tab module."""
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-from tkinter.scrolledtext import ScrolledText
-from pathlib import Path
 
-from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_ENTRY_WIDTH, GUI_PADDING_SECTION, GUI_BUTTON_WIDTH_WIDE, GUI_FONT_MONO
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+from tkinter.scrolledtext import ScrolledText
+
+from stig_assessor.core.constants import (GUI_BUTTON_WIDTH_WIDE,
+                                          GUI_ENTRY_WIDTH, GUI_FONT_MONO,
+                                          GUI_PADDING, GUI_PADDING_LARGE,
+                                          GUI_PADDING_SECTION)
 
 
 def build_repair_tab(app, frame):
@@ -18,13 +22,13 @@ def build_repair_tab(app, frame):
 
     ttk.Label(io_frame, text="Target CKL: *").grid(row=0, column=0, sticky="w")
     app.repair_ckl = tk.StringVar()
-    ent_1 = ttk.Entry(
-        io_frame, textvariable=app.repair_ckl, width=GUI_ENTRY_WIDTH
-    )
+    ent_1 = ttk.Entry(io_frame, textvariable=app.repair_ckl, width=GUI_ENTRY_WIDTH)
     ent_1.grid(row=0, column=1, padx=GUI_PADDING, sticky="we")
 
     def _browse_repair_ckl():
-        path = filedialog.askopenfilename(initialdir=app._last_dir(), filetypes=[("CKL", "*.ckl")])
+        path = filedialog.askopenfilename(
+            initialdir=app._last_dir(), filetypes=[("CKL", "*.ckl")]
+        )
         if path:
             app.repair_ckl.set(path)
 
@@ -53,9 +57,9 @@ def build_repair_tab(app, frame):
         )
         app.repair_txt.config(state="disabled")
 
-    ttk.Button(
-        io_frame, text="🗑 Clear Form", command=_clear_repair_form
-    ).grid(row=0, column=3, rowspan=2, padx=GUI_PADDING_LARGE)
+    ttk.Button(io_frame, text="🗑 Clear Form", command=_clear_repair_form).grid(
+        row=0, column=3, rowspan=2, padx=GUI_PADDING_LARGE
+    )
 
     btn_frame = ttk.Frame(frame)
     btn_frame.pack(pady=GUI_PADDING_SECTION)
@@ -63,9 +67,7 @@ def build_repair_tab(app, frame):
     def _do_verify_integrity():
         ckl_path = app.repair_ckl.get().strip()
         if not ckl_path:
-            messagebox.showerror(
-                "Missing input", "Please select a CKL file to verify."
-            )
+            messagebox.showerror("Missing input", "Please select a CKL file to verify.")
             return
 
         def work():
@@ -75,12 +77,19 @@ def build_repair_tab(app, frame):
             app.repair_txt.config(state="normal")
             app.repair_txt.delete("1.0", tk.END)
             if isinstance(result, Exception):
-                app.repair_txt.insert(tk.END, "[ERROR] Integrity Check Failed:\n", "ERROR")
+                app.repair_txt.insert(
+                    tk.END, "[ERROR] Integrity Check Failed:\n", "ERROR"
+                )
                 app.repair_txt.insert(tk.END, f"{result}\n")
                 messagebox.showerror("Error", str(result))
             else:
-                app.repair_txt.insert(tk.END, "[SUCCESS] Integrity Verification Complete\n\n", "SUCCESS")
-                app.repair_txt.insert(tk.END, f"Checksum (SHA3-256):\n{result}\n\nThis checksum proves the file has not been tampered with since creation.\n")
+                app.repair_txt.insert(
+                    tk.END, "[SUCCESS] Integrity Verification Complete\n\n", "SUCCESS"
+                )
+                app.repair_txt.insert(
+                    tk.END,
+                    f"Checksum (SHA3-256):\n{result}\n\nThis checksum proves the file has not been tampered with since creation.\n",
+                )
             app.repair_txt.config(state="disabled")
 
         app.status_var.set("Verifying...")
@@ -96,9 +105,7 @@ def build_repair_tab(app, frame):
     def _do_repair():
         ckl_path = app.repair_ckl.get().strip()
         if not ckl_path:
-            messagebox.showerror(
-                "Missing input", "Please select a CKL file to repair."
-            )
+            messagebox.showerror("Missing input", "Please select a CKL file to repair.")
             return
 
         backup = app.repair_backup.get()
@@ -121,14 +128,14 @@ def build_repair_tab(app, frame):
                     app.repair_txt.insert(
                         tk.END,
                         f"No structural issues found in {Path(ckl_path).name}.\nThe file appears normal.\n",
-                        "INFO"
+                        "INFO",
                     )
                     app.status_var.set("✔ Checklist is structurally sound.")
                 else:
                     app.repair_txt.insert(
                         tk.END,
                         f"[SUCCESS] Repaired {len(fixed_lines)} anomalies in {Path(ckl_path).name}\n\nDetails:\n",
-                        "SUCCESS"
+                        "SUCCESS",
                     )
                     for msg in fixed_lines:
                         app.repair_txt.insert(tk.END, f"- {msg}\n")
@@ -164,6 +171,6 @@ def build_repair_tab(app, frame):
     app.repair_txt.insert(
         "1.0",
         "Select a CKL file to verify its checksum or repair structural issues.",
-        "INFO"
+        "INFO",
     )
     app.repair_txt.config(state="disabled")

@@ -1,18 +1,20 @@
 """Extract Fixes Tab module."""
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-from pathlib import Path
 
-from stig_assessor.ui.helpers import Debouncer, ToolTip
-from stig_assessor.core.constants import GUI_PADDING, GUI_PADDING_LARGE, GUI_ENTRY_WIDTH, GUI_PADDING_SECTION, GUI_BUTTON_WIDTH_WIDE
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+
+from stig_assessor.core.constants import (GUI_BUTTON_WIDTH_WIDE,
+                                          GUI_ENTRY_WIDTH, GUI_PADDING,
+                                          GUI_PADDING_LARGE,
+                                          GUI_PADDING_SECTION)
 from stig_assessor.remediation.extractor import FixExt
+from stig_assessor.ui.helpers import Debouncer, ToolTip
 
 
 def build_extract_tab(app, frame):
     # Input/Output
-    io_frame = ttk.LabelFrame(
-        frame, text="Input & Output", padding=GUI_PADDING_LARGE
-    )
+    io_frame = ttk.LabelFrame(frame, text="Input & Output", padding=GUI_PADDING_LARGE)
     io_frame.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
     io_frame.columnconfigure(1, weight=1)
 
@@ -35,9 +37,9 @@ def build_extract_tab(app, frame):
             app.extract_xccdf.set(path)
             app._remember_file(path)
 
-    ttk.Button(
-        io_frame, text="📂 Browse…", command=_browse_extract_xccdf
-    ).grid(row=0, column=2)
+    ttk.Button(io_frame, text="📂 Browse…", command=_browse_extract_xccdf).grid(
+        row=0, column=2
+    )
     app._enable_dnd(ent_ex, app.extract_xccdf)
     app._extract_xccdf_err = ttk.Label(
         io_frame, text="", foreground=app._colors.get("error", "red")
@@ -57,13 +59,18 @@ def build_extract_tab(app, frame):
         path = filedialog.askdirectory(title="Select output directory")
         if path:
             app.extract_outdir.set(path)
-            
+
     def _open_extract_out():
         path = app.extract_outdir.get()
         if not path or not Path(path).exists():
-            messagebox.showwarning("Not Found", "Output directory not set or does not exist.")
+            messagebox.showwarning(
+                "Not Found", "Output directory not set or does not exist."
+            )
             return
-        import os, sys, subprocess
+        import os
+        import subprocess
+        import sys
+
         if os.name == "nt":
             os.startfile(path)
         elif sys.platform == "darwin":
@@ -73,9 +80,13 @@ def build_extract_tab(app, frame):
 
     btn_out_frame = ttk.Frame(io_frame)
     btn_out_frame.grid(row=1, column=2)
-    ttk.Button(btn_out_frame, text="📂 Browse…", command=_browse_extract_out).pack(side="left", padx=(0, 2))
-    ttk.Button(btn_out_frame, text="🗁 Open", command=_open_extract_out).pack(side="left")
-    
+    ttk.Button(btn_out_frame, text="📂 Browse…", command=_browse_extract_out).pack(
+        side="left", padx=(0, 2)
+    )
+    ttk.Button(btn_out_frame, text="🗁 Open", command=_open_extract_out).pack(
+        side="left"
+    )
+
     app._extract_outdir_err = ttk.Label(
         io_frame, text="", foreground=app._colors.get("error", "red")
     )
@@ -100,9 +111,9 @@ def build_extract_tab(app, frame):
             app.extract_checklist.set(path)
             app._remember_file(path)
 
-    ttk.Button(
-        io_frame, text="📂 Browse…", command=_browse_extract_ckl
-    ).grid(row=2, column=2)
+    ttk.Button(io_frame, text="📂 Browse…", command=_browse_extract_ckl).grid(
+        row=2, column=2
+    )
     app._enable_dnd(ent_ckl, app.extract_checklist)
 
     # ═══ FILTERING SECTION ═══
@@ -110,7 +121,9 @@ def build_extract_tab(app, frame):
     filter_outer.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
 
     status_frame = ttk.LabelFrame(
-        filter_outer, text="Compliance Status Filter (requires Checklist)", padding=GUI_PADDING_LARGE
+        filter_outer,
+        text="Compliance Status Filter (requires Checklist)",
+        padding=GUI_PADDING_LARGE,
     )
     status_frame.pack(side="left", fill="x", expand=True, padx=(0, GUI_PADDING))
 
@@ -143,7 +156,9 @@ def build_extract_tab(app, frame):
     cb_open = ttk.Checkbutton(status_frame, text="Open", variable=app.status_open)
     cb_open.grid(row=0, column=1, padx=GUI_PADDING_LARGE)
     status_checks.append(cb_open)
-    cb_nr = ttk.Checkbutton(status_frame, text="Not Reviewed", variable=app.status_not_reviewed)
+    cb_nr = ttk.Checkbutton(
+        status_frame, text="Not Reviewed", variable=app.status_not_reviewed
+    )
     cb_nr.grid(row=0, column=2, padx=GUI_PADDING_LARGE)
     status_checks.append(cb_nr)
     cb_na = ttk.Checkbutton(status_frame, text="Not Applicable", variable=app.status_na)
@@ -163,9 +178,15 @@ def build_extract_tab(app, frame):
     app.extract_sev_med = tk.BooleanVar(value=True)
     app.extract_sev_low = tk.BooleanVar(value=True)
 
-    ttk.Checkbutton(sev_frame, text="CAT I", variable=app.extract_sev_high).pack(anchor="w")
-    ttk.Checkbutton(sev_frame, text="CAT II", variable=app.extract_sev_med).pack(anchor="w")
-    ttk.Checkbutton(sev_frame, text="CAT III", variable=app.extract_sev_low).pack(anchor="w")
+    ttk.Checkbutton(sev_frame, text="CAT I", variable=app.extract_sev_high).pack(
+        anchor="w"
+    )
+    ttk.Checkbutton(sev_frame, text="CAT II", variable=app.extract_sev_med).pack(
+        anchor="w"
+    )
+    ttk.Checkbutton(sev_frame, text="CAT III", variable=app.extract_sev_low).pack(
+        anchor="w"
+    )
 
     def _clear_extract_form():
         app.extract_xccdf.set("")
@@ -189,13 +210,13 @@ def build_extract_tab(app, frame):
         app.extract_sev_med.set(True)
         app.extract_sev_low.set(True)
         # Clear results panel
-        if hasattr(app, '_extract_results_var'):
+        if hasattr(app, "_extract_results_var"):
             app._extract_results_var.set("")
         _on_status_all_toggle()
 
-    ttk.Button(
-        io_frame, text="🗑 Clear Form", command=_clear_extract_form
-    ).grid(row=1, column=4, padx=GUI_PADDING_LARGE)
+    ttk.Button(io_frame, text="🗑 Clear Form", command=_clear_extract_form).grid(
+        row=1, column=4, padx=GUI_PADDING_LARGE
+    )
 
     def _validate_extract_form(*args):
         app._extract_xccdf_err.config(
@@ -211,9 +232,7 @@ def build_extract_tab(app, frame):
     app.root.after(100, debounced_extract)
 
     # ═══ EXPORT FORMATS ═══
-    formats = ttk.LabelFrame(
-        frame, text="Export Formats", padding=GUI_PADDING_LARGE
-    )
+    formats = ttk.LabelFrame(frame, text="Export Formats", padding=GUI_PADDING_LARGE)
     formats.pack(fill="x", pady=(0, GUI_PADDING_LARGE))
     app.extract_json = tk.BooleanVar(value=True)
     app.extract_csv = tk.BooleanVar(value=True)
@@ -235,9 +254,9 @@ def build_extract_tab(app, frame):
     ttk.Checkbutton(formats, text="PowerShell", variable=app.extract_ps).grid(
         row=0, column=3, padx=GUI_PADDING_LARGE
     )
-    ttk.Checkbutton(
-        formats, text="Ansible", variable=app.extract_ansible
-    ).grid(row=0, column=4, padx=GUI_PADDING_LARGE)
+    ttk.Checkbutton(formats, text="Ansible", variable=app.extract_ansible).grid(
+        row=0, column=4, padx=GUI_PADDING_LARGE
+    )
     ttk.Checkbutton(
         formats, text="HTML Playbook", variable=app.extract_html_playbook
     ).grid(row=0, column=5, padx=GUI_PADDING_LARGE)
@@ -247,13 +266,13 @@ def build_extract_tab(app, frame):
     app.extract_dry = tk.BooleanVar(value=app._settings.get("ext_dry", False))
     app.extract_rollbacks = tk.BooleanVar(value=app._settings.get("ext_roll", False))
     app.extract_evidence = tk.BooleanVar(value=app._settings.get("ext_evid", False))
-    
+
     def _save_ext_opts(*args):
         app._settings["ext_dry"] = app.extract_dry.get()
         app._settings["ext_roll"] = app.extract_rollbacks.get()
         app._settings["ext_evid"] = app.extract_evidence.get()
         app._save_settings()
-        
+
     app.extract_dry.trace_add("write", _save_ext_opts)
     app.extract_rollbacks.trace_add("write", _save_ext_opts)
     app.extract_evidence.trace_add("write", _save_ext_opts)
@@ -273,7 +292,7 @@ def build_extract_tab(app, frame):
         text="Enable PowerShell Registry Rollbacks (`reg export`)",
         variable=app.extract_rollbacks,
     ).pack(anchor="center", pady=(5, 0))
-    
+
     app.extract_selected_only = tk.BooleanVar(value=False)
     ttk.Checkbutton(
         opts_frame,
@@ -282,9 +301,11 @@ def build_extract_tab(app, frame):
     ).pack(anchor="center", pady=(5, 0))
 
     # ═══ EXTRACTION RESULTS PANEL ═══
-    results_frame = ttk.LabelFrame(frame, text="Extraction Results (Preview)", padding=GUI_PADDING)
+    results_frame = ttk.LabelFrame(
+        frame, text="Extraction Results (Preview)", padding=GUI_PADDING
+    )
     results_frame.pack(fill="both", expand=True, pady=(0, GUI_PADDING))
-    
+
     app._extract_results_var = tk.StringVar(value="No extraction performed yet.")
     ttk.Label(
         results_frame,
@@ -293,40 +314,56 @@ def build_extract_tab(app, frame):
         foreground=app._colors.get("info", "blue"),
         font=("TkDefaultFont", 9),
     ).pack(side="bottom", fill="x", padx=5, pady=2)
-    
+
     paned = ttk.PanedWindow(results_frame, orient=tk.VERTICAL)
     paned.pack(fill="both", expand=True)
-    
+
     tree_frame = ttk.Frame(paned)
     paned.add(tree_frame, weight=1)
 
     tree_toolbar = ttk.Frame(tree_frame)
     tree_toolbar.pack(fill="x", pady=(0, 2))
-    
-    def _select_all_extract():
-        app._extract_preview_tree.selection_set(app._extract_preview_tree.get_children())
-        
-    def _clear_extract_selection():
-        app._extract_preview_tree.selection_remove(app._extract_preview_tree.selection())
 
-    ttk.Button(tree_toolbar, text="Select All", command=_select_all_extract).pack(side="left", padx=(0, 5))
-    ttk.Button(tree_toolbar, text="Clear Selection", command=_clear_extract_selection).pack(side="left")
+    def _select_all_extract():
+        app._extract_preview_tree.selection_set(
+            app._extract_preview_tree.get_children()
+        )
+
+    def _clear_extract_selection():
+        app._extract_preview_tree.selection_remove(
+            app._extract_preview_tree.selection()
+        )
+
+    ttk.Button(tree_toolbar, text="Select All", command=_select_all_extract).pack(
+        side="left", padx=(0, 5)
+    )
+    ttk.Button(
+        tree_toolbar, text="Clear Selection", command=_clear_extract_selection
+    ).pack(side="left")
 
     preview_cols = ("vid", "severity", "platform", "has_cmd")
-    app._extract_preview_tree = ttk.Treeview(tree_frame, columns=preview_cols, show="headings", height=5, selectmode='extended')
+    app._extract_preview_tree = ttk.Treeview(
+        tree_frame,
+        columns=preview_cols,
+        show="headings",
+        height=5,
+        selectmode="extended",
+    )
     app._extract_preview_tree.heading("vid", text="VID")
     app._extract_preview_tree.heading("severity", text="Severity")
     app._extract_preview_tree.heading("platform", text="Platform")
     app._extract_preview_tree.heading("has_cmd", text="Has Commands")
-    
+
     app._extract_preview_tree.column("vid", width=120)
     app._extract_preview_tree.column("severity", width=80)
     app._extract_preview_tree.column("platform", width=120)
     app._extract_preview_tree.column("has_cmd", width=100)
-    
+
     app._extract_preview_tree.pack(side="left", fill="both", expand=True)
 
-    extract_scroll = ttk.Scrollbar(tree_frame, orient="vertical", command=app._extract_preview_tree.yview)
+    extract_scroll = ttk.Scrollbar(
+        tree_frame, orient="vertical", command=app._extract_preview_tree.yview
+    )
     extract_scroll.pack(side="right", fill="y")
     app._extract_preview_tree.config(yscrollcommand=extract_scroll.set)
 
@@ -345,22 +382,38 @@ def build_extract_tab(app, frame):
     fix_lbl_frame = ttk.Frame(details_frame)
     fix_lbl_frame.grid(row=0, column=0, sticky="ew")
     ttk.Label(fix_lbl_frame, text="Fix Command / Text:").pack(side="left")
-    btn_copy_fix = ttk.Button(fix_lbl_frame, text="📋 Copy", command=lambda: _copy_to_clip(app._ext_fix_txt.get("1.0", "end-1c")))
+    btn_copy_fix = ttk.Button(
+        fix_lbl_frame,
+        text="📋 Copy",
+        command=lambda: _copy_to_clip(app._ext_fix_txt.get("1.0", "end-1c")),
+    )
     btn_copy_fix.pack(side="right")
 
     chk_lbl_frame = ttk.Frame(details_frame)
     chk_lbl_frame.grid(row=0, column=1, sticky="ew", padx=(GUI_PADDING, 0))
     ttk.Label(chk_lbl_frame, text="Check Command / Text:").pack(side="left")
-    btn_copy_chk = ttk.Button(chk_lbl_frame, text="📋 Copy", command=lambda: _copy_to_clip(app._ext_chk_txt.get("1.0", "end-1c")))
+    btn_copy_chk = ttk.Button(
+        chk_lbl_frame,
+        text="📋 Copy",
+        command=lambda: _copy_to_clip(app._ext_chk_txt.get("1.0", "end-1c")),
+    )
     btn_copy_chk.pack(side="right")
 
     from tkinter.scrolledtext import ScrolledText
+
     from stig_assessor.core.constants import GUI_FONT_MONO
-    app._ext_fix_txt = ScrolledText(details_frame, height=6, font=GUI_FONT_MONO, wrap="word")
+
+    app._ext_fix_txt = ScrolledText(
+        details_frame, height=6, font=GUI_FONT_MONO, wrap="word"
+    )
     app._ext_fix_txt.grid(row=1, column=0, sticky="nsew", pady=(2, 0))
-    
-    app._ext_chk_txt = ScrolledText(details_frame, height=6, font=GUI_FONT_MONO, wrap="word")
-    app._ext_chk_txt.grid(row=1, column=1, sticky="nsew", padx=(GUI_PADDING, 0), pady=(2, 0))
+
+    app._ext_chk_txt = ScrolledText(
+        details_frame, height=6, font=GUI_FONT_MONO, wrap="word"
+    )
+    app._ext_chk_txt.grid(
+        row=1, column=1, sticky="nsew", padx=(GUI_PADDING, 0), pady=(2, 0)
+    )
 
     app._ext_fixes_cache = {}
 
@@ -373,8 +426,12 @@ def build_extract_tab(app, frame):
         vid = app._extract_preview_tree.item(sel[0], "values")[0]
         if vid in app._ext_fixes_cache:
             f = app._ext_fixes_cache[vid]
-            app._ext_fix_txt.insert("1.0", f.fix_command or f.fix_text or "No fix details available.")
-            app._ext_chk_txt.insert("1.0", f.check_command or f.check_text or "No check details available.")
+            app._ext_fix_txt.insert(
+                "1.0", f.fix_command or f.fix_text or "No fix details available."
+            )
+            app._ext_chk_txt.insert(
+                "1.0", f.check_command or f.check_text or "No check details available."
+            )
 
     app._extract_preview_tree.bind("<<TreeviewSelect>>", _on_extract_select)
 
@@ -417,10 +474,14 @@ def build_extract_tab(app, frame):
             status_filter = ["ALL"]
         else:
             status_filter = []
-            if app.status_open.get(): status_filter.append("Open")
-            if app.status_not_reviewed.get(): status_filter.append("Not_Reviewed")
-            if app.status_na.get(): status_filter.append("Not_Applicable")
-            if app.status_naf.get(): status_filter.append("NotAFinding")
+            if app.status_open.get():
+                status_filter.append("Open")
+            if app.status_not_reviewed.get():
+                status_filter.append("Not_Reviewed")
+            if app.status_na.get():
+                status_filter.append("Not_Applicable")
+            if app.status_naf.get():
+                status_filter.append("NotAFinding")
 
         # Gather selection IDs safely in the main thread
         do_selected_only = app.extract_selected_only.get()
@@ -430,10 +491,12 @@ def build_extract_tab(app, frame):
             if not sel_items:
                 app._show_inline_error(
                     btn_extract,
-                    "Extract Selected Only requires at least one item selected in the preview grid."
+                    "Extract Selected Only requires at least one item selected in the preview grid.",
                 )
                 return
-            sel_ids = [app._extract_preview_tree.item(item, "values")[0] for item in sel_items]
+            sel_ids = [
+                app._extract_preview_tree.item(item, "values")[0] for item in sel_items
+            ]
 
         def work():
             extractor = FixExt(in_xccdf, checklist=in_ckl if in_ckl else None)
@@ -442,8 +505,7 @@ def build_extract_tab(app, frame):
             # Apply severity filter if specified
             if sev_filter:
                 extractor.fixes = [
-                    f for f in extractor.fixes
-                    if f.severity.lower() in sev_filter
+                    f for f in extractor.fixes if f.severity.lower() in sev_filter
                 ]
 
             if do_selected_only:
@@ -473,7 +535,9 @@ def build_extract_tab(app, frame):
                 outpaths.append("Ansible")
             if do_html:
                 try:
-                    from stig_assessor.remediation.html_playbook import generate_html_playbook
+                    from stig_assessor.remediation.html_playbook import \
+                        generate_html_playbook
+
                     generate_html_playbook(extractor, str(outdir / "playbook.html"))
                     outpaths.append("HTML Playbook")
                 except Exception:
@@ -521,7 +585,11 @@ def build_extract_tab(app, frame):
                 for s in ["high", "medium", "low"]:
                     cnt = result["by_sev"].get(s, 0)
                     if cnt > 0:
-                        label = {"high": "CAT I", "medium": "CAT II", "low": "CAT III"}.get(s, s)
+                        label = {
+                            "high": "CAT I",
+                            "medium": "CAT II",
+                            "low": "CAT III",
+                        }.get(s, s)
                         sev_parts.append(f"{label}: {cnt}")
 
                 # Build platform breakdown
@@ -534,25 +602,40 @@ def build_extract_tab(app, frame):
                     f"With check cmd: {with_check}  |  "
                     f"Formats: {fmt_list}"
                 )
-                
+
                 # Update preview tree
                 for row in app._extract_preview_tree.get_children():
                     app._extract_preview_tree.delete(row)
-                    
+
                 app._ext_fixes_cache = {}
                 extracted_fixes = result.get("fixes", [])
                 for f in extracted_fixes[:500]:
-                    has_cmd = "Both" if f.fix_command and f.check_command else "Fix" if f.fix_command else "Check" if f.check_command else "None"
-                    app._extract_preview_tree.insert("", tk.END, values=(f.vid, f.severity, f.platform, has_cmd))
+                    has_cmd = (
+                        "Both"
+                        if f.fix_command and f.check_command
+                        else (
+                            "Fix"
+                            if f.fix_command
+                            else "Check" if f.check_command else "None"
+                        )
+                    )
+                    app._extract_preview_tree.insert(
+                        "", tk.END, values=(f.vid, f.severity, f.platform, has_cmd)
+                    )
                     app._ext_fixes_cache[f.vid] = f
-                
+
                 if total > 500:
-                    app._extract_preview_tree.insert("", tk.END, values=("...", "...", "...", f"+{total-500} more"))
+                    app._extract_preview_tree.insert(
+                        "", tk.END, values=("...", "...", "...", f"+{total-500} more")
+                    )
 
                 app._extract_results_var.set(results_text)
                 app.status_var.set(f"✔ Fix extraction complete.")
 
-                if messagebox.askyesno("Open Directory", "Extraction successful. Would you like to open the output directory now?"):
+                if messagebox.askyesno(
+                    "Open Directory",
+                    "Extraction successful. Would you like to open the output directory now?",
+                ):
                     _open_extract_out()
 
         app.status_var.set("Processing…")
@@ -573,17 +656,23 @@ def build_extract_tab(app, frame):
             status_filter = ["ALL"]
         else:
             status_filter = []
-            if app.status_open.get(): status_filter.append("Open")
-            if app.status_not_reviewed.get(): status_filter.append("Not_Reviewed")
-            if app.status_na.get(): status_filter.append("Not_Applicable")
-            if app.status_naf.get(): status_filter.append("NotAFinding")
+            if app.status_open.get():
+                status_filter.append("Open")
+            if app.status_not_reviewed.get():
+                status_filter.append("Not_Reviewed")
+            if app.status_na.get():
+                status_filter.append("Not_Applicable")
+            if app.status_naf.get():
+                status_filter.append("NotAFinding")
 
         def work():
             extractor = FixExt(in_xccdf, checklist=in_ckl if in_ckl else None)
             extractor.extract(status_filter=status_filter if in_ckl else None)
 
             if sev_filter:
-                extractor.fixes = [f for f in extractor.fixes if f.severity.lower() in sev_filter]
+                extractor.fixes = [
+                    f for f in extractor.fixes if f.severity.lower() in sev_filter
+                ]
 
             # Update preview tree instead of popup
             return extractor.fixes
@@ -595,18 +684,30 @@ def build_extract_tab(app, frame):
                 fixes = result
                 count = len(fixes)
                 app._extract_results_var.set(f"Preview: {count} fixes found")
-                
+
                 for row in app._extract_preview_tree.get_children():
                     app._extract_preview_tree.delete(row)
-                    
+
                 app._ext_fixes_cache = {}
                 for f in fixes[:500]:
-                    has_cmd = "Both" if f.fix_command and f.check_command else "Fix" if f.fix_command else "Check" if f.check_command else "None"
-                    app._extract_preview_tree.insert("", tk.END, values=(f.vid, f.severity, f.platform, has_cmd))
+                    has_cmd = (
+                        "Both"
+                        if f.fix_command and f.check_command
+                        else (
+                            "Fix"
+                            if f.fix_command
+                            else "Check" if f.check_command else "None"
+                        )
+                    )
+                    app._extract_preview_tree.insert(
+                        "", tk.END, values=(f.vid, f.severity, f.platform, has_cmd)
+                    )
                     app._ext_fixes_cache[f.vid] = f
-                    
+
                 if count > 500:
-                    app._extract_preview_tree.insert("", tk.END, values=("...", "...", "...", f"+{count-500} more"))
+                    app._extract_preview_tree.insert(
+                        "", tk.END, values=("...", "...", "...", f"+{count-500} more")
+                    )
 
         app.status_var.set("Previewing…")
         app._async(work, done)

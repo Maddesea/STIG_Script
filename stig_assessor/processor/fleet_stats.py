@@ -69,7 +69,9 @@ class FleetStats:
                 for member in zip_ref.namelist():
                     extracted_path = Path(zip_ref.extract(member, temp_dir)).resolve()
                     if not str(extracted_path).startswith(str(target_temp)):
-                        raise RuntimeError(f"ZipSlip detected: {extracted_path} is outside {target_temp}")
+                        raise RuntimeError(
+                            f"ZipSlip detected: {extracted_path} is outside {target_temp}"
+                        )
             return self.process_directory(temp_dir)
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
@@ -116,7 +118,7 @@ class FleetStats:
             # We process in chunks to manually sweep GC and prevent OOM on legacy VMs
             chunk_size = 50
             for i in range(0, len(valid_files), chunk_size):
-                chunk = valid_files[i: i + chunk_size]
+                chunk = valid_files[i : i + chunk_size]
                 results.extend(list(executor.map(process_single, chunk)))
                 gc.collect()
 

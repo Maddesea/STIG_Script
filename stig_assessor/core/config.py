@@ -89,7 +89,7 @@ class Cfg:
 
             # Find writable home directory
             candidates: List[Path] = []
-            
+
             # Prioritize local portable directory for fully isolated "portable app" behavior
             with suppress(OSError):
                 candidates.append(Path.cwd() / ".stig_home")
