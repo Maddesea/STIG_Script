@@ -32,14 +32,14 @@ def build_analytics_tab(app, frame):
             fleet_ctrl_frame.pack(fill="x", after=header_frame)
             single_ctrl_frame.pack_forget()
 
-    tk.Radiobutton(
+    ttk.Radiobutton(
         header_frame,
         text="Single Checklist",
         variable=app.analytics_mode,
         value="single",
         command=_on_mode_change,
     ).pack(side="left", padx=GUI_PADDING_LARGE)
-    tk.Radiobutton(
+    ttk.Radiobutton(
         header_frame,
         text="Fleet / Enclave",
         variable=app.analytics_mode,

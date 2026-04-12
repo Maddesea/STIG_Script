@@ -37,3 +37,17 @@ ENV/
 .DS_Store
 Thumbs.db
 .venv/
+
+# Lint / analysis output
+pylint_*.log
+pylint_*.txt
+scratch_*.log
+
+# Generated test / demo artefacts
+MYASSET_*.ckl
+MYASSET_*.html
+MYASSET_*.csv
+cisco_test.ckl
+cisco_test.html
+test_extractor_output.json
+dummy_results.json

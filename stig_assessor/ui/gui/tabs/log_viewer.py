@@ -6,13 +6,15 @@ from tkinter import messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
 from stig_assessor.core.config import Cfg
-from stig_assessor.core.constants import (GUI_FONT_MONO, GUI_PADDING,
-                                          GUI_PADDING_LARGE)
+from stig_assessor.core.constants import (GUI_FONT_MONO, GUI_FONT_SMALL,
+                                          GUI_PADDING, GUI_PADDING_LARGE)
 
 
 def build_log_viewer_tab(app, frame):
     frame.columnconfigure(0, weight=1)
     frame.rowconfigure(1, weight=1)
+
+    colors = app._colors
 
     header = ttk.Frame(frame)
     header.grid(row=0, column=0, sticky="ew", pady=(0, GUI_PADDING_LARGE))
@@ -77,26 +79,49 @@ def build_log_viewer_tab(app, frame):
         side="left", padx=2
     )
     ttk.Button(btn_row, text="📋 Copy All", command=_copy_all).pack(side="left", padx=2)
+    def _open_log_folder():
+        import subprocess
+        import sys
+
+        log_dir = str(Cfg.LOG_DIR)
+        if os.name == "nt":
+            os.startfile(log_dir)
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", log_dir])
+        else:
+            subprocess.Popen(["xdg-open", log_dir])
+
     ttk.Button(
         btn_row,
         text="📂 Open Folder",
-        command=lambda: os.startfile(Cfg.LOG_DIR) if os.name == "nt" else None,
+        command=_open_log_folder,
     ).pack(side="left", padx=2)
+
+    # Use themed colors from the palette instead of hardcoded values
+    log_bg = colors.get("entry_bg", "#161B22")
+    log_fg = colors.get("entry_fg", "#E6EDF3")
 
     txt_area = ScrolledText(
         frame,
         font=GUI_FONT_MONO,
         wrap="none",
-        bg="#1e1e1e" if app._current_theme == "dark" else "white",
-        fg="#d4d4d4" if app._current_theme == "dark" else "black",
+        bg=log_bg,
+        fg=log_fg,
+        insertbackground=log_fg,
+        selectbackground=colors.get("select_bg", "#1F3A5F"),
+        selectforeground=colors.get("fg", "#E6EDF3"),
+        borderwidth=1,
+        relief="flat",
+        highlightthickness=1,
+        highlightbackground=colors.get("border", "#30363D"),
     )
     txt_area.grid(row=1, column=0, sticky="nsew")
 
-    # Color tags for log levels
-    txt_area.tag_configure("ERROR", foreground="#f85149")
-    txt_area.tag_configure("WARNING", foreground="#d29922")
-    txt_area.tag_configure("INFO", foreground="#58a6ff")
-    txt_area.tag_configure("DEBUG", foreground="#8b949e")
+    # Color tags for log levels — use palette colors
+    txt_area.tag_configure("ERROR", foreground=colors.get("error", "#F85149"))
+    txt_area.tag_configure("WARNING", foreground=colors.get("warn", "#D29922"))
+    txt_area.tag_configure("INFO", foreground=colors.get("info", "#58A6FF"))
+    txt_area.tag_configure("DEBUG", foreground=colors.get("muted", "#8B949E"))
 
     # Initial load
     _refresh_logs()

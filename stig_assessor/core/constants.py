@@ -108,14 +108,15 @@ GUI_TEXT_HEIGHT = 25
 GUI_WRAP_LENGTH = 1000
 
 # Layout spacing
-GUI_PADDING = 24
-GUI_PADDING_LARGE = 48
-GUI_PADDING_SECTION = 72
+GUI_PADDING = 10
+GUI_PADDING_LARGE = 16
+GUI_PADDING_SECTION = 28
 
 # Font settings
-GUI_FONT_MONO = ("Cascadia Code", 11)
-GUI_FONT_NORMAL = ("Segoe UI", 12)
-GUI_FONT_HEADING = ("Segoe UI", 16, "bold")
+GUI_FONT_MONO = ("Cascadia Code", 10)
+GUI_FONT_NORMAL = ("Segoe UI", 10)
+GUI_FONT_HEADING = ("Segoe UI", 12, "bold")
+GUI_FONT_SMALL = ("Segoe UI", 9)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

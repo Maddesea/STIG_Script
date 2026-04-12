@@ -22,7 +22,8 @@ from stig_assessor.core.constants import (APP_NAME, BUILD_DATE,
                                           GUI_ENTRY_WIDTH_MEDIUM,
                                           GUI_ENTRY_WIDTH_SMALL,
                                           GUI_FONT_HEADING, GUI_FONT_MONO,
-                                          GUI_FONT_NORMAL, GUI_LISTBOX_HEIGHT,
+                                          GUI_FONT_NORMAL, GUI_FONT_SMALL,
+                                          GUI_LISTBOX_HEIGHT,
                                           GUI_LISTBOX_WIDTH, GUI_PADDING,
                                           GUI_PADDING_LARGE,
                                           GUI_PADDING_SECTION, GUI_TEXT_HEIGHT,
@@ -71,44 +72,50 @@ VULN_ID_PATTERN = re.compile(r"^V-\d+$")
 
 # ── Theme color palettes (#1/#2) ─────────────────────────────────────────────
 _LIGHT_COLORS: Dict[str, str] = {
-    "bg": "#FAFAFA",
-    "fg": "#161616",
-    "accent": "#0F62FE",
-    "accent_hover": "#0043CE",
+    "bg": "#F8F9FC",
+    "fg": "#1B1F2A",
+    "accent": "#2563EB",
+    "accent_hover": "#1D4ED8",
     "accent_fg": "#FFFFFF",
     "entry_bg": "#FFFFFF",
-    "entry_fg": "#161616",
-    "frame_bg": "#FFFFFF",
-    "select_bg": "#E5F0FF",
-    "status_bg": "#E8E8E8",
-    "tooltip_bg": "#161616",
-    "tooltip_fg": "#F4F4F4",
-    "error": "#DA1E28",
-    "warn": "#F1C21B",
-    "ok": "#198038",
-    "info": "#0043CE",
+    "entry_fg": "#1B1F2A",
+    "frame_bg": "#F0F2F8",
+    "card_bg": "#FFFFFF",
+    "select_bg": "#DBEAFE",
+    "status_bg": "#E8ECF4",
+    "border": "#D1D5DB",
+    "muted": "#6B7280",
+    "tooltip_bg": "#1F2937",
+    "tooltip_fg": "#F9FAFB",
+    "error": "#DC2626",
+    "warn": "#D97706",
+    "ok": "#059669",
+    "info": "#2563EB",
     "treeview_bg": "#FFFFFF",
-    "treeview_fg": "#161616",
+    "treeview_fg": "#1B1F2A",
 }
 _DARK_COLORS: Dict[str, str] = {
-    "bg": "#0B0F19",
-    "fg": "#F8FAFC",
-    "accent": "#1AB5E6",
-    "accent_hover": "#32C5F4",
-    "accent_fg": "#0B0F19",
-    "entry_bg": "#04060B",
-    "entry_fg": "#F8FAFC",
-    "frame_bg": "#151C2C",
-    "select_bg": "#214263",
-    "status_bg": "#151C2C",
-    "tooltip_bg": "#1AB5E6",
-    "tooltip_fg": "#0B0F19",
-    "error": "#FA4D56",
-    "warn": "#F1C21B",
-    "ok": "#24A148",
-    "info": "#4589FF",
-    "treeview_bg": "#04060B",
-    "treeview_fg": "#E2E8F0",
+    "bg": "#0D1117",
+    "fg": "#E6EDF3",
+    "accent": "#58A6FF",
+    "accent_hover": "#79C0FF",
+    "accent_fg": "#0D1117",
+    "entry_bg": "#161B22",
+    "entry_fg": "#E6EDF3",
+    "frame_bg": "#161B22",
+    "card_bg": "#1C2333",
+    "select_bg": "#1F3A5F",
+    "status_bg": "#161B22",
+    "border": "#30363D",
+    "muted": "#8B949E",
+    "tooltip_bg": "#58A6FF",
+    "tooltip_fg": "#0D1117",
+    "error": "#F85149",
+    "warn": "#D29922",
+    "ok": "#3FB950",
+    "info": "#58A6FF",
+    "treeview_bg": "#161B22",
+    "treeview_fg": "#E6EDF3",
 }
 
 # Try to detect premium theme library
@@ -150,91 +157,7 @@ if Deps.HAS_TKINTER:
     from tkinter import filedialog, messagebox, simpledialog, ttk
     from tkinter.scrolledtext import ScrolledText
 
-    class ToolTip:
-        """Lightweight tooltip for tkinter widgets (zero external dependencies)."""
-
-        def __init__(self, widget: tk.Widget, text: str, delay: int = 600):
-            self.widget = widget
-            self.text = text
-            self.delay = delay
-            self._tip: tk.Toplevel | None = None
-            self._after_id: str | None = None
-            widget.bind("<Enter>", self._schedule)
-            widget.bind("<Leave>", self._cancel)
-            # Fetch root app via widget master chain to check theme colors
-            self._app = None
-            root = widget.winfo_toplevel()
-            if hasattr(root, "children"):
-                for child in root.winfo_children():
-                    if hasattr(child, "_colors"):
-                        self._app = child
-                        break
-
-        def _schedule(self, event=None):
-            self._cancel()
-            self._after_id = self.widget.after(self.delay, self._show)
-
-        def _cancel(self, event=None):
-            if self._after_id:
-                self.widget.after_cancel(self._after_id)
-                self._after_id = None
-            self._hide()
-
-        def _show(self):
-            x = self.widget.winfo_rootx() + 20
-            y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
-            self._tip = tw = tk.Toplevel(self.widget)
-            tw.wm_overrideredirect(True)
-            tw.wm_geometry(f"+{x}+{y}")
-
-            # Start transparent for fade-in animation
-            if sys.platform == "win32" or sys.platform == "darwin":
-                tw.attributes("-alpha", 0.0)
-
-            # Adopt proper theme colors
-            bg_color = "#f8fafc"
-            fg_color = "#0f172a"
-            border_color = "#cbd5e1"
-            if self._app and getattr(self._app, "_current_theme", "light") == "dark":
-                bg_color = "#1f3a5f"
-                fg_color = "#f0f6fc"
-                border_color = "#3b82f6"
-
-            label = tk.Label(
-                tw,
-                text=self.text,
-                justify="left",
-                background=bg_color,
-                foreground=fg_color,
-                relief="flat",
-                borderwidth=1,
-                highlightbackground=border_color,
-                highlightthickness=1,
-                font=("TkDefaultFont", 9),
-                wraplength=350,
-                padx=10,
-                pady=8,
-            )
-            label.pack()
-
-            # Fade-in animation
-            if sys.platform == "win32" or sys.platform == "darwin":
-                self._fade_in(tw, 0.0)
-
-        def _fade_in(self, window: tk.Toplevel, alpha: float):
-            if not window.winfo_exists():
-                return
-            alpha += 0.15
-            if alpha >= 1.0:
-                window.attributes("-alpha", 1.0)
-            else:
-                window.attributes("-alpha", alpha)
-                window.after(20, self._fade_in, window, alpha)
-
-        def _hide(self):
-            if self._tip:
-                self._tip.destroy()
-                self._tip = None
+    # ToolTip is defined in stig_assessor.ui.helpers — no duplicate here.
 
     class GUI:
         """Graphical interface."""
@@ -264,7 +187,7 @@ if Deps.HAS_TKINTER:
 
             self._logo_img: Optional[tk.PhotoImage] = None
 
-            self._apply_theme(self._settings.get("theme", "light"))
+            self._apply_theme(self._settings.get("theme", "dark"))
 
             # Header frame for logo/graphics
             self._header_frame = ttk.Frame(self.root)
@@ -368,7 +291,7 @@ if Deps.HAS_TKINTER:
                 self._logo_img = None
 
         # ── #1/#2 Theming engine ─────────────────────────────────────────────
-        def _apply_theme(self, mode: str = "light") -> None:
+        def _apply_theme(self, mode: str = "dark") -> None:
             """Apply light or dark theme. Uses sv_ttk if available, else custom clam."""
             self._current_theme = mode
             colors = _DARK_COLORS if mode == "dark" else _LIGHT_COLORS
@@ -380,19 +303,27 @@ if Deps.HAS_TKINTER:
                 style = ttk.Style()
                 with suppress(tk.TclError):
                     style.theme_use("clam")
+
+                # ── Base styles ──
                 style.configure(
                     ".",
                     background=colors["bg"],
                     foreground=colors["fg"],
                     fieldbackground=colors["entry_bg"],
                     borderwidth=0,
+                    focuscolor=colors["accent"],
                 )
                 style.configure("TFrame", background=colors["bg"])
-                style.configure("TLabelframe", background=colors["bg"], borderwidth=0)
+                style.configure(
+                    "TLabelframe",
+                    background=colors["bg"],
+                    borderwidth=1,
+                    relief="flat",
+                )
                 style.configure(
                     "TLabelframe.Label",
                     background=colors["bg"],
-                    foreground=colors["fg"],
+                    foreground=colors["accent"],
                     font=GUI_FONT_HEADING,
                 )
                 style.configure(
@@ -401,9 +332,47 @@ if Deps.HAS_TKINTER:
                     foreground=colors["fg"],
                     font=GUI_FONT_NORMAL,
                 )
-                style.configure("TNotebook", background=colors["bg"], borderwidth=0)
+
+                # ── Card frame (elevated surface) ──
                 style.configure(
-                    "TNotebook.Tab", padding=[24, 12], font=GUI_FONT_HEADING, borderwidth=0
+                    "Card.TFrame",
+                    background=colors["card_bg"],
+                    relief="flat",
+                    borderwidth=0,
+                )
+                style.configure(
+                    "Card.TLabel",
+                    background=colors["card_bg"],
+                    foreground=colors["fg"],
+                    font=GUI_FONT_NORMAL,
+                )
+
+                # ── Muted label ──
+                style.configure(
+                    "Muted.TLabel",
+                    background=colors["bg"],
+                    foreground=colors["muted"],
+                    font=GUI_FONT_SMALL,
+                )
+
+                # ── Separator ──
+                style.configure(
+                    "TSeparator",
+                    background=colors.get("border", "#30363D"),
+                )
+
+                # ── Notebook (tab bar) ──
+                style.configure(
+                    "TNotebook",
+                    background=colors["bg"],
+                    borderwidth=0,
+                    tabmargins=[0, 0, 0, 0],
+                )
+                style.configure(
+                    "TNotebook.Tab",
+                    padding=[12, 6],
+                    font=GUI_FONT_NORMAL,
+                    borderwidth=0,
                 )
                 style.map(
                     "TNotebook.Tab",
@@ -413,23 +382,33 @@ if Deps.HAS_TKINTER:
                     ],
                     foreground=[
                         ("selected", colors["accent_fg"]),
-                        ("!selected", colors["fg"]),
+                        ("!selected", colors.get("muted", colors["fg"])),
                     ],
                 )
+
+                # ── Entry / Combobox ──
                 style.configure(
                     "TEntry",
                     fieldbackground=colors["entry_bg"],
                     foreground=colors["entry_fg"],
-                    padding=[8, 8],
+                    padding=[6, 4],
                     borderwidth=1,
+                    insertcolor=colors["fg"],
                 )
                 style.configure(
                     "TCombobox",
                     fieldbackground=colors["entry_bg"],
                     foreground=colors["entry_fg"],
-                    padding=[8, 8],
+                    padding=[6, 4],
                 )
-                style.configure("TButton", padding=[16, 10], font=GUI_FONT_NORMAL, borderwidth=0)
+
+                # ── Buttons ──
+                style.configure(
+                    "TButton",
+                    padding=[10, 5],
+                    font=GUI_FONT_NORMAL,
+                    borderwidth=1,
+                )
                 style.map(
                     "TButton",
                     background=[
@@ -438,26 +417,85 @@ if Deps.HAS_TKINTER:
                     ],
                     foreground=[("!disabled", colors["fg"])],
                 )
+
+                # ── Treeview ──
                 style.configure(
                     "Treeview",
                     background=colors["treeview_bg"],
                     foreground=colors["treeview_fg"],
                     fieldbackground=colors["treeview_bg"],
-                    rowheight=36,
+                    rowheight=26,
                     font=GUI_FONT_NORMAL,
                     borderwidth=0,
                 )
-                style.configure("Treeview.Heading", font=GUI_FONT_HEADING, padding=[10, 10])
+                style.configure(
+                    "Treeview.Heading",
+                    font=(GUI_FONT_NORMAL[0], GUI_FONT_NORMAL[1], "bold"),
+                    padding=[6, 5],
+                    background=colors["frame_bg"],
+                    foreground=colors["fg"],
+                )
                 style.map(
                     "Treeview",
                     background=[("selected", colors["select_bg"])],
                     foreground=[("selected", colors["fg"])],
                 )
 
+                # ── LabelFrame ──
+                style.configure(
+                    "TLabelframe",
+                    background=colors["bg"],
+                    borderwidth=1,
+                    relief="groove",
+                )
+                style.configure(
+                    "TLabelframe.Label",
+                    background=colors["bg"],
+                    foreground=colors["accent"],
+                    font=(GUI_FONT_NORMAL[0], GUI_FONT_NORMAL[1], "bold"),
+                )
+
+                # ── Separator ──
+                style.configure(
+                    "TSeparator",
+                    background=colors["border"],
+                )
+
+                # ── Progressbar ──
+                style.configure(
+                    "TProgressbar",
+                    background=colors["accent"],
+                    troughcolor=colors["frame_bg"],
+                    thickness=6,
+                )
+
+                # ── Scrollbar ──
+                style.configure(
+                    "TScrollbar",
+                    background=colors["frame_bg"],
+                    troughcolor=colors["bg"],
+                    borderwidth=0,
+                )
+
+                # ── Checkbutton / Radiobutton ──
+                style.configure(
+                    "TCheckbutton",
+                    background=colors["bg"],
+                    foreground=colors["fg"],
+                )
+                style.configure(
+                    "TRadiobutton",
+                    background=colors["bg"],
+                    foreground=colors["fg"],
+                )
+
             # Accent button style (#3)
             style = ttk.Style()
             style.configure(
-                "Accent.TButton", font=GUI_FONT_HEADING, padding=[20, 12], borderwidth=0
+                "Accent.TButton",
+                font=GUI_FONT_HEADING,
+                padding=[18, 10],
+                borderwidth=0,
             )
             with suppress(tk.TclError):
                 style.map(
@@ -467,6 +505,20 @@ if Deps.HAS_TKINTER:
                         ("!disabled", colors["accent"]),
                     ],
                     foreground=[("!disabled", colors["accent_fg"])],
+                )
+
+            # Text.TButton — borderless link-style button
+            style.configure(
+                "Text.TButton",
+                font=GUI_FONT_SMALL,
+                padding=[4, 2],
+                borderwidth=0,
+                relief="flat",
+            )
+            with suppress(tk.TclError):
+                style.map(
+                    "Text.TButton",
+                    foreground=[("!disabled", colors["accent"])],
                 )
 
             # Apply bg to root
@@ -480,6 +532,10 @@ if Deps.HAS_TKINTER:
             self._settings["theme"] = new
             _save_settings(self._settings)
             self.status_var.set(f"Theme switched to {new} mode")
+
+        def _save_settings(self) -> None:
+            """Convenience method for tab modules to persist settings."""
+            _save_settings(self._settings)
 
         # --------------------------------------------------------------- UI setup
         def _build_menus(self) -> None:
@@ -695,24 +751,41 @@ if Deps.HAS_TKINTER:
 
         def _create_status_bar(self) -> None:
             """Create global status bar with progress indicator at the bottom."""
+            colors = self._colors
             status_frame = ttk.Frame(self.root)
             status_frame.pack(side=tk.BOTTOM, fill=tk.X)
 
-            self.progress_bar = ttk.Progressbar(
-                status_frame, mode="indeterminate", length=120
+            # Thin separator above status bar
+            ttk.Separator(status_frame, orient="horizontal").pack(
+                side=tk.TOP, fill=tk.X
             )
-            self.progress_bar.pack(side=tk.RIGHT, padx=(0, 5), pady=2)
+
+            inner = ttk.Frame(status_frame)
+            inner.pack(fill=tk.X, padx=8, pady=4)
 
             self.status_var = tk.StringVar()
             self.status_bar = ttk.Label(
-                status_frame,
+                inner,
                 textvariable=self.status_var,
-                relief=tk.SUNKEN,
                 anchor=tk.W,
-                padding=(5, 2),
+                font=GUI_FONT_SMALL,
+                padding=(4, 2),
             )
             self.status_bar.pack(side=tk.LEFT, fill=tk.X, expand=True)
             self.status_var.set("Ready")
+
+            self.progress_bar = ttk.Progressbar(
+                inner, mode="indeterminate", length=100
+            )
+            self.progress_bar.pack(side=tk.RIGHT, padx=(8, 4))
+
+            # Version badge
+            ttk.Label(
+                inner,
+                text=f"v{VERSION}",
+                font=GUI_FONT_SMALL,
+                foreground=colors.get("muted", "#8B949E"),
+            ).pack(side=tk.RIGHT, padx=(4, 0))
 
         def _async(
             self, func: Callable[[], Any], callback: Callable[[Any], None]
@@ -1552,6 +1625,54 @@ Presets & Settings:
                 tree.bind("<Button-2>", show_menu)
                 tree.bind("<Control-Button-1>", show_menu)
 
+        # ────────────────────────────────────────────────────────────────
+        # Column sorting for TreeView widgets
+        # ────────────────────────────────────────────────────────────────
+        def _sort_tree(self, col: str, tree: "ttk.Treeview | None" = None, reverse: bool = False) -> None:
+            """Sort a treeview by the given column header.
+
+            Called from column-header command callbacks in tabs (e.g. Validate).
+            If *tree* is None the validate_tree is used as default.
+            """
+            if tree is None:
+                tree = getattr(self, "validate_tree", None)
+            if tree is None:
+                return
+
+            data = [
+                (tree.set(child, col), child) for child in tree.get_children("")
+            ]
+            try:
+                # Attempt numeric sort first
+                data.sort(key=lambda t: float(t[0]), reverse=reverse)
+            except (ValueError, TypeError):
+                data.sort(key=lambda t: str(t[0]).lower(), reverse=reverse)
+
+            for idx, (_, child) in enumerate(data):
+                tree.move(child, "", idx)
+
+            # Toggle direction on next click
+            tree.heading(col, command=lambda: self._sort_tree(col, tree, not reverse))
+
+        # ────────────────────────────────────────────────────────────────
+        # UI state helpers (used by batch tab, extract tab, etc.)
+        # ────────────────────────────────────────────────────────────────
+        def _disable_ui(self) -> None:
+            """Disable all action buttons during long-running operations."""
+            for btn in self._action_buttons:
+                if btn.winfo_exists():
+                    btn.state(["disabled"])
+
+        def _enable_ui(self) -> None:
+            """Re-enable all action buttons after an operation completes."""
+            for btn in self._action_buttons:
+                if btn.winfo_exists():
+                    btn.state(["!disabled"])
+
+        def _save_settings(self) -> None:
+            """Instance-method wrapper so tabs can call ``app._save_settings()``."""
+            _save_settings(self._settings)
+
         def _setup_global_shortcuts(self):
             """Setup app-wide hotkeys."""
             # Tab jumping
@@ -1569,3 +1690,4 @@ Presets & Settings:
 
             self.root.bind("<Control-f>", _focus_search)
             self.root.bind("<Control-F>", _focus_search)
+
