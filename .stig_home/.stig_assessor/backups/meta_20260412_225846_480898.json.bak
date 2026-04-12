@@ -2,12 +2,12 @@
   "V-123456": [
     {
       "vid": "V-123456",
-      "filename": "20260412_224930_test1.txt",
-      "imported": "2026-04-12T22:49:30.497078+00:00",
+      "filename": "20260412_225846_test1.txt",
+      "imported": "2026-04-12T22:58:46.470955+00:00",
       "hash": "166cb94a04ebaef4ae79c2a0674d8cea1b7fc354eb2ea436b28c3531de10449c",
       "size": 14,
-      "description": "Test",
-      "category": "general",
+      "description": "",
+      "category": "config",
       "who": "Madden"
     }
   ]

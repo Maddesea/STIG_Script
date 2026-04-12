@@ -1669,10 +1669,6 @@ Presets & Settings:
                 if btn.winfo_exists():
                     btn.state(["!disabled"])
 
-        def _save_settings(self) -> None:
-            """Instance-method wrapper so tabs can call ``app._save_settings()``."""
-            _save_settings(self._settings)
-
         def _setup_global_shortcuts(self):
             """Setup app-wide hotkeys."""
             # Tab jumping

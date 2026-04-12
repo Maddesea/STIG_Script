@@ -186,3 +186,7 @@
 [2026-04-12 17:56:50] [WARNING ] Warning message
 [2026-04-12 17:56:50] [ERROR   ] Error message
 [2026-04-12 17:56:50] [CRITICAL] Critical message
+[2026-04-12 17:58:46] [INFO    ] Info message
+[2026-04-12 17:58:46] [WARNING ] Warning message
+[2026-04-12 17:58:46] [ERROR   ] Error message
+[2026-04-12 17:58:46] [CRITICAL] Critical message
