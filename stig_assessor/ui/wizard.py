@@ -10,7 +10,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Tuple
 
 from stig_assessor.core.config import Cfg
 from stig_assessor.core.constants import APP_NAME, VERSION
@@ -260,7 +260,7 @@ class InteractiveWizard:
             self._success(f"Playbooks generated in {out_dir}")
             print(
                 _c(
-                    f"  Note: Evidence logs will be mapped to 'evidence/' directory when scripts run.",
+                    "  Note: Evidence logs will be mapped to 'evidence/' directory when scripts run.",
                     "dim",
                 )
             )
@@ -666,7 +666,7 @@ class InteractiveWizard:
                 generate_html_report
 
             generate_html_report(out2, html_out)
-            self._success(f"Report generated successfully.")
+            self._success("Report generated successfully.")
         except (ParseError, ValidationError, FileError, OSError, ValueError) as e:
             self._error(f"Failed Phase 3: {e}")
             self._pause()

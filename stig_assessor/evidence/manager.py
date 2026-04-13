@@ -385,9 +385,11 @@ class EvidenceMgr:
                     3,
                     12,
                 ):
+                    # pylint: disable=unexpected-keyword-arg
                     shutil.unpack_archive(
                         package, extract_dir=tmp_path, filter="data"
-                    )  # pylint: disable=unexpected-keyword-arg
+                    )
+                    # pylint: enable=unexpected-keyword-arg
                 else:
                     with zipfile.ZipFile(package, "r") as archive:
                         for member in archive.namelist():

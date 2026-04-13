@@ -2,7 +2,6 @@
 
 import html
 import os
-from typing import Any, Dict
 
 from stig_assessor.processor.processor import Proc
 

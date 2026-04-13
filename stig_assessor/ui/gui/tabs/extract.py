@@ -548,7 +548,6 @@ def build_extract_tab(app, frame):
                 outpaths.append("Evidence")
 
             # Build detailed stats
-            stats = extractor.stats_summary()
             with_cmd = sum(1 for f in extractor.fixes if f.fix_command)
             with_check = sum(1 for f in extractor.fixes if f.check_command)
             by_sev = {}
@@ -558,7 +557,6 @@ def build_extract_tab(app, frame):
                 by_plat[f.platform] = by_plat.get(f.platform, 0) + 1
 
             return {
-                "stats": stats,
                 "formats": outpaths,
                 "with_cmd": with_cmd,
                 "with_check": with_check,
@@ -574,26 +572,10 @@ def build_extract_tab(app, frame):
                 app._extract_results_var.set(f"Error: {result}")
                 messagebox.showerror("Extraction Failed", str(result))
             else:
-                stats = result["stats"]
                 fmt_list = ", ".join(result["formats"])
                 total = result["total_fixes"]
                 with_cmd = result["with_cmd"]
                 with_check = result["with_check"]
-
-                # Build severity breakdown
-                sev_parts = []
-                for s in ["high", "medium", "low"]:
-                    cnt = result["by_sev"].get(s, 0)
-                    if cnt > 0:
-                        label = {
-                            "high": "CAT I",
-                            "medium": "CAT II",
-                            "low": "CAT III",
-                        }.get(s, s)
-                        sev_parts.append(f"{label}: {cnt}")
-
-                # Build platform breakdown
-                plat_parts = [f"{p}: {c}" for p, c in result["by_plat"].items()]
 
                 results_text = (
                     f"✔ Extraction complete  |  "
@@ -630,7 +612,7 @@ def build_extract_tab(app, frame):
                     )
 
                 app._extract_results_var.set(results_text)
-                app.status_var.set(f"✔ Fix extraction complete.")
+                app.status_var.set("✔ Fix extraction complete.")
 
                 if messagebox.askyesno(
                     "Open Directory",

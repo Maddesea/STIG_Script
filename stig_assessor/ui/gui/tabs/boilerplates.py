@@ -1,15 +1,8 @@
 """Boilerplates Tab module."""
 
 import tkinter as tk
-from datetime import datetime
-from pathlib import Path
-from tkinter import filedialog, messagebox, simpledialog, ttk
-from tkinter.scrolledtext import ScrolledText
-
 from stig_assessor.core.constants import (GUI_FONT_MONO, GUI_PADDING,
                                           GUI_PADDING_LARGE, Status)
-from stig_assessor.io.file_ops import FO
-from stig_assessor.processor.html_report import _parse_checklist
 from stig_assessor.ui.helpers import ToolTip
 
 

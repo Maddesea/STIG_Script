@@ -10,7 +10,7 @@ from stig_assessor.core.constants import (GUI_BUTTON_WIDTH_WIDE,
                                           GUI_PADDING_LARGE,
                                           GUI_PADDING_SECTION, Status)
 from stig_assessor.processor.fleet_stats import FleetStats
-from stig_assessor.ui.helpers import PremiumChart, ToolTip
+from stig_assessor.ui.helpers import PremiumChart
 
 
 def build_analytics_tab(app, frame):
@@ -128,7 +128,7 @@ def build_analytics_tab(app, frame):
 
                 # Generate a meaningful text summary for the fleet
                 summary = [
-                    f"=== FLEET ANALYTICS REPORT ===",
+                    "=== FLEET ANALYTICS REPORT ===",
                     f"Source: {source}",
                     f"Total Assets: {res.get('total_assets', 0)}",
                     f"Total Rules: {res.get('total_vulns', 0)}",

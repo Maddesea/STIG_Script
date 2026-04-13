@@ -16,26 +16,15 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from stig_assessor.core.config import Cfg
 from stig_assessor.core.constants import (APP_NAME, BUILD_DATE,
-                                          GUI_BUTTON_WIDTH,
-                                          GUI_BUTTON_WIDTH_WIDE,
-                                          GUI_ENTRY_WIDTH,
-                                          GUI_ENTRY_WIDTH_MEDIUM,
-                                          GUI_ENTRY_WIDTH_SMALL,
                                           GUI_FONT_HEADING, GUI_FONT_MONO,
                                           GUI_FONT_NORMAL, GUI_FONT_SMALL,
-                                          GUI_LISTBOX_HEIGHT,
-                                          GUI_LISTBOX_WIDTH, GUI_PADDING,
+                                          GUI_PADDING,
                                           GUI_PADDING_LARGE,
-                                          GUI_PADDING_SECTION, GUI_TEXT_HEIGHT,
-                                          GUI_TEXT_WIDTH, GUI_WRAP_LENGTH,
-                                          STIG_VIEWER_VERSION, VERSION, Status)
+                                          STIG_VIEWER_VERSION, VERSION)
 from stig_assessor.core.deps import Deps
 from stig_assessor.core.logging import LOG
 from stig_assessor.evidence.manager import EvidenceMgr
-from stig_assessor.exceptions import ValidationError
 from stig_assessor.processor.processor import Proc
-from stig_assessor.remediation.extractor import FixExt
-from stig_assessor.remediation.processor import FixResPro
 from stig_assessor.ui.gui.tabs.analytics import build_analytics_tab
 from stig_assessor.ui.gui.tabs.batch import build_batch_tab
 from stig_assessor.ui.gui.tabs.boilerplates import build_boilerplates_tab
@@ -51,10 +40,7 @@ from stig_assessor.ui.gui.tabs.merge import build_merge_tab
 from stig_assessor.ui.gui.tabs.repair import build_repair_tab
 from stig_assessor.ui.gui.tabs.results import build_results_tab
 from stig_assessor.ui.gui.tabs.validate import build_validate_tab
-from stig_assessor.ui.helpers import Debouncer
 from stig_assessor.ui.presets import PresetMgr
-from stig_assessor.xml.sanitizer import San
-from stig_assessor.xml.schema import Sch
 
 # ──────────────────────────────────────────────────────────────────────────────
 # GUI CONSTANTS
@@ -72,50 +58,50 @@ VULN_ID_PATTERN = re.compile(r"^V-\d+$")
 
 # ── Theme color palettes (#1/#2) ─────────────────────────────────────────────
 _LIGHT_COLORS: Dict[str, str] = {
-    "bg": "#F8F9FC",
-    "fg": "#1B1F2A",
-    "accent": "#2563EB",
-    "accent_hover": "#1D4ED8",
-    "accent_fg": "#FFFFFF",
-    "entry_bg": "#FFFFFF",
-    "entry_fg": "#1B1F2A",
-    "frame_bg": "#F0F2F8",
-    "card_bg": "#FFFFFF",
-    "select_bg": "#DBEAFE",
-    "status_bg": "#E8ECF4",
-    "border": "#D1D5DB",
-    "muted": "#6B7280",
-    "tooltip_bg": "#1F2937",
-    "tooltip_fg": "#F9FAFB",
-    "error": "#DC2626",
-    "warn": "#D97706",
-    "ok": "#059669",
-    "info": "#2563EB",
-    "treeview_bg": "#FFFFFF",
-    "treeview_fg": "#1B1F2A",
+    "bg": "#f9fafb",         # Soft crisp background
+    "fg": "#1f2937",         # Deep gray text
+    "accent": "#9ca3af",     # Heather gray accent
+    "accent_hover": "#6b7280", # Darker gray on hover
+    "accent_fg": "#ffffff",
+    "entry_bg": "#f3f4f6",
+    "entry_fg": "#1f2937",
+    "frame_bg": "#ffffff",   # Crisp white inner frame
+    "card_bg": "#ffffff",
+    "select_bg": "#e5e7eb",
+    "status_bg": "#f9fafb",
+    "border": "#d1d5db",
+    "muted": "#6b7280",
+    "tooltip_bg": "#374151",
+    "tooltip_fg": "#f9fafb",
+    "error": "#dc2626",      # Standard red
+    "warn": "#d97706",       # Standard amber
+    "ok": "#059669",         # Standard green
+    "info": "#9ca3af",       # Gray/Neutral
+    "treeview_bg": "#ffffff",
+    "treeview_fg": "#1f2937",
 }
 _DARK_COLORS: Dict[str, str] = {
-    "bg": "#0D1117",
-    "fg": "#E6EDF3",
-    "accent": "#58A6FF",
-    "accent_hover": "#79C0FF",
-    "accent_fg": "#0D1117",
-    "entry_bg": "#161B22",
-    "entry_fg": "#E6EDF3",
-    "frame_bg": "#161B22",
-    "card_bg": "#1C2333",
-    "select_bg": "#1F3A5F",
-    "status_bg": "#161B22",
-    "border": "#30363D",
-    "muted": "#8B949E",
-    "tooltip_bg": "#58A6FF",
-    "tooltip_fg": "#0D1117",
-    "error": "#F85149",
-    "warn": "#D29922",
-    "ok": "#3FB950",
-    "info": "#58A6FF",
-    "treeview_bg": "#161B22",
-    "treeview_fg": "#E6EDF3",
+    "bg": "#1f2937",         # Dark slate/gray background
+    "fg": "#f3f4f6",         # Crisp light gray text
+    "accent": "#9ca3af",     # Heather gray accent
+    "accent_hover": "#d1d5db", # Lighter gray hover
+    "accent_fg": "#111827",  # Deep dark text on accent
+    "entry_bg": "#374151",   # Elevated input surface
+    "entry_fg": "#f9fafb",
+    "frame_bg": "#374151",   # Elevated panel 
+    "card_bg": "#374151",
+    "select_bg": "#4b5563",  
+    "status_bg": "#1f2937",
+    "border": "#4b5563",
+    "muted": "#9ca3af",
+    "tooltip_bg": "#111827",
+    "tooltip_fg": "#f9fafb",
+    "error": "#ef4444",      
+    "warn": "#f59e0b",       
+    "ok": "#10b981",         
+    "info": "#9ca3af",
+    "treeview_bg": "#1f2937",
+    "treeview_fg": "#f3f4f6",
 }
 
 # Try to detect premium theme library
@@ -192,8 +178,20 @@ if Deps.HAS_TKINTER:
             # Header frame for logo/graphics
             self._header_frame = ttk.Frame(self.root)
             self._header_frame.pack(fill="x", padx=10, pady=(10, 0))
+            self._header_frame.columnconfigure(0, weight=1)
+            self._header_frame.columnconfigure(1, weight=0)
+            self._header_frame.columnconfigure(2, weight=1)
+            
             self._header_label = ttk.Label(self._header_frame)
-            self._header_label.pack(anchor="center")
+            self._header_label.grid(row=0, column=1)
+            
+            self._theme_btn = ttk.Button(
+                self._header_frame, 
+                text="🌓 Toggle Theme", 
+                command=self._toggle_theme,
+                style="Text.TButton"
+            )
+            self._theme_btn.grid(row=0, column=2, sticky="e")
 
             self._load_logo()
 
@@ -441,19 +439,7 @@ if Deps.HAS_TKINTER:
                     foreground=[("selected", colors["fg"])],
                 )
 
-                # ── LabelFrame ──
-                style.configure(
-                    "TLabelframe",
-                    background=colors["bg"],
-                    borderwidth=1,
-                    relief="groove",
-                )
-                style.configure(
-                    "TLabelframe.Label",
-                    background=colors["bg"],
-                    foreground=colors["accent"],
-                    font=(GUI_FONT_NORMAL[0], GUI_FONT_NORMAL[1], "bold"),
-                )
+                # (Removed duplicated TLabelframe configuration)
 
                 # ── Separator ──
                 style.configure(

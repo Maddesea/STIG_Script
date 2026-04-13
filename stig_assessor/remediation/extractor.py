@@ -1386,7 +1386,6 @@ function Run-Check {
         lines = [header]
 
         for fix in fixes:
-            cmd_escaped = fix.check_command.replace('"', '`"').replace("$", "`$")
             lines.append(
                 f'Run-Check -vid "{fix.vid}" -title "{fix.title[:60]}" -cmd @\'\n{fix.check_command}\n\'@'
             )
@@ -1436,15 +1435,14 @@ function Run-Check {
         Returns:
             Path to the generated file.
         """
-        path = Path(path)
         lines = [
-            f"# STIG Remediation Runbook",
-            f"",
+            "# STIG Remediation Runbook",
+            "",
             f"**Source:** `{self.xccdf.name}`  ",
             f"**Generated:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}  ",
             f"**Total Fixes:** {len(self.fixes)}  ",
             f"**Actionable Commands:** {self.stats['with_command']}  ",
-            f"",
+            "",
             "---",
             "",
         ]
@@ -1482,20 +1480,20 @@ function Run-Check {
 
                     if fix.fix_command:
                         lines.append("**Fix Command:**")
-                        lines.append(f"```")
+                        lines.append("```")
                         lines.append(fix.fix_command)
-                        lines.append(f"```")
+                        lines.append("```")
                         lines.append("")
 
                     if fix.check_command:
                         lines.append("**Check Command:**")
-                        lines.append(f"```")
+                        lines.append("```")
                         lines.append(fix.check_command)
-                        lines.append(f"```")
+                        lines.append("```")
                         lines.append("")
 
                     if not fix.fix_command and not fix.check_command:
-                        lines.append(f"**Manual Review Required**")
+                        lines.append("**Manual Review Required**")
                         lines.append("")
                         if fix.fix_text:
                             lines.append(f"> {fix.fix_text[:300]}")

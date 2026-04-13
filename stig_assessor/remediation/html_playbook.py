@@ -3,7 +3,9 @@
 import base64
 import html
 import json
-from typing import Any, Dict, List
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
 
 def generate_html_playbook(extractor: Any, out_path: str) -> str:
