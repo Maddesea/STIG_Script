@@ -5,10 +5,8 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from stig_assessor.core.constants import (GUI_BUTTON_WIDTH_WIDE,
-                                          GUI_ENTRY_WIDTH, GUI_FONT_MONO,
-                                          GUI_PADDING, GUI_PADDING_LARGE,
-                                          GUI_PADDING_SECTION)
+from stig_assessor.core.constants import (GUI_ENTRY_WIDTH, GUI_FONT_MONO,
+                                          GUI_PADDING, GUI_PADDING_LARGE)
 
 
 def build_compare_tab(app, frame):

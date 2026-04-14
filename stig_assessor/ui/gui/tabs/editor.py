@@ -6,8 +6,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
-from stig_assessor.core.constants import (GUI_ENTRY_WIDTH_MEDIUM,
-                                          GUI_FONT_HEADING, GUI_FONT_MONO,
+from stig_assessor.core.constants import (GUI_FONT_HEADING, GUI_FONT_MONO,
                                           GUI_FONT_NORMAL, GUI_PADDING,
                                           GUI_PADDING_LARGE, Status)
 from stig_assessor.io.file_ops import FO
@@ -998,9 +997,7 @@ def build_editor_tab(app, frame):
         if not selections:
             return
 
-        bp_all = app.proc.boiler.list_all()
         mode = app._editor_bulk_apply_mode.get()
-        wildcard = bp_all.get("V-*", {})
 
         app._editor_bulk_progress["maximum"] = len(selections)
         app._editor_bulk_progress["value"] = 0

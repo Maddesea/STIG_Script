@@ -6,8 +6,7 @@ from tkinter import messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
 
 from stig_assessor.core.config import Cfg
-from stig_assessor.core.constants import (GUI_FONT_MONO, GUI_FONT_SMALL,
-                                          GUI_PADDING, GUI_PADDING_LARGE)
+from stig_assessor.core.constants import GUI_FONT_MONO, GUI_PADDING_LARGE
 
 
 def build_log_viewer_tab(app, frame):
@@ -79,6 +78,7 @@ def build_log_viewer_tab(app, frame):
         side="left", padx=2
     )
     ttk.Button(btn_row, text="📋 Copy All", command=_copy_all).pack(side="left", padx=2)
+
     def _open_log_folder():
         import subprocess
         import sys

@@ -61,7 +61,7 @@ _LIGHT_COLORS: Dict[str, str] = {
     "bg": "#f9fafb",         # Soft crisp background
     "fg": "#1f2937",         # Deep gray text
     "accent": "#9ca3af",     # Heather gray accent
-    "accent_hover": "#6b7280", # Darker gray on hover
+    "accent_hover": "#6b7280",  # Darker gray on hover
     "accent_fg": "#ffffff",
     "entry_bg": "#f3f4f6",
     "entry_fg": "#1f2937",
@@ -84,7 +84,7 @@ _DARK_COLORS: Dict[str, str] = {
     "bg": "#1f2937",         # Dark slate/gray background
     "fg": "#f3f4f6",         # Crisp light gray text
     "accent": "#9ca3af",     # Heather gray accent
-    "accent_hover": "#d1d5db", # Lighter gray hover
+    "accent_hover": "#d1d5db",  # Lighter gray hover
     "accent_fg": "#111827",  # Deep dark text on accent
     "entry_bg": "#374151",   # Elevated input surface
     "entry_fg": "#f9fafb",

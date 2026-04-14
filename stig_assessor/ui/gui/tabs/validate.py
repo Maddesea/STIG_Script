@@ -1,6 +1,5 @@
 """Validate Checklist Tab module."""
 
-import sys
 import tkinter as tk
 from tkinter import filedialog, ttk
 

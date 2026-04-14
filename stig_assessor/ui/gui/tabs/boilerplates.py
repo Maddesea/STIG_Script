@@ -1,6 +1,9 @@
 """Boilerplates Tab module."""
 
 import tkinter as tk
+from tkinter import ttk, messagebox, simpledialog, filedialog
+from tkinter.scrolledtext import ScrolledText
+from pathlib import Path
 from stig_assessor.core.constants import (GUI_FONT_MONO, GUI_PADDING,
                                           GUI_PADDING_LARGE, Status)
 from stig_assessor.ui.helpers import ToolTip

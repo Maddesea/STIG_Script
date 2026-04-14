@@ -6,8 +6,7 @@ from tkinter import ttk
 
 from stig_assessor import VERSION
 from stig_assessor.core.constants import (GUI_FONT_HEADING, GUI_FONT_NORMAL, GUI_FONT_MONO,
-                                          GUI_FONT_SMALL, GUI_PADDING, GUI_PADDING_LARGE,
-                                          GUI_PADDING_SECTION, Status)
+                                          GUI_FONT_SMALL, GUI_PADDING, GUI_PADDING_LARGE)
 from stig_assessor.ui.helpers import ToolTip
 
 

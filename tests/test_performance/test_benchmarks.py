@@ -129,7 +129,7 @@ class TestLargeFileProcessing(PerformanceBenchmark):
         from stig_assessor.io.file_ops import FO
 
         content = FO.read(ckl_path)
-        tree = ET.fromstring(content)
+        ET.fromstring(content)
         duration = self.end_timer()
 
         print(f"\nLoad 15K VULNs: {duration:.2f}s")
@@ -146,7 +146,6 @@ class TestLargeFileProcessing(PerformanceBenchmark):
         ckl_path = self.temp_dir / "large_15000.ckl"
         self.start_timer()
         # Full processing workflow
-        from stig_assessor.processor.processor import Proc
         from stig_assessor.validation.validator import Val
 
         Val().validate(ckl_path)
