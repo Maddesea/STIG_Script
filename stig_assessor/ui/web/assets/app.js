@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Hamburger
     document.getElementById('hamburger-btn')?.addEventListener('click', () => {
-        document.getElementById('sidebar')?.classList.toggle('open');
+        document.querySelector('.app-layout')?.classList.toggle('sidebar-open');
     });
 
     // Theme

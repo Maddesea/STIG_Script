@@ -79,9 +79,9 @@ body {
     letter-spacing: 0.2px;
     -webkit-font-smoothing: antialiased;
     background-image:
-        radial-gradient(circle at 15% 0%, rgba(59, 130, 246, 0.15) 0%, transparent 60%),
-        radial-gradient(circle at 85% 100%, rgba(139, 92, 246, 0.15) 0%, transparent 60%),
-        radial-gradient(circle at 50% 50%, rgba(244, 63, 94, 0.08) 0%, transparent 70%);
+        radial-gradient(circle at 15% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
+        radial-gradient(circle at 85% 100%, rgba(139, 92, 246, 0.07) 0%, transparent 60%),
+        radial-gradient(circle at 50% 50%, rgba(244, 63, 94, 0.04) 0%, transparent 70%);
     background-size: 200% 200%;
     background-attachment: fixed;
     animation: breathingGlow 24s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
@@ -787,6 +787,15 @@ textarea.glass-input {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+    position: sticky;
+    bottom: 20px;
+    z-index: 50;
+    padding: 16px;
+    background: var(--bg-glass-strong);
+    backdrop-filter: blur(12px);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-default);
+    box-shadow: var(--shadow-md);
 }
 
 /* ── Spinner ── */
@@ -1358,22 +1367,18 @@ textarea.glass-input {
 
 @media (max-width: 900px) {
     .app-layout {
-        grid-template-columns: 1fr;
-        grid-template-areas:
-            "header"
-            "content";
+        grid-template-columns: 0px 1fr;
+        transition: grid-template-columns 0.3s ease;
+    }
+
+    .app-layout.sidebar-open {
+        grid-template-columns: var(--sidebar-width) 1fr;
     }
 
     .sidebar {
-        position: fixed;
-        left: 0;
-        top: 0;
-        transform: translateX(-100%);
-        box-shadow: var(--shadow-lg);
-    }
-
-    .sidebar.open {
-        transform: translateX(0);
+        width: 100%;
+        overflow: hidden;
+        border-right: none;
     }
 
     .glass-header {

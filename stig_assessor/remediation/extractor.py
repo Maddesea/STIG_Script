@@ -672,6 +672,21 @@ class FixExt:
             if len(cmd) < 5 or len(cmd) > 2000:
                 continue
 
+            # Strip markdown code blocks if they are present after extraction
+            if cmd.startswith("```"):
+                lines = cmd.splitlines()
+                if len(lines) >= 2 and lines[-1].strip() == "```":
+                    # Remove the first line (```language) and the last line (```)
+                    cmd = "\n".join(lines[1:-1]).strip()
+
+            # Sometimes TRIPLE_TICK captures the language identifier 'powershell\n...', strip it
+            lines = cmd.splitlines()
+            if lines and lines[0].strip().lower() in ("bash", "sh", "shell", "powershell", "ps1", "cmd", "bat"):
+                cmd = "\n".join(lines[1:]).strip()
+            
+            if not cmd:
+                continue
+
             cmd_hash = hashlib.sha256(cmd.encode()).hexdigest()[:16]
             if cmd_hash in seen:
                 continue
@@ -860,8 +875,8 @@ class FixExt:
 set -euo pipefail
 
 DRY_RUN=%{dry_run}
-LOG_FILE="stig_fix_$$(date +%%Y%%m%%d_%%H%%M%%S).log"
-RESULT_FILE="stig_results_$$(date +%%Y%%m%%d_%%H%%M%%S).json"
+LOG_FILE="stig_fix_$(date +%%Y%%m%%d_%%H%%M%%S).log"
+RESULT_FILE="stig_results_$(date +%%Y%%m%%d_%%H%%M%%S).json"
 
 mkdir -p evidence
 echo "Remediation started (Output mapping to evidence/ folder)" | tee -a "$LOG_FILE"
@@ -872,7 +887,7 @@ record_result() {
   local vid="$1"
   local ok="$2"
   local msg="$3"
-  RESULTS+=('{"vid":"'"$vid"'","ok":'"$ok"',"msg":"'"${msg//\\"/\\\\\\"}"'","ts":"'"$$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)"'"}')
+  RESULTS+=('{"vid":"'"$vid"'","ok":'"$ok"',"msg":"'"${msg//\\"/\\\\\\"}"'","ts":"'"$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)"'"}')
 }
 """
         )
@@ -890,24 +905,23 @@ record_result() {
 # ═══ EVIDENCE CAPTURE ═══
 EVID_LOG="evidence/%{vid}_out.log"
 echo "--- PRE-FIX CHECK ---" > "$EVID_LOG"
-%{check_block} >> "$EVID_LOG" 2>&1 || true
+%{check_block}
 
 # ═══ FIX ═══
 echo "--- APPLYING FIX ---" >> "$EVID_LOG"
-{
+if {
 %{cmd}
-} >> "$EVID_LOG" 2>&1
-if [ $? -eq 0 ]; then
+} >> "$EVID_LOG" 2>&1; then
   echo "  ✔ Remediation Success" | tee -a "$LOG_FILE"
   # ═══ VERIFY ═══
   echo "--- POST-FIX VERIFY ---" >> "$EVID_LOG"
-  %{check_block} >> "$EVID_LOG" 2>&1 && echo "  ✔ Evidence: Check now PASSES" | tee -a "$LOG_FILE" || echo "  ! Evidence: Manual check required" | tee -a "$LOG_FILE"
+%{verify_block}
   record_result "%{vid}" true "success"
-  ((PASS++))
+  ((PASS+=1))
 else
   echo "  ✘ Remediation Failed (See $EVID_LOG)" | tee -a "$LOG_FILE"
   record_result "%{vid}" false "failed"
-  ((FAIL++))
+  ((FAIL+=1))
 fi
 """
         )
@@ -917,7 +931,7 @@ fi
 echo "  [DRY-RUN] Would execute:
 %{cmd}" | tee -a "$LOG_FILE"
 record_result "%{vid}" true "dry_run"
-((PASS++))
+((PASS+=1))
 """
         )
 
@@ -925,15 +939,17 @@ record_result "%{vid}" true "dry_run"
             check_block = ""
             verify_block = ""
             if fix.check_command:
-                check_block = fix.check_command
-
                 indented_check = "\n".join(
                     f"  {line}" for line in fix.check_command.splitlines()
                 )
-                verify_block = f"""echo "  [VERIFY] Running post-fix verification..." | tee -a "$LOG_FILE"
-{{
+                check_block = f"""{{
 {indented_check}
-}} >>"$LOG_FILE" 2>&1 && echo "  ✔ Evidence: Check now PASSES (CLOSED)" | tee -a "$LOG_FILE" || echo "  ! Evidence: Check still FAILS" | tee -a "$LOG_FILE" """
+}} >> "$EVID_LOG" 2>&1 || true"""
+                
+                verify_block = f"""  echo "  [VERIFY] Running post-fix verification..." | tee -a "$LOG_FILE"
+  {{
+{indented_check}
+  }} >>"$EVID_LOG" 2>&1 && {{ echo "  ✔ Evidence: Check now PASSES" | tee -a "$LOG_FILE"; }} || {{ echo "  ! Evidence: Manual check required" | tee -a "$LOG_FILE"; }}"""
 
             if dry_run:
                 lines.append(
@@ -1022,19 +1038,19 @@ record_result "%{vid}" true "dry_run"
 # Mode: %{mode}
 # Rollbacks Enabled: %{rollbacks}
 
-$$ErrorActionPreference = 'Continue'
-$$DryRun = %{dry_run}
-$$Log = "stig_fix_$$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
-$$Results = @()
+$ErrorActionPreference = 'Continue'
+$DryRun = %{dry_run}
+$Log = "stig_fix_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+$Results = @()
 if (-not (Test-Path "evidence")) { New-Item -ItemType Directory -Path "evidence" | Out-Null }
-Start-Transcript -Path $$Log -Append | Out-Null
+Start-Transcript -Path $Log -Append | Out-Null
 %{rollback_block}
 
-function Add-Result([string]$$Vid, [bool]$$Success, [string]$$Message) {
-    $$Results += [pscustomobject]@{
-        vid = $$Vid;
-        ok = $$Success;
-        msg = $$Message;
+function Add-Result([string]$Vid, [bool]$Success, [string]$Message) {
+    $Results += [pscustomobject]@{
+        vid = $Vid;
+        ok = $Success;
+        msg = $Message;
         ts = [DateTime]::UtcNow.ToString('o')
     }
 }
@@ -1044,14 +1060,14 @@ function Add-Result([string]$$Vid, [bool]$$Success, [string]$$Message) {
         if enable_rollbacks and not dry_run:
             rollback_block = """
 Write-Host "Creating pre-flight Registry Backups for HKLM\\Software and HKLM\\System..."
-$$RollbackDir = "stig_rollback_$$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-New-Item -ItemType Directory -Force -Path $$RollbackDir | Out-Null
+$RollbackDir = "stig_rollback_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+New-Item -ItemType Directory -Force -Path $RollbackDir | Out-Null
 try {
-    cmd /c "reg export HKLM\\SOFTWARE `\"$$RollbackDir\\HKLM_SOFTWARE.reg`\" /y >nul 2>&1"
-    cmd /c "reg export HKLM\\SYSTEM `\"$$RollbackDir\\HKLM_SYSTEM.reg`\" /y >nul 2>&1"
-    Write-Host "Registry backup created at $$RollbackDir"
+    cmd /c "reg export HKLM\\SOFTWARE `\"$RollbackDir\\HKLM_SOFTWARE.reg`\" /y >nul 2>&1"
+    cmd /c "reg export HKLM\\SYSTEM `\"$RollbackDir\\HKLM_SYSTEM.reg`\" /y >nul 2>&1"
+    Write-Host "Registry backup created at $RollbackDir"
 } catch {
-    Write-Warning "Failed to create registry backup: $$($$_.Exception.Message)"
+    Write-Warning "Failed to create registry backup: $($_.Exception.Message)"
 }
 """
 
@@ -1061,35 +1077,32 @@ try {
                 mode="DRY RUN" if dry_run else "LIVE",
                 rollbacks="YES" if enable_rollbacks else "NO",
                 rollback_block=rollback_block,
-                dry_run="$$true" if dry_run else "$$false",
+                dry_run="$true" if dry_run else "$false",
             )
         ]
 
         live_fix_tmpl = PsTemplate(
             """Write-Host "[%{idx}/%{total}] %{vid} - %{title}" -ForegroundColor Cyan
-$$EvidLog = "evidence\\%{vid}_out.log"
-"--- PRE-FIX CHECK ---" | Out-File $$EvidLog -Encoding utf8
-try { %{check_block} | Out-File $$EvidLog -Append -Encoding utf8 } catch { "Check failed: $$($$_)" | Out-File $$EvidLog -Append }
+$EvidLog = "evidence\\%{vid}_out.log"
+"--- PRE-FIX CHECK ---" | Out-File $EvidLog -Encoding utf8
+%{check_block}
 
-# ═══ FIX ═══
-"--- APPLYING FIX ---" | Out-File $$EvidLog -Append -Encoding utf8
+# === FIX ===
+"--- APPLYING FIX ---" | Out-File $EvidLog -Append -Encoding utf8
 try {
-%{cmd} | Out-File $$EvidLog -Append -Encoding utf8
-    Write-Host "  ✔ Remediation Success" -ForegroundColor Green
+    & {
+%{cmd}
+    } *>> $EvidLog
+    Write-Host "  [OK] Remediation Success" -ForegroundColor Green
     
-    # ═══ VERIFY ═══
-    "--- POST-FIX VERIFY ---" | Out-File $$EvidLog -Append -Encoding utf8
-    try { 
-        %{check_block} | Out-File $$EvidLog -Append -Encoding utf8
-        Write-Host "  ✔ Evidence: Check now PASSES" -ForegroundColor Green
-    } catch { 
-        Write-Host "  ! Evidence: Manual verification suggested" -ForegroundColor Yellow
-    }
-    Add-Result "%{vid}" $$true "success"
+    # === VERIFY ===
+    "--- POST-FIX VERIFY ---" | Out-File $EvidLog -Append -Encoding utf8
+%{verify_block}
+    Add-Result "%{vid}" $true "success"
 } catch {
-    Write-Warning "  ✘ Remediation Failed: $$($$_.Exception.Message)"
-    "ERROR: $$($$_.Exception.Message)" | Out-File $$EvidLog -Append -Encoding utf8
-    Add-Result "%{vid}" $$false $$_.Exception.Message
+    Write-Warning "  [FAIL] Remediation Failed: $($_.Exception.Message)"
+    "ERROR: $($_.Exception.Message)" | Out-File $EvidLog -Append -Encoding utf8
+    Add-Result "%{vid}" $false $_.Exception.Message
 }
 """
         )
@@ -1097,7 +1110,7 @@ try {
         dry_fix_tmpl = PsTemplate(
             """Write-Host "[%{idx}/%{total}] %{vid} - %{title}"
 Write-Host "  [DRY-RUN] Would execute:`n%{cmd}"
-Add-Result "%{vid}" $$true "dry_run"
+Add-Result "%{vid}" $true "dry_run"
 Continue
 """
         )
@@ -1107,18 +1120,28 @@ Continue
             verify_block = ""
             if fix.check_command:
                 indented_check = "\n".join(
-                    f"    {line}" for line in fix.check_command.splitlines()
+                    f"        {line}" for line in fix.check_command.splitlines()
                 )
-                check_block = f"""Write-Host "  [CHECK] Running evidence collection..."
-try {{
+                check_block = f"""    try {{
+        Write-Host "  [CHECK] Running evidence collection..."
+        & {{
 {indented_check}
-}} catch {{ Write-Host "  ! Check command failed (Expected if finding is OPEN)" }}"""
+        }} *>> $EvidLog
+    }} catch {{
+        Write-Host "  ! Check command failed (Expected if finding is OPEN)"
+        "Check failed: $($_.Exception.Message)" | Out-File $EvidLog -Append -Encoding utf8
+    }}"""
 
-                verify_block = f"""Write-Host "  [VERIFY] Running post-fix verification..."
-try {{
+                verify_block = f"""    try {{
+        Write-Host "  [VERIFY] Running post-fix verification..."
+        & {{
 {indented_check}
-    Write-Host "  ✔ Evidence: Check now PASSES (CLOSED)" -ForegroundColor Green
-}} catch {{ Write-Host "  ! Evidence: Check still FAILS" -ForegroundColor Yellow }}"""
+        }} *>> $EvidLog
+        Write-Host "  [OK] Evidence: Check now PASSES (CLOSED)" -ForegroundColor Green
+    }} catch {{
+        Write-Host "  ! Evidence: Check still FAILS" -ForegroundColor Yellow
+        "Verify failed: $($_.Exception.Message)" | Out-File $EvidLog -Append -Encoding utf8
+    }}"""
 
             if dry_run:
                 lines.append(
@@ -1152,13 +1175,13 @@ try {{
                 "[pscustomobject]@{",
                 "    meta = @{",
                 "        generated = [DateTime]::UtcNow.ToString('o');",
-                "        mode = if ($$DryRun) { 'dry' } else { 'live' };",
-                "        total = $$Results.Count;",
-                "        pass = ($$Results | Where-Object { $$_.ok }).Count;",
-                "        fail = ($$Results | Where-Object { -not $$_.ok }).Count;",
+                "        mode = if ($DryRun) { 'dry' } else { 'live' };",
+                "        total = $Results.Count;",
+                "        pass = ($Results | Where-Object { $_.ok }).Count;",
+                "        fail = ($Results | Where-Object { -not $_.ok }).Count;",
                 "    };",
-                "    results = $$Results",
-                "} | ConvertTo-Json -Depth 10 | Out-File \"stig_results_$$(Get-Date -Format 'yyyyMMdd_HHmmss').json\" -Encoding utf8",
+                "    results = $Results",
+                "} | ConvertTo-Json -Depth 10 | Out-File \"stig_results_$(Get-Date -Format 'yyyyMMdd_HHmmss').json\" -Encoding utf8",
             ]
         )
 
@@ -1272,7 +1295,7 @@ try {{
 # Auto-generated evidence gathering script
 # Generated: %{dt}
 
-EVIDENCE_DIR="stig_evidence_$$(date +%%Y%%m%%d_%%H%%M%%S)"
+EVIDENCE_DIR="stig_evidence_$(date +%%Y%%m%%d_%%H%%M%%S)"
 mkdir -p "$EVIDENCE_DIR"
 LOG_FILE="$EVIDENCE_DIR/gathering.log"
 MANIFEST="$EVIDENCE_DIR/manifest.csv"
@@ -1288,7 +1311,7 @@ run_check() {
   echo "[*] Gathering evidence for $vid - $title" | tee -a "$LOG_FILE"
   echo "--- EVIDENCE FOR $vid ---" > "$out_file"
   echo "Title: $title" >> "$out_file"
-  echo "Timestamp: $$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)" >> "$out_file"
+  echo "Timestamp: $(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)" >> "$out_file"
   echo "------------------------" >> "$out_file"
   return 0
 }
@@ -1355,7 +1378,7 @@ fi
             """# Auto-generated evidence gathering script
 # Generated: %{dt}
 
-$EvidenceDir = "stig_evidence_$$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+$EvidenceDir = "stig_evidence_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
 New-Item -ItemType Directory -Path $EvidenceDir -Force | Out-Null
 $LogFile = "$EvidenceDir/gathering.log"
 $Manifest = "$EvidenceDir/manifest.csv"
@@ -1369,14 +1392,14 @@ function Run-Check {
     Write-Host "[*] Gathering evidence for $vid - $title"
     "--- EVIDENCE FOR $vid ---" | Out-File $outFile -Encoding utf8
     "Title: $title" | Out-File $outFile -Append
-    "Timestamp: $$(Get-Date -Format 'o')" | Out-File $outFile -Append
+    "Timestamp: $(Get-Date -Format 'o')" | Out-File $outFile -Append
     "------------------------" | Out-File $outFile -Append
     
     try {
         Invoke-Expression $cmd | Out-File $outFile -Append
         "$vid,PASS,$outFile" | Out-File $Manifest -Append
     } catch {
-        "Error: $$($$_.Exception.Message)" | Out-File $outFile -Append
+        "Error: $($_.Exception.Message)" | Out-File $outFile -Append
         "$vid,FAIL,$outFile" | Out-File $Manifest -Append
     }
 }

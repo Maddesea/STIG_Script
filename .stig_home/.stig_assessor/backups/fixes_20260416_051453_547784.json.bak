@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "source": "C:\\Users\\Madden\\Desktop\\_Personal_GitHub_Repos\\STIG_Script\\dummy_xccdf.xml",
+    "generated": "2026-04-16T05:14:00.791132+00:00",
+    "version": "8.1.0",
+    "stats": {
+      "total_groups": 2,
+      "with_fix": 2,
+      "with_command": 2,
+      "platforms": {
+        "linux": 1,
+        "generic": 1
+      }
+    }
+  },
+  "fixes": [
+    {
+      "vid": "V-123456",
+      "rule_id": "SV-123456r1_rule",
+      "severity": "medium",
+      "title": "Test Rule Title",
+      "group_title": "Test Vulnerability",
+      "fix_text": "Run this command:\n                systemctl enable test.service",
+      "fix_command": "systemctl enable test.service",
+      "check_command": "content here",
+      "platform": "linux",
+      "rule_version": "TEST-001",
+      "cci": [
+        "CCI-000001"
+      ],
+      "legacy": [],
+      "discussion": "",
+      "mitigation": "",
+      "check_text": "Check content here",
+      "false_positives": ""
+    },
+    {
+      "vid": "V-234567",
+      "rule_id": "SV-234567r1_rule",
+      "severity": "high",
+      "title": "Second Rule",
+      "group_title": "Another Vulnerability",
+      "fix_text": "No fix available",
+      "fix_command": "fix available",
+      "check_command": null,
+      "platform": "generic",
+      "rule_version": "TEST-002",
+      "cci": [
+        "CCI-000002"
+      ],
+      "legacy": [],
+      "discussion": "",
+      "mitigation": "",
+      "check_text": "Check this",
+      "false_positives": ""
+    }
+  ]
+}

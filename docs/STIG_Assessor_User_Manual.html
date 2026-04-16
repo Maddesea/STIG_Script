@@ -1,0 +1,2693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STIG Assessor - Comprehensive User Manual</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --bg-gradient: linear-gradient(135deg, #0b0f19 0%, #171b2d 100%);
+            --glass-bg: rgba(25, 30, 50, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --card-hover-bg: rgba(30, 36, 60, 0.8);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.4);
+            --accent-hover: #60a5fa;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --sidebar-width: 320px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            line-height: 1.7;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        /* Sidebar with Glassmorphism */
+        .sidebar {
+            width: var(--sidebar-width);
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-right: 1px solid var(--glass-border);
+            padding: 30px 20px;
+            overflow-y: auto;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+
+        .sidebar h2 {
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--glass-border);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: linear-gradient(90deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sidebar ul { list-style: none; padding: 0; }
+        .sidebar ul ul { padding-left: 20px; border-left: 1px solid rgba(255,255,255,0.05); margin-left: 10px; }
+        .sidebar li { margin: 8px 0; position: relative; }
+
+        .sidebar a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.95rem;
+            display: block;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+        }
+
+        .sidebar a:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateX(5px);
+            box-shadow: inset 3px 0 0 var(--accent);
+        }
+
+        /* Main Content Area */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 60px;
+            max-width: 1200px;
+            width: 100%;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1, h2, h3, h4, h5 {
+            color: var(--text-main);
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-top: 0;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            padding-bottom: 20px;
+            position: relative;
+        }
+
+        h1::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100px;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent), transparent);
+            border-radius: 2px;
+        }
+
+        h2 {
+            font-size: 2rem;
+            margin-top: 2.5em;
+            margin-bottom: 1em;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+        }
+
+        h3 { font-size: 1.4rem; color: var(--accent-hover); margin-top: 2em; }
+        h4 { font-size: 1.2rem; color: #fff; margin-top: 1.5em; }
+
+        p { font-size: 1.05rem; margin-bottom: 1.5em; }
+        strong { color: #fff; font-weight: 600; }
+        a { color: var(--accent); text-decoration: none; transition: color 0.2s; }
+        a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            background: rgba(10, 12, 20, 0.4);
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        th, td { padding: 15px; text-align: left; }
+        th { background: rgba(255, 255, 255, 0.03); color: var(--accent-hover); font-weight: 600; border-bottom: 2px solid rgba(255,255,255,0.05); }
+        td { border-bottom: 1px solid rgba(255,255,255,0.02); }
+        tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+        /* Code Blocks */
+        pre {
+            background: rgba(10, 12, 20, 0.8);
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            padding: 20px;
+            margin: 25px 0;
+            overflow-x: auto;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.2), 0 5px 15px rgba(0,0,0,0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        pre:hover {
+            transform: translateY(-2px);
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.2), 0 15px 35px rgba(0,0,0,0.4), 0 0 15px var(--accent-glow);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        code { font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; color: #e2e8f0; }
+        p code, li code, td code {
+            background-color: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--accent-hover);
+            font-size: 0.9em;
+        }
+
+        /* Blockquotes & Admonitions */
+        blockquote {
+            border-left: 4px solid var(--accent);
+            margin: 30px 0;
+            padding: 20px 25px;
+            background: var(--glass-bg);
+            border-radius: 0 8px 8px 0;
+            color: var(--text-muted);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-left-width: 4px;
+            font-size: 1.1rem;
+            font-style: italic;
+        }
+
+        .admonition {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-left: 4px solid var(--warning);
+            padding: 20px 25px;
+            margin: 30px 0;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        .admonition-title {
+            font-weight: 700;
+            color: var(--warning);
+            margin-top: 0;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; position: relative; border-right: none; border-bottom: 1px solid var(--glass-border); }
+            .main-content { margin-left: 0; padding: 30px 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="toc">
+<h2>Navigation</h2>
+<ul>
+<li><a href="#stig-assessor-complete-definitive-user-guide">STIG Assessor Complete — Definitive User Guide</a><ul>
+<li><a href="#table-of-contents">Table of Contents</a></li>
+<li><a href="#1-installation-prerequisites">1. Installation &amp; Prerequisites</a><ul>
+<li><a href="#11-system-requirements">1.1 System Requirements</a></li>
+<li><a href="#12-dependencies">1.2 Dependencies</a></li>
+<li><a href="#13-installation-methods">1.3 Installation Methods</a><ul>
+<li><a href="#method-a-clone-the-repository">Method A: Clone the Repository</a></li>
+<li><a href="#method-b-air-gap-portable-deployment">Method B: Air-Gap / Portable Deployment</a></li>
+<li><a href="#method-c-standalone-executable">Method C: Standalone Executable</a></li>
+</ul>
+</li>
+<li><a href="#14-verifying-your-installation">1.4 Verifying Your Installation</a></li>
+</ul>
+</li>
+<li><a href="#2-launching-the-application">2. Launching the Application</a><ul>
+<li><a href="#21-command-line-interface-cli">2.1 Command-Line Interface (CLI)</a></li>
+<li><a href="#211-interactive-wizard-mode-cli">2.1.1 Interactive Wizard Mode (CLI)</a></li>
+<li><a href="#22-graphical-interface-gui">2.2 Graphical Interface (GUI)</a></li>
+<li><a href="#23-web-interface">2.3 Web Interface</a></li>
+<li><a href="#24-windows-launcher-scripts">2.4 Windows Launcher Scripts</a></li>
+</ul>
+</li>
+<li><a href="#3-interface-overview">3. Interface Overview</a><ul>
+<li><a href="#when-to-use-each-interface">When to Use Each Interface</a></li>
+<li><a href="#cli-quick-reference">CLI Quick Reference</a></li>
+</ul>
+</li>
+<li><a href="#4-phase-a-creating-a-checklist-from-xccdf">4. Phase A — Creating a Checklist from XCCDF</a><ul>
+<li><a href="#41-cli">4.1 CLI</a><ul>
+<li><a href="#parameters">Parameters</a></li>
+<li><a href="#creating-a-cklb-stig-viewer-3-file-instead">Creating a CKLB (STIG Viewer 3) file instead:</a></li>
+<li><a href="#interactive-mode">Interactive Mode</a></li>
+<li><a href="#understanding-the-output">Understanding the Output</a></li>
+</ul>
+</li>
+<li><a href="#42-gui">4.2 GUI</a></li>
+<li><a href="#43-web">4.3 Web</a></li>
+</ul>
+</li>
+<li><a href="#5-phase-b-merging-updating-checklists">5. Phase B — Merging &amp; Updating Checklists</a><ul>
+<li><a href="#51-cli">5.1 CLI</a><ul>
+<li><a href="#parameters_1">Parameters</a></li>
+<li><a href="#how-merge-works-detailed">How Merge Works (Detailed)</a></li>
+<li><a href="#example-output">Example Output</a></li>
+</ul>
+</li>
+<li><a href="#52-gui">5.2 GUI</a></li>
+</ul>
+</li>
+<li><a href="#6-phase-c-extracting-remediation-scripts">6. Phase C — Extracting Remediation Scripts</a><ul>
+<li><a href="#61-cli">6.1 CLI</a><ul>
+<li><a href="#parameters_2">Parameters</a></li>
+<li><a href="#generated-output-files">Generated Output Files</a></li>
+<li><a href="#command-extraction-intelligence">Command Extraction Intelligence</a></li>
+<li><a href="#platform-detection">Platform Detection</a></li>
+</ul>
+</li>
+<li><a href="#62-gui">6.2 GUI</a></li>
+</ul>
+</li>
+<li><a href="#7-phase-d-applying-remediation-results">7. Phase D — Applying Remediation Results</a><ul>
+<li><a href="#71-results-json-format">7.1 Results JSON Format</a></li>
+<li><a href="#72-cli">7.2 CLI</a><ul>
+<li><a href="#parameters_3">Parameters</a></li>
+<li><a href="#text-injection-modes-explained">Text Injection Modes Explained</a></li>
+</ul>
+</li>
+<li><a href="#73-gui">7.3 GUI</a></li>
+<li><a href="#74-generating-results-with-the-wizard">7.4 Generating Results with the Wizard</a></li>
+</ul>
+</li>
+<li><a href="#8-phase-e-evidence-management">8. Phase E — Evidence Management</a><ul>
+<li><a href="#81-cli">8.1 CLI</a><ul>
+<li><a href="#parameters_4">Parameters</a></li>
+</ul>
+</li>
+<li><a href="#82-gui">8.2 GUI</a></li>
+<li><a href="#83-storage-location">8.3 Storage Location</a></li>
+</ul>
+</li>
+<li><a href="#9-phase-f-validation-repair">9. Phase F — Validation &amp; Repair</a><ul>
+<li><a href="#91-validation">9.1 Validation</a><ul>
+<li><a href="#cli">CLI</a></li>
+<li><a href="#what-is-validated">What is Validated</a></li>
+</ul>
+</li>
+<li><a href="#92-repair">9.2 Repair</a><ul>
+<li><a href="#cli_1">CLI</a></li>
+<li><a href="#what-is-repaired">What is Repaired</a></li>
+<li><a href="#gui">GUI</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#10-phase-g-compliance-statistics-reporting">10. Phase G — Compliance Statistics &amp; Reporting</a><ul>
+<li><a href="#101-cli">10.1 CLI</a><ul>
+<li><a href="#output-formats">Output Formats</a></li>
+<li><a href="#text-report-example">Text Report Example</a></li>
+</ul>
+</li>
+<li><a href="#102-gui">10.2 GUI</a></li>
+<li><a href="#103-web">10.3 Web</a></li>
+</ul>
+</li>
+<li><a href="#11-phase-h-comparing-diffing-checklists">11. Phase H — Comparing (Diffing) Checklists</a><ul>
+<li><a href="#111-cli">11.1 CLI</a><ul>
+<li><a href="#what-is-compared">What is Compared</a></li>
+</ul>
+</li>
+<li><a href="#112-gui">11.2 GUI</a></li>
+</ul>
+</li>
+<li><a href="#12-phase-i-integrity-verification">12. Phase I — Integrity Verification</a><ul>
+<li><a href="#121-verify-integrity">12.1 Verify Integrity</a></li>
+<li><a href="#122-compute-checksum-only">12.2 Compute Checksum Only</a></li>
+</ul>
+</li>
+<li><a href="#13-phase-j-boilerplate-template-management">13. Phase J — Boilerplate Template Management</a><ul>
+<li><a href="#131-template-structure">13.1 Template Structure</a></li>
+<li><a href="#132-cli-commands">13.2 CLI Commands</a></li>
+<li><a href="#133-apply-modes-used-during-createmerge">13.3 Apply Modes (used during Create/Merge)</a></li>
+<li><a href="#134-template-variables">13.4 Template Variables</a></li>
+<li><a href="#135-gui">13.5 GUI</a></li>
+<li><a href="#136-storage">13.6 Storage</a></li>
+</ul>
+</li>
+<li><a href="#14-phase-k-history-compliance-drift-tracking">14. Phase K — History &amp; Compliance Drift Tracking</a><ul>
+<li><a href="#141-tracking-assessments">14.1 Tracking Assessments</a></li>
+<li><a href="#142-viewing-compliance-drift">14.2 Viewing Compliance Drift</a></li>
+<li><a href="#143-history-exportimport">14.3 History Export/Import</a></li>
+<li><a href="#144-gui">14.4 GUI</a></li>
+<li><a href="#145-web">14.5 Web</a></li>
+<li><a href="#146-database-location">14.6 Database Location</a></li>
+</ul>
+</li>
+<li><a href="#15-phase-l-batch-operations-fleet-dashboard">15. Phase L — Batch Operations &amp; Fleet Dashboard</a><ul>
+<li><a href="#151-batch-convert-xccdfs-to-ckls">15.1 Batch Convert XCCDFs to CKLs</a><ul>
+<li><a href="#parameters_5">Parameters</a></li>
+</ul>
+</li>
+<li><a href="#152-fleet-statistics">15.2 Fleet Statistics</a></li>
+<li><a href="#153-gui">15.3 GUI</a></li>
+<li><a href="#154-web">15.4 Web</a></li>
+</ul>
+</li>
+<li><a href="#16-phase-m-bulk-edit-poam-export">16. Phase M — Bulk Edit &amp; POAM Export</a><ul>
+<li><a href="#161-bulk-edit">16.1 Bulk Edit</a><ul>
+<li><a href="#parameters_6">Parameters</a></li>
+</ul>
+</li>
+<li><a href="#162-emass-poam-export">16.2 eMASS POAM Export</a></li>
+</ul>
+</li>
+<li><a href="#17-phase-n-format-conversion-ckl-cklb">17. Phase N — Format Conversion (CKL ↔ CKLB)</a></li>
+<li><a href="#18-phase-o-profile-configuration-management">18. Phase O — Profile &amp; Configuration Management</a><ul>
+<li><a href="#181-assessment-profiles">18.1 Assessment Profiles</a></li>
+<li><a href="#182-configuration-bundles-importexport">18.2 Configuration Bundles (Import/Export)</a></li>
+</ul>
+</li>
+<li><a href="#19-gui-specific-features">19. GUI-Specific Features</a><ul>
+<li><a href="#191-tab-layout">19.1 Tab Layout</a></li>
+<li><a href="#192-keyboard-shortcuts">19.2 Keyboard Shortcuts</a></li>
+<li><a href="#193-theme-support">19.3 Theme Support</a></li>
+<li><a href="#194-wizard-mode">19.4 Wizard Mode</a></li>
+<li><a href="#195-menu-bar">19.5 Menu Bar</a></li>
+<li><a href="#196-logo-support">19.6 Logo Support</a></li>
+</ul>
+</li>
+<li><a href="#20-web-interface">20. Web Interface</a><ul>
+<li><a href="#201-architecture">20.1 Architecture</a></li>
+<li><a href="#202-api-endpoints">20.2 API Endpoints</a></li>
+<li><a href="#204-payload-size-limit">20.4 Payload Size Limit</a></li>
+</ul>
+</li>
+<li><a href="#21-scripting-automation-recipes">21. Scripting &amp; Automation Recipes</a><ul>
+<li><a href="#recipe-1-full-assessment-pipeline">Recipe 1: Full Assessment Pipeline</a></li>
+<li><a href="#recipe-2-quarterly-stig-update-migration">Recipe 2: Quarterly STIG Update Migration</a></li>
+<li><a href="#recipe-3-fleet-batch-processing">Recipe 3: Fleet Batch Processing</a></li>
+<li><a href="#recipe-4-cicd-validation-gate">Recipe 4: CI/CD Validation Gate</a></li>
+</ul>
+</li>
+<li><a href="#22-troubleshooting">22. Troubleshooting</a><ul>
+<li><a href="#common-issues">Common Issues</a></li>
+<li><a href="#verbose-logging">Verbose Logging</a></li>
+<li><a href="#exit-codes">Exit Codes</a></li>
+</ul>
+</li>
+<li><a href="#23-configuration-reference">23. Configuration Reference</a><ul>
+<li><a href="#directory-structure">Directory Structure</a></li>
+<li><a href="#processing-limits">Processing Limits</a></li>
+<li><a href="#supported-file-formats">Supported File Formats</a></li>
+</ul>
+</li>
+<li><a href="#24-glossary">24. Glossary</a></li>
+<li><a href="#appendix-a-quick-command-cheat-sheet">Appendix A: Quick Command Cheat Sheet</a></li>
+</ul>
+</li>
+<li><a href="#stig-assessor-deployment-portability-guide">STIG Assessor: Deployment &amp; Portability Guide</a><ul>
+<li><a href="#choosing-your-deployment-option">🚀 Choosing Your Deployment Option</a></li>
+<li><a href="#automated-release-packaging">📦 Automated Release Packaging</a></li>
+<li><a href="#deployment-usage-on-target">📂 Deployment &amp; Usage on Target</a><ul>
+<li><a href="#launching-the-application">Launching the Application</a><ul>
+<li><a href="#on-windows-powershell">On Windows (PowerShell)</a></li>
+<li><a href="#on-linux-bash">On Linux (Bash)</a></li>
+</ul>
+</li>
+<li><a href="#hybrid-dependency-detection">Hybrid Dependency Detection</a></li>
+</ul>
+</li>
+<li><a href="#troubleshooting-restrictions">🛠️ Troubleshooting &amp; Restrictions</a><ul>
+<li><a href="#applocker-blocks-exe-extraction-to-temp">AppLocker blocks EXE extraction to %TEMP%</a></li>
+<li><a href="#no-python-on-target-host">No Python on Target Host</a></li>
+<li><a href="#permission-denied-linux">Permission Denied (Linux)</a></li>
+<li><a href="#execution-policy-windows">Execution Policy (Windows)</a></li>
+</ul>
+</li>
+<li><a href="#25-advanced-deep-dive-examples-edge-cases">25. Advanced Deep-Dive Examples &amp; Edge Cases</a><ul>
+<li><a href="#example-1-creating-a-custom-profile-with-highly-specific-classification">Example 1: Creating a Custom Profile with Highly Specific Classification</a></li>
+<li><a href="#example-2-handling-completely-air-gapped-powershell-remediation">Example 2: Handling Completely Air-Gapped PowerShell Remediation</a></li>
+<li><a href="#example-3-full-bulk-editing-for-system-wide-changes">Example 3: Full Bulk-Editing for System-Wide Changes</a></li>
+<li><a href="#example-4-the-ultimate-merge-scenario-with-fallbacks">Example 4: The Ultimate Merge Scenario with Fallbacks</a></li>
+</ul>
+</li>
+<li><a href="#26-air-gapped-packaging-dependencies-guide">26. Air-Gapped Packaging &amp; Dependencies Guide</a><ul>
+<li><a href="#pre-packaged-project-dependencies">Pre-Packaged Project Dependencies</a></li>
+<li><a href="#building-the-standalone-executable-windows">Building the Standalone Executable (Windows)</a></li>
+<li><a href="#manual-source-deployment-linux-windows">Manual Source Deployment (Linux / Windows)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+    </div>
+    <div class="main-content">
+        
+<h1 id="stig-assessor-complete-definitive-user-guide">STIG Assessor Complete — Definitive User Guide</h1>
+<p><strong>Version 8.1.0</strong> · Build Date: 2026-04-07 · STIG Viewer Compatibility: 2.18 / 3.3 (CKLB)</p>
+<blockquote>
+<p>The single source of truth for operating STIG Assessor from installation through
+fleet-wide compliance tracking in air-gapped, high-side, or cloud environments.</p>
+</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Section</th>
+<th>Quick Jump</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><a href="#1-installation--prerequisites">Installation &amp; Prerequisites</a></td>
+<td>Setup, Python, dependencies</td>
+</tr>
+<tr>
+<td>2</td>
+<td><a href="#2-launching-the-application">Launching the Application</a></td>
+<td>CLI, GUI, Web — all three methods</td>
+</tr>
+<tr>
+<td>3</td>
+<td><a href="#3-interface-overview">Interface Overview</a></td>
+<td>Which interface to choose and when</td>
+</tr>
+<tr>
+<td>4</td>
+<td><a href="#4-phase-a--creating-a-checklist-from-xccdf">Phase A — Creating a Checklist from XCCDF</a></td>
+<td>Convert benchmarks to CKL/CKLB</td>
+</tr>
+<tr>
+<td>5</td>
+<td><a href="#5-phase-b--merging--updating-checklists">Phase B — Merging &amp; Updating Checklists</a></td>
+<td>Quarterly STIG updates</td>
+</tr>
+<tr>
+<td>6</td>
+<td><a href="#6-phase-c--extracting-remediation-scripts">Phase C — Extracting Remediation Scripts</a></td>
+<td>Bash, PowerShell, Ansible, CSV, JSON</td>
+</tr>
+<tr>
+<td>7</td>
+<td><a href="#7-phase-d--applying-remediation-results">Phase D — Applying Remediation Results</a></td>
+<td>Bulk import scan results</td>
+</tr>
+<tr>
+<td>8</td>
+<td><a href="#8-phase-e--evidence-management">Phase E — Evidence Management</a></td>
+<td>Import, export, package artifacts</td>
+</tr>
+<tr>
+<td>9</td>
+<td><a href="#9-phase-f--validation--repair">Phase F — Validation &amp; Repair</a></td>
+<td>Fix corrupted CKLs</td>
+</tr>
+<tr>
+<td>10</td>
+<td><a href="#10-phase-g--compliance-statistics--reporting">Phase G — Compliance Statistics &amp; Reporting</a></td>
+<td>Text, JSON, CSV, HTML reports</td>
+</tr>
+<tr>
+<td>11</td>
+<td><a href="#11-phase-h--comparing-diffing-checklists">Phase H — Comparing (Diffing) Checklists</a></td>
+<td>Before/after analysis</td>
+</tr>
+<tr>
+<td>12</td>
+<td><a href="#12-phase-i--integrity-verification">Phase I — Integrity Verification</a></td>
+<td>SHA-256 checksums and tamper detection</td>
+</tr>
+<tr>
+<td>13</td>
+<td><a href="#13-phase-j--boilerplate-template-management">Phase J — Boilerplate Template Management</a></td>
+<td>Standardized finding text</td>
+</tr>
+<tr>
+<td>14</td>
+<td><a href="#14-phase-k--history--compliance-drift-tracking">Phase K — History &amp; Compliance Drift Tracking</a></td>
+<td>SQLite database, drift analysis</td>
+</tr>
+<tr>
+<td>15</td>
+<td><a href="#15-phase-l--batch-operations--fleet-dashboard">Phase L — Batch Operations &amp; Fleet Dashboard</a></td>
+<td>At-scale processing</td>
+</tr>
+<tr>
+<td>16</td>
+<td><a href="#16-phase-m--bulk-edit--poam-export">Phase M — Bulk Edit &amp; POAM Export</a></td>
+<td>Mass-update VIDs, eMASS POAM CSV</td>
+</tr>
+<tr>
+<td>17</td>
+<td><a href="#17-phase-n--format-conversion-ckl--cklb">Phase N — Format Conversion (CKL ↔ CKLB)</a></td>
+<td>STIG Viewer 2 vs 3 formats</td>
+</tr>
+<tr>
+<td>18</td>
+<td><a href="#18-phase-o--profile--configuration-management">Phase O — Profile &amp; Configuration Management</a></td>
+<td>Save/Load/Export/Import profiles</td>
+</tr>
+<tr>
+<td>19</td>
+<td><a href="#19-gui-specific-features">GUI-Specific Features</a></td>
+<td>Tabs, themes, presets, shortcuts</td>
+</tr>
+<tr>
+<td>20</td>
+<td><a href="#20-web-interface">Web Interface</a></td>
+<td>Browser-based operations</td>
+</tr>
+<tr>
+<td>21</td>
+<td><a href="#21-scripting--automation-recipes">Scripting &amp; Automation Recipes</a></td>
+<td>Pipeline examples</td>
+</tr>
+<tr>
+<td>22</td>
+<td><a href="#22-troubleshooting">Troubleshooting</a></td>
+<td>Common issues and fixes</td>
+</tr>
+<tr>
+<td>23</td>
+<td><a href="#23-configuration-reference">Configuration Reference</a></td>
+<td>Directories, limits, env vars</td>
+</tr>
+<tr>
+<td>24</td>
+<td><a href="#24-glossary">Glossary</a></td>
+<td>Key terms</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-installation-prerequisites">1. Installation &amp; Prerequisites</h2>
+<h3 id="11-system-requirements">1.1 System Requirements</h3>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Minimum</th>
+<th>Recommended</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Python</strong></td>
+<td>3.9</td>
+<td>3.12+</td>
+</tr>
+<tr>
+<td><strong>OS</strong></td>
+<td>Windows 10, macOS 11+, Linux</td>
+<td>Windows 11, any recent Linux</td>
+</tr>
+<tr>
+<td><strong>RAM</strong></td>
+<td>512 MB</td>
+<td>2 GB (for large checklists)</td>
+</tr>
+<tr>
+<td><strong>Disk</strong></td>
+<td>50 MB</td>
+<td>200 MB (with evidence store)</td>
+</tr>
+<tr>
+<td><strong>Network</strong></td>
+<td><strong>None</strong> (fully air-gapped)</td>
+<td>None</td>
+</tr>
+</tbody>
+</table>
+<h3 id="12-dependencies">1.2 Dependencies</h3>
+<p>STIG Assessor is deliberately <strong>zero-dependency</strong> for air-gapped use. It runs entirely on the Python standard library.</p>
+<table>
+<thead>
+<tr>
+<th>Dependency</th>
+<th>Required?</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Python stdlib</td>
+<td>✅ Yes</td>
+<td>Core functionality</td>
+</tr>
+<tr>
+<td><code>tkinter</code></td>
+<td>⚠️ GUI only</td>
+<td>Graphical interface (usually built-in on Windows/macOS)</td>
+</tr>
+<tr>
+<td><code>defusedxml</code></td>
+<td>🔒 Recommended</td>
+<td>Protection against XXE/Billion Laughs XML attacks</td>
+</tr>
+<tr>
+<td><code>sv_ttk</code></td>
+<td>❌ Optional</td>
+<td>Premium GUI theme (Sun Valley ttk theme)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Install recommended extras:</strong></p>
+<pre><code class="language-bash"># Secure XML parsing (strongly recommended for DoD environments)
+pip install defusedxml
+
+# Premium GUI theme (optional, cosmetic only)
+pip install sv_ttk
+
+# GUI support on Linux (if not already installed)
+sudo apt install python3-tk          # Debian/Ubuntu
+sudo dnf install python3-tkinter     # RHEL/Fedora
+</code></pre>
+<h3 id="13-installation-methods">1.3 Installation Methods</h3>
+<h4 id="method-a-clone-the-repository">Method A: Clone the Repository</h4>
+<pre><code class="language-bash">git clone https://github.com/Maddesea/STIG_Script.git
+cd STIG_Script
+</code></pre>
+<h4 id="method-b-air-gap-portable-deployment">Method B: Air-Gap / Portable Deployment</h4>
+<ol>
+<li>Copy the entire <code>STIG_Script/</code> folder to your target machine via approved media.</li>
+<li>Optionally place a portable Python installation in a <code>python/</code> subfolder (the launchers auto-detect it).</li>
+<li>No <code>pip install</code> required — the tool works immediately.</li>
+</ol>
+<h4 id="method-c-standalone-executable">Method C: Standalone Executable</h4>
+<p>For maximum air-gapped simplicity, build or download the standalone executable (<code>STIG_Assessor.exe</code>). All features work from this single binary without requiring Python:</p>
+<pre><code class="language-cmd">.\STIG_Assessor.exe --help
+</code></pre>
+<h3 id="14-verifying-your-installation">1.4 Verifying Your Installation</h3>
+<pre><code class="language-bash"># Installed via pip (or running from venv)
+stig-assessor --version
+
+# Running directly from source package (no install)
+python -m stig_assessor --version
+
+# Running standalone executable
+.\STIG_Assessor.exe --version
+</code></pre>
+<p>Expected output: <code>8.1.0</code></p>
+<hr />
+<h2 id="2-launching-the-application">2. Launching the Application</h2>
+<p>STIG Assessor supports <strong>three interfaces</strong>: CLI, GUI, and Web. All three have full feature parity.</p>
+<h3 id="21-command-line-interface-cli">2.1 Command-Line Interface (CLI)</h3>
+<pre><code class="language-bash"># Installed via pip (or running from venv)
+stig-assessor --help
+
+# Running directly from source package (no install)
+python -m stig_assessor --help
+
+# Running standalone executable
+.\STIG_Assessor.exe --help
+
+# With verbose logging
+stig-assessor --verbose --create --xccdf benchmark.xml --asset SRV01
+</code></pre>
+<h3 id="211-interactive-wizard-mode-cli">2.1.1 Interactive Wizard Mode (CLI)</h3>
+<p>The CLI features a fully interactive menu-driven Wizard for guided operations. It includes an <strong>Advanced End-to-End Pipeline</strong> option that chains checklist building, remediation application, and HTML reporting automatically.</p>
+<pre><code class="language-bash"># Launch the interactive Wizard mode
+stig-assessor --wizard
+</code></pre>
+<h3 id="22-graphical-interface-gui">2.2 Graphical Interface (GUI)</h3>
+<pre><code class="language-bash"># Launch GUI
+stig-assessor --gui
+
+# Windows: Double-click the launcher
+launch_gui.bat
+
+# PowerShell launcher
+.\launch.ps1                     # Default: GUI mode
+.\launch.ps1 -Mode gui
+</code></pre>
+<h3 id="23-web-interface">2.3 Web Interface</h3>
+<pre><code class="language-bash"># Launch web server (auto-opens browser)
+stig-assessor --web
+
+# Windows: Double-click the launcher
+launch_web.bat
+
+# PowerShell
+.\launch.ps1 -Mode web
+</code></pre>
+<p>The web server starts on <code>http://127.0.0.1:8080</code> (it tries ports 8080–8089 if occupied). Your default browser opens automatically.</p>
+<h3 id="24-windows-launcher-scripts">2.4 Windows Launcher Scripts</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>launch_gui.bat</code></td>
+<td>Double-click to open the GUI on Windows</td>
+</tr>
+<tr>
+<td><code>launch_web.bat</code></td>
+<td>Double-click to open the Web interface on Windows</td>
+</tr>
+<tr>
+<td><code>launch.ps1</code></td>
+<td>PowerShell launcher with <code>-Mode gui/web/cli</code> parameter</td>
+</tr>
+</tbody>
+</table>
+<p>All launchers auto-detect Python from:
+1. <code>./venv/</code> (Local virtual environment)
+2. <code>./python/python.exe</code> (Portable)
+3. <code>./python312/python.exe</code> (Portable, version-specific)
+4. System-installed <code>python</code> on PATH (offers to create venv from <code>wheels/</code> if deps are missing)</p>
+<hr />
+<h2 id="3-interface-overview">3. Interface Overview</h2>
+<h3 id="when-to-use-each-interface">When to Use Each Interface</h3>
+<table>
+<thead>
+<tr>
+<th>Interface</th>
+<th>Best For</th>
+<th>Automation?</th>
+<th>Air-Gap?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>CLI</strong></td>
+<td>Scripting, pipelines, batch ops, CI/CD</td>
+<td>✅ Full</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>GUI</strong></td>
+<td>Interactive assessment work, single-file ops</td>
+<td>❌ Manual</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Web</strong></td>
+<td>Modern experience, team demos, file-upload workflow</td>
+<td>❌ Manual</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+<h3 id="cli-quick-reference">CLI Quick Reference</h3>
+<pre><code>stig-assessor [GLOBAL_OPTIONS] [COMMAND] [COMMAND_OPTIONS]
+
+Global Options:
+  --version          Show version number
+  --verbose / -v     Enable debug-level logging
+  --gui              Launch the graphical interface
+  --web              Launch the web interface
+
+Commands:
+  --create           Create CKL from XCCDF
+  --create-cklb      Create CKLB (JSON) from XCCDF
+  --merge            Merge checklists with history
+  --extract          Extract fixes from XCCDF
+  --apply-results    Import remediation results
+  --validate         Validate a checklist
+  --repair           Fix corrupted checklists
+  --diff             Compare two checklists
+  --stats            Generate compliance statistics
+  --verify-integrity Checksum + validate
+  --batch-convert    Batch convert a folder of XCCDFs
+  --fleet-stats      Fleet-wide compliance stats
+  --bulk-edit        Mass-update matching VIDs
+  --export-poam      Export eMASS POAM CSV
+  --import-evidence / --export-evidence / --package-evidence
+  --track-ckl / --show-drift
+  --bp-list / --bp-set / --bp-delete / --bp-export / --bp-import / --bp-reset / --bp-clone
+  --save-profile / --use-profile / --export-configs / --import-configs
+  --convert-to-cklb / --convert-to-ckl
+  --compute-checksum
+</code></pre>
+<hr />
+<h2 id="4-phase-a-creating-a-checklist-from-xccdf">4. Phase A — Creating a Checklist from XCCDF</h2>
+<p>Converts a DISA XCCDF benchmark (<code>.xml</code>) into a STIG Viewer-compatible checklist (<code>.ckl</code> or <code>.cklb</code>).</p>
+<h3 id="41-cli">4.1 CLI</h3>
+<pre><code class="language-bash">stig-assessor --create \
+  --xccdf U_RHEL_8_STIG_V1R10_Manual-xccdf.xml \
+  --asset &quot;WEB-SERVER-01&quot; \
+  --ip &quot;10.0.1.50&quot; \
+  --mac &quot;00:1A:2B:3C:4D:5E&quot; \
+  --role &quot;Member Server&quot; \
+  --marking &quot;CUI&quot; \
+  --apply-boilerplate \
+  --out WEB-SERVER-01_RHEL8.ckl
+</code></pre>
+<h4 id="parameters">Parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--xccdf</code></td>
+<td>✅</td>
+<td>—</td>
+<td>Path to the XCCDF <code>.xml</code> benchmark file</td>
+</tr>
+<tr>
+<td><code>--asset</code></td>
+<td>✅</td>
+<td>—</td>
+<td>Hostname or asset identifier for the system</td>
+</tr>
+<tr>
+<td><code>--out</code></td>
+<td>❌</td>
+<td><code>{asset}_{xccdf_stem}.ckl</code></td>
+<td>Output file path</td>
+</tr>
+<tr>
+<td><code>--ip</code></td>
+<td>❌</td>
+<td><code>""</code></td>
+<td>IP address</td>
+</tr>
+<tr>
+<td><code>--mac</code></td>
+<td>❌</td>
+<td><code>""</code></td>
+<td>MAC address</td>
+</tr>
+<tr>
+<td><code>--role</code></td>
+<td>❌</td>
+<td><code>"None"</code></td>
+<td>System role (e.g., "Member Server", "Web Server")</td>
+</tr>
+<tr>
+<td><code>--marking</code></td>
+<td>❌</td>
+<td><code>"CUI"</code></td>
+<td>Classification marking (e.g., CUI, SECRET, or any fully customizable user-defined string)</td>
+</tr>
+<tr>
+<td><code>--apply-boilerplate</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>Pre-populate finding details with template text</td>
+</tr>
+<tr>
+<td><code>--dry-run</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>Test the conversion without writing any file</td>
+</tr>
+</tbody>
+</table>
+<h4 id="creating-a-cklb-stig-viewer-3-file-instead">Creating a CKLB (STIG Viewer 3) file instead:</h4>
+<pre><code class="language-bash">stig-assessor --create-cklb \
+  --xccdf benchmark.xml \
+  --asset &quot;SRV-01&quot;
+</code></pre>
+<h4 id="interactive-mode">Interactive Mode</h4>
+<p>If you run <code>--create</code> without <code>--xccdf</code> or <code>--asset</code>, and you're in a terminal (not a pipe), the tool will <strong>prompt</strong> you for the missing values interactively.</p>
+<h4 id="understanding-the-output">Understanding the Output</h4>
+<pre><code class="language-json">{
+  &quot;ok&quot;: true,
+  &quot;output&quot;: &quot;/path/to/WEB-SERVER-01_RHEL8.ckl&quot;,
+  &quot;processed&quot;: 287,
+  &quot;skipped&quot;: 0,
+  &quot;errors&quot;: []
+}
+</code></pre>
+<h3 id="42-gui">4.2 GUI</h3>
+<ol>
+<li>Launch the GUI (<code>stig-assessor --gui</code>).</li>
+<li>Navigate to the <strong>📋 Create CKL</strong> tab.</li>
+<li>Click <strong>📂 Browse…</strong> to select your <code>.xml</code> XCCDF file.</li>
+<li>Enter your <strong>Asset Name</strong> (required, shown with red <code>* Required</code> validation).</li>
+<li>Optionally enter IP, MAC, and select or define a Custom Marking from the dropdown (custom markings are saved to your settings).</li>
+<li>Check <strong>☑ Apply boilerplate templates</strong> if desired.</li>
+<li>Click <strong>➕ Create Checklist</strong>.</li>
+<li>The result appears in the output log at the bottom.</li>
+</ol>
+<h3 id="43-web">4.3 Web</h3>
+<ol>
+<li>Launch the web server (<code>stig-assessor --web</code>).</li>
+<li>Go to the <strong>Create CKL</strong> section.</li>
+<li>Drag-and-drop or browse for your XCCDF file.</li>
+<li>Fill in asset details.</li>
+<li>Click <strong>Convert</strong>. The browser downloads the resulting <code>.ckl</code> file.</li>
+</ol>
+<hr />
+<h2 id="5-phase-b-merging-updating-checklists">5. Phase B — Merging &amp; Updating Checklists</h2>
+<p>When DISA releases a new quarterly STIG, you must migrate your historical assessment data (comments, statuses, finding details) onto the new baseline. The merge feature does this automatically.</p>
+<h3 id="51-cli">5.1 CLI</h3>
+<pre><code class="language-bash">stig-assessor --merge \
+  --base Q4_2025_Blank_Baseline.ckl \
+  --histories Q1_Assessment.ckl Q2_Assessment.ckl Q3_Assessment.ckl \
+  --merge-out Q4_2025_Preserved.ckl
+</code></pre>
+<h4 id="parameters_1">Parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--merge</code></td>
+<td>✅</td>
+<td>—</td>
+<td>Enable merge mode</td>
+</tr>
+<tr>
+<td><code>--base</code></td>
+<td>✅</td>
+<td>—</td>
+<td>The new blank baseline checklist</td>
+</tr>
+<tr>
+<td><code>--histories</code></td>
+<td>✅</td>
+<td>—</td>
+<td>One or more previous assessments (space-separated)</td>
+</tr>
+<tr>
+<td><code>--merge-out</code></td>
+<td>❌</td>
+<td><code>{base_stem}_merged.ckl</code></td>
+<td>Output path</td>
+</tr>
+<tr>
+<td><code>--no-preserve-history</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>Do NOT inject formatted history into finding details</td>
+</tr>
+<tr>
+<td><code>--no-boilerplate</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>Do NOT fill empty fields with boilerplate text</td>
+</tr>
+<tr>
+<td><code>--merge-dry-run</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>Preview changes without writing</td>
+</tr>
+</tbody>
+</table>
+<h4 id="how-merge-works-detailed">How Merge Works (Detailed)</h4>
+<ol>
+<li>The tool parses each history file chronologically.</li>
+<li>For each vulnerability ID found in the history files, it records:</li>
+<li>Status, finding details, comments, severity, and the source filename.</li>
+<li>When applying to the base checklist, for each VULN:</li>
+<li>If <code>preserve_history=true</code>: A formatted history block is prepended to finding details.</li>
+<li>If <code>apply_boilerplate=true</code>: Empty fields are filled with template text.</li>
+<li>The most recent status is preserved.</li>
+<li>History entries are deduplicated — identical entries from multiple files are merged.</li>
+</ol>
+<h4 id="example-output">Example Output</h4>
+<pre><code class="language-json">{
+  &quot;updated&quot;: 215,
+  &quot;skipped&quot;: 72,
+  &quot;dry_run&quot;: false,
+  &quot;output&quot;: &quot;/path/to/Q4_2025_Preserved.ckl&quot;
+}
+</code></pre>
+<h3 id="52-gui">5.2 GUI</h3>
+<ol>
+<li>Navigate to the <strong>🔀 Merge Checklists</strong> tab.</li>
+<li>Browse for your <strong>Base Checklist</strong> (the new STIG release).</li>
+<li>Click <strong>Add…</strong> to add one or more history files. Remove/Clear as needed.</li>
+<li>Set your output path.</li>
+<li>Options:</li>
+<li><strong>☑ Preserve full history</strong> — includes formatted assessment history in finding details.</li>
+<li><strong>☑ Apply boilerplates when missing</strong> — fills blank fields with defaults.</li>
+<li>Click <strong>🔀 Merge Checklists</strong>.</li>
+</ol>
+<hr />
+<h2 id="6-phase-c-extracting-remediation-scripts">6. Phase C — Extracting Remediation Scripts</h2>
+<p>Parses XCCDF benchmarks for embedded fix instructions and exports them as ready-to-execute scripts.</p>
+<h3 id="61-cli">6.1 CLI</h3>
+<pre><code class="language-bash">stig-assessor --extract benchmark.xml \
+  --outdir ./server_fixes \
+  --script-dry-run \
+  --enable-rollbacks
+</code></pre>
+<h4 id="parameters_2">Parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--extract</code></td>
+<td>✅</td>
+<td>—</td>
+<td>Path to XCCDF file</td>
+</tr>
+<tr>
+<td><code>--outdir</code></td>
+<td>❌</td>
+<td><code>{xccdf_stem}_fixes/</code></td>
+<td>Output directory</td>
+</tr>
+<tr>
+<td><code>--no-json</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>Disable JSON export</td>
+</tr>
+<tr>
+<td><code>--no-csv</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>Disable CSV export</td>
+</tr>
+<tr>
+<td><code>--no-bash</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>Disable Bash script</td>
+</tr>
+<tr>
+<td><code>--no-ps</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>Disable PowerShell script</td>
+</tr>
+<tr>
+<td><code>--no-ansible</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>Disable Ansible playbook</td>
+</tr>
+<tr>
+<td><code>--script-dry-run</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>Scripts print commands without executing</td>
+</tr>
+<tr>
+<td><code>--enable-rollbacks</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>PowerShell: creates registry backups before changes</td>
+</tr>
+</tbody>
+</table>
+<h4 id="generated-output-files">Generated Output Files</h4>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fixes.json</code></td>
+<td>Complete structured data (VID, severity, commands, CCI refs)</td>
+</tr>
+<tr>
+<td><code>fixes.csv</code></td>
+<td>Spreadsheet-friendly summary</td>
+</tr>
+<tr>
+<td><code>remediate.sh</code></td>
+<td>Linux Bash script with logging and result JSON output</td>
+</tr>
+<tr>
+<td><code>Remediate.ps1</code></td>
+<td>Windows PowerShell with transcript, optional rollbacks</td>
+</tr>
+<tr>
+<td><code>remediate.yml</code></td>
+<td>Ansible playbook tasks</td>
+</tr>
+</tbody>
+</table>
+<h4 id="command-extraction-intelligence">Command Extraction Intelligence</h4>
+<p>The extractor uses <strong>12 pattern engines</strong> to find commands in fix text:
+1. Markdown code blocks (<code>`)
+2. Shell prompts (`$`, `#`, `&gt;`)
+3. PowerShell prompts (`PS C:\&gt;`)
+4. Bullet-style instructions ("Run: ...")
+5. Inline code (</code> <code>``)
+6. "Run the following command:" blocks
+7. Common UNIX commands (chmod, systemctl, grep, etc.)
+8. PowerShell cmdlets (Set-*, Get-*, New-*, etc.)
+9. Registry commands (</code>reg add<code>,</code>reg query`)
+10. File editing instructions
+11. Windows Group Policy paths
+12. Multi-line command blocks</p>
+<h4 id="platform-detection">Platform Detection</h4>
+<p>Each fix is tagged with a platform (<code>linux</code>, <code>windows</code>, <code>network</code>, or <code>generic</code>) based on keywords in the fix text.</p>
+<h3 id="62-gui">6.2 GUI</h3>
+<ol>
+<li>Navigate to <strong>🔧 Extract Fixes</strong> tab.</li>
+<li>Browse for your XCCDF file and set the output directory.</li>
+<li>Toggle output formats with checkboxes.</li>
+<li>Check <strong>Dry run mode</strong> for non-destructive scripts.</li>
+<li>Click <strong>🔧 Extract Fixes</strong>.</li>
+</ol>
+<hr />
+<h2 id="7-phase-d-applying-remediation-results">7. Phase D — Applying Remediation Results</h2>
+<p>After running your remediation scripts (or third-party scanners), import the results back into your checklist to bulk-update statuses, finding details, and comments.</p>
+<h3 id="71-results-json-format">7.1 Results JSON Format</h3>
+<p>The expected format is a JSON array of result objects:</p>
+<pre><code class="language-json">[
+  {
+    &quot;vid&quot;: &quot;V-230234&quot;,
+    &quot;ok&quot;: true,
+    &quot;msg&quot;: &quot;Successfully configured audit settings&quot;,
+    &quot;ts&quot;: &quot;2026-01-15T10:30:00Z&quot;
+  },
+  {
+    &quot;vid&quot;: &quot;V-230235&quot;,
+    &quot;ok&quot;: false,
+    &quot;msg&quot;: &quot;Failed: permission denied&quot;,
+    &quot;ts&quot;: &quot;2026-01-15T10:30:05Z&quot;
+  }
+]
+</code></pre>
+<p>Or a CSV file with columns: <code>vid</code>, <code>ok</code> (true/false), <code>msg</code>, <code>ts</code>.</p>
+<h3 id="72-cli">7.2 CLI</h3>
+<pre><code class="language-bash"># Single file
+stig-assessor --apply-results results.json \
+  --checklist server01.ckl \
+  --results-out server01_updated.ckl
+
+# Multiple results files from different scanners
+stig-assessor --apply-results scan_a.json scan_b.json manual_check.json \
+  --checklist server01.ckl \
+  --results-out server01_final.ckl
+
+# Fine-grained text injection
+stig-assessor --apply-results results.json \
+  --checklist server01.ckl \
+  --details-mode append \
+  --comment-mode prepend
+</code></pre>
+<h4 id="parameters_3">Parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--apply-results</code></td>
+<td>✅</td>
+<td>—</td>
+<td>One or more JSON/CSV result files</td>
+</tr>
+<tr>
+<td><code>--checklist</code></td>
+<td>✅</td>
+<td>—</td>
+<td>Target CKL to update</td>
+</tr>
+<tr>
+<td><code>--results-out</code></td>
+<td>❌</td>
+<td><code>{checklist_stem}_updated.ckl</code></td>
+<td>Output path</td>
+</tr>
+<tr>
+<td><code>--no-auto-status</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>Do NOT auto-mark successes as <code>NotAFinding</code></td>
+</tr>
+<tr>
+<td><code>--results-dry-run</code></td>
+<td>❌</td>
+<td><code>false</code></td>
+<td>Preview without writing</td>
+</tr>
+<tr>
+<td><code>--details-mode</code></td>
+<td>❌</td>
+<td><code>prepend</code></td>
+<td>How to inject finding details: <code>prepend</code>, <code>append</code>, or <code>overwrite</code></td>
+</tr>
+<tr>
+<td><code>--comment-mode</code></td>
+<td>❌</td>
+<td><code>prepend</code></td>
+<td>How to inject comments: <code>prepend</code>, <code>append</code>, or <code>overwrite</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="text-injection-modes-explained">Text Injection Modes Explained</h4>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>prepend</code></td>
+<td>New result text is added <strong>before</strong> existing content (separated by newlines)</td>
+</tr>
+<tr>
+<td><code>append</code></td>
+<td>New result text is added <strong>after</strong> existing content</td>
+</tr>
+<tr>
+<td><code>overwrite</code></td>
+<td>Existing content is <strong>replaced entirely</strong> with new result text</td>
+</tr>
+</tbody>
+</table>
+<h3 id="73-gui">7.3 GUI</h3>
+<ol>
+<li>Navigate to <strong>📥 Import Results</strong>.</li>
+<li>Select your results JSON file and your target CKL.</li>
+<li>Set the output path.</li>
+<li>Check <strong>Auto-mark successes as NotAFinding</strong> (enabled by default).</li>
+<li>Click <strong>Import Results</strong>.</li>
+</ol>
+<h3 id="74-generating-results-with-the-wizard">7.4 Generating Results with the Wizard</h3>
+<pre><code class="language-bash"># Interactive wizard
+python scripts/generate_remediation.py
+
+# Convert CSV output from a scanner
+python scripts/generate_remediation.py --from-csv scan_output.csv --output results.json
+</code></pre>
+<hr />
+<h2 id="8-phase-e-evidence-management">8. Phase E — Evidence Management</h2>
+<p>The Evidence Manager provides content-deduplicated storage for screenshots, logs, and audit artifacts organized by vulnerability ID.</p>
+<h3 id="81-cli">8.1 CLI</h3>
+<pre><code class="language-bash"># Import a single evidence file
+stig-assessor --import-evidence &quot;V-230234&quot; /path/to/firewall_screenshot.png \
+  --evidence-desc &quot;firewalld status showing drop rules&quot; \
+  --evidence-cat &quot;config&quot;
+
+# Export all evidence to a directory
+stig-assessor --export-evidence /path/to/export_dir
+
+# Create a ZIP package for auditors or transfer
+stig-assessor --package-evidence evidence_bundle.zip
+
+# Import evidence from a received package
+stig-assessor --import-evidence-package received_evidence.zip
+</code></pre>
+<h4 id="parameters_4">Parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--import-evidence VID FILE</code></td>
+<td>Import a file for the specified vulnerability ID</td>
+</tr>
+<tr>
+<td><code>--evidence-desc "text"</code></td>
+<td>Description for the imported evidence</td>
+</tr>
+<tr>
+<td><code>--evidence-cat "category"</code></td>
+<td>Category label (e.g., <code>config</code>, <code>screenshot</code>, <code>log</code>, <code>scan</code>)</td>
+</tr>
+<tr>
+<td><code>--export-evidence DIR</code></td>
+<td>Export all stored evidence to a directory</td>
+</tr>
+<tr>
+<td><code>--package-evidence FILE.zip</code></td>
+<td>Bundle all evidence into a deduplicated ZIP</td>
+</tr>
+<tr>
+<td><code>--import-evidence-package FILE.zip</code></td>
+<td>Import evidence from a ZIP package</td>
+</tr>
+</tbody>
+</table>
+<h3 id="82-gui">8.2 GUI</h3>
+<ol>
+<li>Navigate to the <strong>📎 Evidence</strong> tab.</li>
+<li>Enter the target V-ID.</li>
+<li>Add a description and browse to select a file.</li>
+<li>Click <strong>Import</strong>.</li>
+<li>Use the <strong>Package</strong> button to export everything as a ZIP.</li>
+</ol>
+<h3 id="83-storage-location">8.3 Storage Location</h3>
+<p>All evidence is stored under <code>~/.stig_assessor/evidence/</code>, organized by VID subdirectories with a <code>manifest.json</code> metadata file.</p>
+<hr />
+<h2 id="9-phase-f-validation-repair">9. Phase F — Validation &amp; Repair</h2>
+<h3 id="91-validation">9.1 Validation</h3>
+<p>Checks a CKL for STIG Viewer 2.18 compatibility issues that would cause import errors.</p>
+<h4 id="cli">CLI</h4>
+<pre><code class="language-bash">stig-assessor --validate assessment.ckl
+</code></pre>
+<p><strong>Output:</strong></p>
+<pre><code class="language-json">{
+  &quot;ok&quot;: true,
+  &quot;errors&quot;: [],
+  &quot;warnings&quot;: [&quot;Finding details length &gt; 60000 chars for V-230501&quot;],
+  &quot;info&quot;: [&quot;Total 287 vulnerabilities validated&quot;]
+}
+</code></pre>
+<p>Exit code: <code>0</code> = valid, <code>1</code> = has errors.</p>
+<h4 id="what-is-validated">What is Validated</h4>
+<ul>
+<li>Root element is <code>CHECKLIST</code></li>
+<li><code>ASSET</code>, <code>STIGS</code>, <code>iSTIG</code>, <code>STIG_INFO</code>, <code>VULN</code> elements exist</li>
+<li>All required ASSET fields present (<code>HOST_NAME</code>, <code>TARGET_KEY</code>, etc.)</li>
+<li>Status values are valid (<code>NotAFinding</code>, <code>Open</code>, <code>Not_Applicable</code>, <code>Not_Reviewed</code>)</li>
+<li>Finding details and comments are within length limits</li>
+<li>No invalid XML characters</li>
+<li>STIG_DATA has proper <code>VULN_ATTRIBUTE</code> / <code>ATTRIBUTE_DATA</code> pairs</li>
+</ul>
+<h3 id="92-repair">9.2 Repair</h3>
+<p>Automatically fixes common corruption issues in CKL files.</p>
+<h4 id="cli_1">CLI</h4>
+<pre><code class="language-bash">stig-assessor --repair corrupt_assessment.ckl \
+  --repair-out fixed_assessment.ckl
+</code></pre>
+<h4 id="what-is-repaired">What is Repaired</h4>
+<ol>
+<li><strong>Invalid status values</strong> — Fixes typos like <code>"not_a_finding"</code> → <code>"NotAFinding"</code>, <code>"open"</code> → <code>"Open"</code>.</li>
+<li><strong>Missing ASSET elements</strong> — Adds required fields with sensible defaults.</li>
+<li><strong>Oversized content</strong> — Truncates finding details &gt;65,000 chars and comments &gt;32,000 chars (prevents STIG Viewer crashes).</li>
+</ol>
+<h4 id="gui">GUI</h4>
+<ol>
+<li>Navigate to the <strong>🔧 Repair CKL</strong> tab.</li>
+<li>Select the corrupt file and set an output path.</li>
+<li>Click <strong>Repair</strong>. A detailed log of all repairs is displayed.</li>
+</ol>
+<hr />
+<h2 id="10-phase-g-compliance-statistics-reporting">10. Phase G — Compliance Statistics &amp; Reporting</h2>
+<h3 id="101-cli">10.1 CLI</h3>
+<pre><code class="language-bash"># Text report to console
+stig-assessor --stats assessment.ckl
+
+# JSON output (machine-readable)
+stig-assessor --stats assessment.ckl --stats-format json
+
+# Save to file
+stig-assessor --stats assessment.ckl --stats-format html --stats-out report.html
+
+# CSV for spreadsheets
+stig-assessor --stats assessment.ckl --stats-format csv --stats-out stats.csv
+</code></pre>
+<h4 id="output-formats">Output Formats</h4>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>text</code></td>
+<td>Human-readable console report with status/severity breakdown</td>
+</tr>
+<tr>
+<td><code>json</code></td>
+<td>Full statistics as a JSON object (total, by_status, by_severity, completion %)</td>
+</tr>
+<tr>
+<td><code>csv</code></td>
+<td>CSV with metric/value rows</td>
+</tr>
+<tr>
+<td><code>html</code></td>
+<td><strong>Self-contained HTML report</strong> with donut chart, severity table, and key metrics. Printable to PDF.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="text-report-example">Text Report Example</h4>
+<pre><code>================================================================================
+STIG Compliance Statistics
+================================================================================
+File: /path/to/assessment.ckl
+Generated: 2026-04-07 12:00:00 UTC
+
+Total Vulnerabilities: 287
+Reviewed: 250 (87.1%)
+Compliant: 230 (92.0% of reviewed)
+
+Status Breakdown:
+----------------------------------------
+  NotAFinding          230 ( 80.1%)
+  Not_Applicable        12 (  4.2%)
+  Not_Reviewed          37 ( 12.9%)
+  Open                   8 (  2.8%)
+
+Severity Breakdown:
+----------------------------------------
+  CAT I   (high  )     45 ( 15.7%)
+  CAT II  (medium)    195 ( 67.9%)
+  CAT III (low   )     47 ( 16.4%)
+================================================================================
+</code></pre>
+<h3 id="102-gui">10.2 GUI</h3>
+<ol>
+<li>Navigate to the <strong>📊 Analytics</strong> tab.</li>
+<li>Select a CKL file.</li>
+<li>View status counts, severity breakdown, and per-finding detail table.</li>
+<li>Alternatively: <strong>Tools → Checklist Statistics…</strong> from the menu bar.</li>
+</ol>
+<h3 id="103-web">10.3 Web</h3>
+<ol>
+<li>Upload a CKL on the <strong>Analytics</strong> page.</li>
+<li>Interactive charts and a filterable findings table are displayed.</li>
+<li>Download the HTML report.</li>
+</ol>
+<hr />
+<h2 id="11-phase-h-comparing-diffing-checklists">11. Phase H — Comparing (Diffing) Checklists</h2>
+<h3 id="111-cli">11.1 CLI</h3>
+<pre><code class="language-bash"># Summary comparison
+stig-assessor --diff previous.ckl current.ckl
+
+# Detailed comparison showing all unique VIDs
+stig-assessor --diff previous.ckl current.ckl --diff-format detailed
+
+# Machine-readable JSON
+stig-assessor --diff previous.ckl current.ckl --diff-format json
+</code></pre>
+<h4 id="what-is-compared">What is Compared</h4>
+<ul>
+<li><strong>Status changes</strong> — e.g., <code>Open</code> → <code>NotAFinding</code></li>
+<li><strong>Severity changes</strong> — e.g., <code>medium</code> → <code>high</code></li>
+<li><strong>Finding details and comments changes</strong> (length comparison)</li>
+<li><strong>VIDs only in one checklist</strong> (new/removed rules)</li>
+</ul>
+<h3 id="112-gui">11.2 GUI</h3>
+<ol>
+<li>Navigate to the <strong>🔍 Compare</strong> tab (or <strong>Tools → Compare Checklists…</strong>).</li>
+<li>Select two CKL files.</li>
+<li>View a formatted diff report.</li>
+</ol>
+<hr />
+<h2 id="12-phase-i-integrity-verification">12. Phase I — Integrity Verification</h2>
+<h3 id="121-verify-integrity">12.1 Verify Integrity</h3>
+<p>Combines SHA-256 checksum computation with full STIG Viewer validation.</p>
+<pre><code class="language-bash">stig-assessor --verify-integrity final_assessment.ckl
+</code></pre>
+<p><strong>Output:</strong></p>
+<pre><code class="language-json">{
+  &quot;valid&quot;: true,
+  &quot;file&quot;: &quot;/path/to/final_assessment.ckl&quot;,
+  &quot;size&quot;: 1548237,
+  &quot;checksum&quot;: &quot;a1b2c3d4e5f6...SHA256 hex digest...&quot;,
+  &quot;checksum_type&quot;: &quot;SHA256&quot;,
+  &quot;validation_errors&quot;: 0,
+  &quot;validation_warnings&quot;: 0
+}
+</code></pre>
+<h3 id="122-compute-checksum-only">12.2 Compute Checksum Only</h3>
+<pre><code class="language-bash">stig-assessor --compute-checksum assessment.ckl
+# Output: a1b2c3d4...  assessment.ckl
+</code></pre>
+<hr />
+<h2 id="13-phase-j-boilerplate-template-management">13. Phase J — Boilerplate Template Management</h2>
+<p>Boilerplates are reusable text templates applied to finding details and comments based on vulnerability ID and status. They support Python format-string placeholders (<code>{asset}</code>, <code>{severity}</code>).</p>
+<h3 id="131-template-structure">13.1 Template Structure</h3>
+<p>Templates are organized as:</p>
+<pre><code class="language-json">{
+  &quot;V-*&quot;: {
+    &quot;NotAFinding&quot;: {
+      &quot;finding_details&quot;: &quot;This control is satisfied. Evidence: {asset}&quot;,
+      &quot;comments&quot;: &quot;Reviewed by automated script.&quot;
+    },
+    &quot;Open&quot;: {
+      &quot;finding_details&quot;: &quot;This control is not satisfied. Findings: [describe issue]&quot;,
+      &quot;comments&quot;: &quot;Remediation pending for {asset}.&quot;
+    },
+    &quot;Not_Applicable&quot;: {
+      &quot;finding_details&quot;: &quot;This control does not apply because: [justification]&quot;,
+      &quot;comments&quot;: &quot;Not applicable to {asset} configuration.&quot;
+    }
+  },
+  &quot;V-230234&quot;: {
+    &quot;NotAFinding&quot;: {
+      &quot;finding_details&quot;: &quot;Audit logging is properly configured.&quot;,
+      &quot;comments&quot;: &quot;Verified via 'auditctl -l'.&quot;
+    }
+  }
+}
+</code></pre>
+<ul>
+<li><code>V-*</code> = <strong>Global wildcard</strong> — applies to all VIDs unless a specific VID override exists.</li>
+<li>Per-VID templates <strong>override</strong> the global wildcard for matching statuses.</li>
+</ul>
+<h3 id="132-cli-commands">13.2 CLI Commands</h3>
+<pre><code class="language-bash"># List all boilerplates
+stig-assessor --bp-list
+
+# List boilerplates for a specific VID
+stig-assessor --bp-list-vid V-230234
+
+# Set a boilerplate
+stig-assessor --bp-set \
+  --vid V-230234 \
+  --status NotAFinding \
+  --finding &quot;Audit logging is configured correctly.&quot; \
+  --comment &quot;Verified via manual inspection.&quot;
+
+# Delete a boilerplate
+stig-assessor --bp-delete --vid V-230234 --status NotAFinding
+# Or delete ALL statuses for a VID:
+stig-assessor --bp-delete --vid V-230234
+
+# Clone templates from one VID to another
+stig-assessor --bp-clone V-230234 V-230235
+
+# Export all boilerplates to a JSON file
+stig-assessor --bp-export boilerplates_backup.json
+
+# Import boilerplates from a JSON file (merges with existing)
+stig-assessor --bp-import team_templates.json
+
+# Reset ALL boilerplates to factory defaults
+stig-assessor --bp-reset
+</code></pre>
+<h3 id="133-apply-modes-used-during-createmerge">13.3 Apply Modes (used during Create/Merge)</h3>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>overwrite_empty</code></td>
+<td>Only fills in <strong>empty</strong> fields (default during creation)</td>
+</tr>
+<tr>
+<td><code>prepend</code></td>
+<td>Adds boilerplate text <strong>before</strong> existing content</td>
+</tr>
+<tr>
+<td><code>append</code></td>
+<td>Adds boilerplate text <strong>after</strong> existing content</td>
+</tr>
+<tr>
+<td><code>merge</code></td>
+<td>Combines with existing text, separated by <code>--- Boilerplate ---</code> divider</td>
+</tr>
+</tbody>
+</table>
+<h3 id="134-template-variables">13.4 Template Variables</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Substituted With</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{asset}</code></td>
+<td>Asset hostname or identifier</td>
+</tr>
+<tr>
+<td><code>{severity}</code></td>
+<td>Vulnerability severity level (high/medium/low)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="135-gui">13.5 GUI</h3>
+<ol>
+<li>Navigate to the <strong>📝 Boilerplates</strong> tab.</li>
+<li>View, add, edit, or delete boilerplate entries.</li>
+<li>Use the <strong>Tools</strong> menu for Import/Export.</li>
+</ol>
+<h3 id="136-storage">13.6 Storage</h3>
+<p>Templates are stored at <code>~/.stig_assessor/templates/boilerplate.json</code>. This file is auto-created with factory defaults on first run.</p>
+<hr />
+<h2 id="14-phase-k-history-compliance-drift-tracking">14. Phase K — History &amp; Compliance Drift Tracking</h2>
+<h3 id="141-tracking-assessments">14.1 Tracking Assessments</h3>
+<p>Ingest a completed checklist into the SQLite history database for long-term tracking:</p>
+<pre><code class="language-bash">stig-assessor --track-ckl completed_assessment.ckl
+</code></pre>
+<p>This extracts all VID statuses and stores them with a timestamp and asset name.</p>
+<h3 id="142-viewing-compliance-drift">14.2 Viewing Compliance Drift</h3>
+<p>Compare the latest assessment against previous ones:</p>
+<pre><code class="language-bash">stig-assessor --show-drift &quot;WEB-SERVER-01&quot;
+</code></pre>
+<p><strong>Output:</strong></p>
+<pre><code>=== Compliance Drift for WEB-SERVER-01 ===
+Fixed (Open -&gt; NotAFinding): 12
+Regressed (NotAFinding -&gt; Open): 2
+Changed: 3
+New Rules: 15
+Removed Rules: 0
+Unchanged: 260
+</code></pre>
+<h3 id="143-history-exportimport">14.3 History Export/Import</h3>
+<pre><code class="language-bash"># Export history to JSON
+stig-assessor --export-history history_backup.json
+
+# Import history from JSON
+stig-assessor --import-history received_history.json
+</code></pre>
+<h3 id="144-gui">14.4 GUI</h3>
+<ol>
+<li>Navigate to the <strong>📈 History/Drift</strong> tab.</li>
+<li>Upload a CKL to track, or select an asset name to view drift analysis.</li>
+</ol>
+<h3 id="145-web">14.5 Web</h3>
+<ol>
+<li>Use the <strong>History</strong> section.</li>
+<li>Upload a CKL to ingest.</li>
+<li>Select an asset to view compliance drift trends.</li>
+</ol>
+<h3 id="146-database-location">14.6 Database Location</h3>
+<p><code>~/.stig_assessor/history/stig_history.db</code> (SQLite)</p>
+<hr />
+<h2 id="15-phase-l-batch-operations-fleet-dashboard">15. Phase L — Batch Operations &amp; Fleet Dashboard</h2>
+<h3 id="151-batch-convert-xccdfs-to-ckls">15.1 Batch Convert XCCDFs to CKLs</h3>
+<p>Process an entire folder of XCCDF benchmarks at once:</p>
+<pre><code class="language-bash"># Basic batch conversion
+stig-assessor --batch-convert /path/to/stig_folder/ \
+  --batch-out /path/to/ckl_output/ \
+  --batch-asset-prefix &quot;DC01&quot;
+
+# With boilerplate application
+stig-assessor --batch-convert /path/to/stigs/ \
+  --batch-out /path/to/ckls/ \
+  --batch-asset-prefix &quot;WEB&quot; \
+  --apply-boilerplate
+
+# Output as CKLB (STIG Viewer 3)
+stig-assessor --batch-convert /path/to/stigs/ \
+  --batch-out-ext .cklb
+</code></pre>
+<h4 id="parameters_5">Parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--batch-convert DIR</code></td>
+<td>—</td>
+<td>Directory containing XCCDF <code>.xml</code> files</td>
+</tr>
+<tr>
+<td><code>--batch-out DIR</code></td>
+<td><code>{dir_name}_ckls/</code></td>
+<td>Output directory</td>
+</tr>
+<tr>
+<td><code>--batch-asset-prefix</code></td>
+<td><code>"ASSET"</code></td>
+<td>Prefix for auto-generated asset names</td>
+</tr>
+<tr>
+<td><code>--batch-out-ext</code></td>
+<td><code>.ckl</code></td>
+<td>Output format: <code>.ckl</code> or <code>.cklb</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="152-fleet-statistics">15.2 Fleet Statistics</h3>
+<p>Analyze compliance across an entire fleet of checklists:</p>
+<pre><code class="language-bash"># From a directory
+stig-assessor --fleet-stats /path/to/fleet_ckls/
+
+# From a ZIP archive
+stig-assessor --fleet-stats fleet_bundle.zip
+</code></pre>
+<p><strong>Output:</strong> JSON with aggregate compliance stats across all assets, including per-asset breakdowns and overall fleet compliance percentage.</p>
+<h3 id="153-gui">15.3 GUI</h3>
+<ol>
+<li>Navigate to the <strong>🏭 Batch Convert</strong> tab.</li>
+<li>Select a folder of XCCDFs and an output directory.</li>
+<li>Click <strong>Convert All</strong>.</li>
+</ol>
+<h3 id="154-web">15.4 Web</h3>
+<ol>
+<li>Use the <strong>Fleet Dashboard</strong> section.</li>
+<li>Upload a ZIP of CKLs.</li>
+<li>View aggregated compliance charts and per-asset breakdowns.</li>
+</ol>
+<hr />
+<h2 id="16-phase-m-bulk-edit-poam-export">16. Phase M — Bulk Edit &amp; POAM Export</h2>
+<h3 id="161-bulk-edit">16.1 Bulk Edit</h3>
+<p>Mass-update vulnerabilities matching specific criteria:</p>
+<pre><code class="language-bash"># Mark all CAT III (low) items as Not_Applicable
+stig-assessor --bulk-edit assessment.ckl \
+  --filter-severity low \
+  --apply-status Not_Applicable \
+  --apply-comment &quot;Low-severity items deferred per site policy.&quot; \
+  --bulk-out assessment_updated.ckl
+
+# Mark specific VIDs matching a regex
+stig-assessor --bulk-edit assessment.ckl \
+  --filter-vid &quot;V-2302[0-9]{2}&quot; \
+  --apply-status NotAFinding \
+  --apply-comment &quot;Remediated in batch 2026-Q1.&quot; \
+  --append-comment
+</code></pre>
+<h4 id="parameters_6">Parameters</h4>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--bulk-edit FILE</code></td>
+<td>Checklist to modify</td>
+</tr>
+<tr>
+<td><code>--bulk-out FILE</code></td>
+<td>Output path (default: <code>{stem}_updated.ckl</code>)</td>
+</tr>
+<tr>
+<td><code>--filter-severity</code></td>
+<td>Filter by <code>high</code>, <code>medium</code>, or <code>low</code></td>
+</tr>
+<tr>
+<td><code>--filter-vid</code></td>
+<td>Filter by VID regex pattern</td>
+</tr>
+<tr>
+<td><code>--apply-status</code></td>
+<td>Status to apply: <code>NotAFinding</code>, <code>Open</code>, <code>Not_Applicable</code>, <code>Not_Reviewed</code></td>
+</tr>
+<tr>
+<td><code>--apply-comment</code></td>
+<td>Comment text to apply</td>
+</tr>
+<tr>
+<td><code>--append-comment</code></td>
+<td>Append to existing comments instead of replacing</td>
+</tr>
+</tbody>
+</table>
+<h3 id="162-emass-poam-export">16.2 eMASS POAM Export</h3>
+<p>Export Open and Not_Reviewed findings as an eMASS-compatible Plan of Action &amp; Milestones CSV:</p>
+<pre><code class="language-bash">stig-assessor --export-poam assessment.ckl
+</code></pre>
+<p><strong>Output:</strong> Creates <code>assessment_poam.csv</code> with columns:
+- Control Number (VID)
+- Vulnerability Description (Rule Title)
+- Severity
+- Status
+- Comments
+- Checklist Name</p>
+<hr />
+<h2 id="17-phase-n-format-conversion-ckl-cklb">17. Phase N — Format Conversion (CKL ↔ CKLB)</h2>
+<p>Convert between STIG Viewer 2 (<code>.ckl</code>, XML) and STIG Viewer 3 (<code>.cklb</code>, JSON) formats:</p>
+<pre><code class="language-bash"># CKL → CKLB
+stig-assessor --convert-to-cklb existing_assessment.ckl
+
+# CKLB → CKL  
+stig-assessor --convert-to-ckl existing_assessment.cklb
+</code></pre>
+<p>The output file is created alongside the input with the opposite extension.</p>
+<hr />
+<h2 id="18-phase-o-profile-configuration-management">18. Phase O — Profile &amp; Configuration Management</h2>
+<h3 id="181-assessment-profiles">18.1 Assessment Profiles</h3>
+<p>Save and reuse common argument configurations:</p>
+<pre><code class="language-bash"># Save current arguments as a profile
+stig-assessor --save-profile &quot;rhel8_web_servers&quot; \
+  --create --xccdf rhel8.xml --asset &quot;WEB-&quot; --marking &quot;CUI&quot; --apply-boilerplate
+
+# Use a saved profile
+stig-assessor --use-profile &quot;rhel8_web_servers&quot; \
+  --asset &quot;WEB-SERVER-42&quot; --out web42.ckl
+</code></pre>
+<p>Profiles are stored in <code>~/.stig_assessor/presets/{profile_name}.json</code>.</p>
+<h3 id="182-configuration-bundles-importexport">18.2 Configuration Bundles (Import/Export)</h3>
+<p>Bundle all boilerplates, profiles, and plugin configurations for transfer:</p>
+<pre><code class="language-bash"># Export all configs
+stig-assessor --export-configs team_configs.zip
+
+# Import configs on a new machine
+stig-assessor --import-configs team_configs.zip
+</code></pre>
+<p>This creates/reads a ZIP containing <code>presets/</code>, <code>boilerplates/</code>, and <code>plugins/</code> directories.</p>
+<hr />
+<h2 id="19-gui-specific-features">19. GUI-Specific Features</h2>
+<h3 id="191-tab-layout">19.1 Tab Layout</h3>
+<p>The GUI contains <strong>12 tabs</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>📋 Create CKL</td>
+<td>XCCDF → CKL conversion</td>
+</tr>
+<tr>
+<td>🔀 Merge Checklists</td>
+<td>Merge with history</td>
+</tr>
+<tr>
+<td>🔧 Extract Fixes</td>
+<td>Remediation script export</td>
+</tr>
+<tr>
+<td>📥 Import Results</td>
+<td>Bulk apply remediation</td>
+</tr>
+<tr>
+<td>📎 Evidence</td>
+<td>Evidence management</td>
+</tr>
+<tr>
+<td>✅ Validate</td>
+<td>CKL validation</td>
+</tr>
+<tr>
+<td>🔧 Repair CKL</td>
+<td>Fix corrupted checklists</td>
+</tr>
+<tr>
+<td>🏭 Batch Convert</td>
+<td>Bulk XCCDF → CKL</td>
+</tr>
+<tr>
+<td>📝 Boilerplates</td>
+<td>Template management</td>
+</tr>
+<tr>
+<td>🔍 Compare</td>
+<td>Checklist diffing</td>
+</tr>
+<tr>
+<td>📊 Analytics</td>
+<td>Statistics &amp; reporting</td>
+</tr>
+<tr>
+<td>📈 History/Drift</td>
+<td>Compliance drift tracking</td>
+</tr>
+</tbody>
+</table>
+<h3 id="192-keyboard-shortcuts">19.2 Keyboard Shortcuts</h3>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Ctrl+1</code> through <code>Ctrl+6</code></td>
+<td>Switch to tab 1–6</td>
+</tr>
+<tr>
+<td><code>Ctrl+Enter</code></td>
+<td>Execute the current tab's primary action</td>
+</tr>
+<tr>
+<td><code>Ctrl+S</code></td>
+<td>Save preset</td>
+</tr>
+<tr>
+<td><code>Ctrl+O</code></td>
+<td>Load preset</td>
+</tr>
+<tr>
+<td><code>Ctrl+Q</code> / <code>Escape</code></td>
+<td>Exit</td>
+</tr>
+<tr>
+<td><code>Ctrl+,</code></td>
+<td>Open Settings</td>
+</tr>
+</tbody>
+</table>
+<h3 id="193-theme-support">19.3 Theme Support</h3>
+<ul>
+<li><strong>Light Mode</strong> and <strong>Dark Mode</strong> — toggle via <strong>View → Toggle Dark/Light Mode</strong>.</li>
+<li>If <code>sv_ttk</code> is installed, a premium Sun Valley theme is applied automatically.</li>
+<li>Theme preference is saved between sessions in <code>~/.stig_assessor/settings.json</code>.</li>
+</ul>
+<h3 id="194-wizard-mode">19.4 Wizard Mode</h3>
+<p>Enable via <strong>View → Wizard Mode</strong>. Displays a step-by-step workflow bar guiding you through: ① Create → ② Remediate → ③ Merge → ④ Validate.</p>
+<h3 id="195-menu-bar">19.5 Menu Bar</h3>
+<table>
+<thead>
+<tr>
+<th>Menu</th>
+<th>Key Items</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>File</strong></td>
+<td>Save/Load/Delete Presets, Recent Files, Exit</td>
+</tr>
+<tr>
+<td><strong>View</strong></td>
+<td>Toggle Theme, Wizard Mode</td>
+</tr>
+<tr>
+<td><strong>Tools</strong></td>
+<td>Export/Import History, Export/Import Boilerplates, Cleanup Old Files, Statistics, Compare, Settings</td>
+</tr>
+<tr>
+<td><strong>Help</strong></td>
+<td>Quick-Start Guide, About</td>
+</tr>
+</tbody>
+</table>
+<h3 id="196-logo-support">19.6 Logo Support</h3>
+<p>Place a <code>.png</code> logo image and reference it in the Settings dialog to display an organization banner in the GUI header and as the taskbar icon (Windows).</p>
+<hr />
+<h2 id="20-web-interface">20. Web Interface</h2>
+<h3 id="201-architecture">20.1 Architecture</h3>
+<p>The web interface runs a built-in HTTP server (<code>http://127.0.0.1:8080</code>) using Python's <code>http.server</code> module — <strong>zero external dependencies</strong>. It serves a static single-page application (SPA) that communicates with a REST API.</p>
+<h3 id="202-api-endpoints">20.2 API Endpoints</h3>
+<p>All API calls use <code>POST /api/v1/{endpoint}</code> with JSON payloads. File content is base64-encoded.</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/api/v1/ping</code></td>
+<td>Health check</td>
+</tr>
+<tr>
+<td><code>/api/v1/xccdf_to_ckl</code></td>
+<td>Create CKL from XCCDF</td>
+</tr>
+<tr>
+<td><code>/api/v1/merge_ckls</code></td>
+<td>Merge checklists</td>
+</tr>
+<tr>
+<td><code>/api/v1/apply_results</code></td>
+<td>Apply remediation results</td>
+</tr>
+<tr>
+<td><code>/api/v1/extract</code></td>
+<td>Extract fixes</td>
+</tr>
+<tr>
+<td><code>/api/v1/diff</code></td>
+<td>Compare two checklists</td>
+</tr>
+<tr>
+<td><code>/api/v1/stats</code></td>
+<td>Generate compliance statistics</td>
+</tr>
+<tr>
+<td><code>/api/v1/validate</code></td>
+<td>Validate a CKL</td>
+</tr>
+<tr>
+<td><code>/api/v1/repair</code></td>
+<td>Repair a CKL</td>
+</tr>
+<tr>
+<td><code>/api/v1/verify_integrity</code></td>
+<td>Integrity verification</td>
+</tr>
+<tr>
+<td><code>/api/v1/bulk_edit</code></td>
+<td>Bulk edit VIDs</td>
+</tr>
+<tr>
+<td><code>/api/v1/export_poam</code></td>
+<td>eMASS POAM export</td>
+</tr>
+<tr>
+<td><code>/api/v1/fleet_stats</code></td>
+<td>Fleet compliance from ZIP</td>
+</tr>
+<tr>
+<td><code>/api/v1/track_ckl</code></td>
+<td>Ingest CKL into history DB</td>
+</tr>
+<tr>
+<td><code>/api/v1/show_drift</code></td>
+<td>Get compliance drift</td>
+</tr>
+<tr>
+<td><code>/api/v1/list_assets</code></td>
+<td>List tracked assets</td>
+</tr>
+<tr>
+<td><code>/api/v1/bp_list</code> / <code>bp_set</code> / <code>bp_delete</code> / <code>bp_export</code> / <code>bp_import</code> / <code>bp_reset</code></td>
+<td>Boilerplate management</td>
+</tr>
+<tr>
+<td><code>/api/v1/evidence/summary</code> / <code>evidence/import</code> / <code>evidence/package</code></td>
+<td>Evidence management</td>
+</tr>
+</tbody>
+</table>
+<h3 id="204-payload-size-limit">20.4 Payload Size Limit</h3>
+<p>Maximum POST payload: <strong>50 MB</strong> (<code>MAX_POST_PAYLOAD</code>). Requests exceeding this limit receive HTTP 413.</p>
+<hr />
+<h2 id="21-scripting-automation-recipes">21. Scripting &amp; Automation Recipes</h2>
+<h3 id="recipe-1-full-assessment-pipeline">Recipe 1: Full Assessment Pipeline</h3>
+<pre><code class="language-bash">#!/usr/bin/env bash
+set -euo pipefail
+
+XCCDF=&quot;U_RHEL_8_STIG_V1R10_Manual-xccdf.xml&quot;
+ASSET=&quot;APP-SERVER-42&quot;
+CKL=&quot;${ASSET}_baseline.ckl&quot;
+FIXES_DIR=&quot;${ASSET}_fixes&quot;
+RESULTS=&quot;remediation_results.json&quot;
+FINAL=&quot;${ASSET}_assessed.ckl&quot;
+
+# Step 1: Create baseline checklist
+stig-assessor --create --xccdf &quot;$XCCDF&quot; --asset &quot;$ASSET&quot; \
+  --apply-boilerplate --out &quot;$CKL&quot;
+
+# Step 2: Extract remediation scripts
+stig-assessor --extract &quot;$XCCDF&quot; --outdir &quot;$FIXES_DIR&quot;
+
+# Step 3: Execute fixes (generates results JSON)
+sudo bash &quot;${FIXES_DIR}/remediate.sh&quot;
+
+# Step 4: Import results back into checklist
+stig-assessor --apply-results &quot;${FIXES_DIR}/stig_results_*.json&quot; \
+  --checklist &quot;$CKL&quot; --results-out &quot;$FINAL&quot;
+
+# Step 5: Generate compliance report
+stig-assessor --stats &quot;$FINAL&quot; --stats-format html --stats-out &quot;${ASSET}_report.html&quot;
+
+# Step 6: Verify integrity
+stig-assessor --verify-integrity &quot;$FINAL&quot;
+
+# Step 7: Track into history
+stig-assessor --track-ckl &quot;$FINAL&quot;
+
+echo &quot;Pipeline complete for $ASSET&quot;
+</code></pre>
+<h3 id="recipe-2-quarterly-stig-update-migration">Recipe 2: Quarterly STIG Update Migration</h3>
+<pre><code class="language-bash"># New quarterly STIG release
+NEW_XCCDF=&quot;U_RHEL_8_STIG_V1R11_Manual-xccdf.xml&quot;
+NEW_BLANK=&quot;blank_v1r11.ckl&quot;
+
+# Create blank baseline from new XCCDF
+stig-assessor --create --xccdf &quot;$NEW_XCCDF&quot; --asset &quot;TEMP&quot; --out &quot;$NEW_BLANK&quot;
+
+# Merge all previous assessments
+stig-assessor --merge \
+  --base &quot;$NEW_BLANK&quot; \
+  --histories Q1_assessment.ckl Q2_assessment.ckl Q3_assessment.ckl \
+  --merge-out Q4_assessment.ckl
+
+# Validate the result
+stig-assessor --validate Q4_assessment.ckl
+</code></pre>
+<h3 id="recipe-3-fleet-batch-processing">Recipe 3: Fleet Batch Processing</h3>
+<pre><code class="language-bash"># Convert all STIGs for a fleet
+for server in WEB{01..10}; do
+  stig-assessor --create \
+    --xccdf win_server_2022_stig.xml \
+    --asset &quot;$server&quot; \
+    --out &quot;fleet/$server.ckl&quot; \
+    --apply-boilerplate
+done
+
+# Generate fleet-wide statistics
+stig-assessor --fleet-stats fleet/
+</code></pre>
+<h3 id="recipe-4-cicd-validation-gate">Recipe 4: CI/CD Validation Gate</h3>
+<pre><code class="language-bash"># In your CI pipeline:
+result=$(stig-assessor --stats assessment.ckl --stats-format json)
+compliance=$(echo &quot;$result&quot; | python3 -c &quot;import sys,json; print(json.load(sys.stdin)['compliance_pct'])&quot;)
+
+if (( $(echo &quot;$compliance &lt; 80&quot; | bc -l) )); then
+  echo &quot;FAIL: Compliance at ${compliance}% (minimum: 80%)&quot;
+  exit 1
+fi
+echo &quot;PASS: Compliance at ${compliance}%&quot;
+</code></pre>
+<hr />
+<h2 id="22-troubleshooting">22. Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"Cannot find writable home directory"</code></td>
+<td>Check permissions on <code>$HOME</code>, <code>$USERPROFILE</code>, or <code>/tmp</code></td>
+</tr>
+<tr>
+<td><code>"XML parser failed"</code></td>
+<td>Verify <code>xml.etree.ElementTree</code> is included in your Python installation</td>
+</tr>
+<tr>
+<td><code>"Invalid CKL structure"</code></td>
+<td>Run <code>--validate</code> to identify schema violations, then <code>--repair</code></td>
+</tr>
+<tr>
+<td><code>"tkinter not available"</code></td>
+<td>Install <code>python3-tk</code> package (Linux) or reinstall Python with tkinter (macOS Homebrew: <code>brew install python-tk</code>)</td>
+</tr>
+<tr>
+<td>Web server fails to start</td>
+<td>Port 8080 is in use; the server auto-tries ports 8080–8089</td>
+</tr>
+<tr>
+<td><code>"No vulnerability groups found"</code></td>
+<td>The XML file is not a valid XCCDF benchmark; it may be a CKL or other format</td>
+</tr>
+<tr>
+<td>Large file is slow</td>
+<td>Files &gt;50MB trigger chunked processing; this is normal for 15,000+ vulnerability checklists</td>
+</tr>
+</tbody>
+</table>
+<h3 id="verbose-logging">Verbose Logging</h3>
+<pre><code class="language-bash">stig-assessor --verbose [any command]
+</code></pre>
+<p>Logs are written to <code>~/.stig_assessor/logs/stig_assessor.log</code> (rotating, 10 MB max, 15 files retained).</p>
+<h3 id="exit-codes">Exit Codes</h3>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Success</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Error (validation failure, file error, etc.)</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>Partial success (some files failed in batch operations)</td>
+</tr>
+<tr>
+<td><code>130</code></td>
+<td>Operation cancelled by user (Ctrl+C)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="23-configuration-reference">23. Configuration Reference</h2>
+<h3 id="directory-structure">Directory Structure</h3>
+<p>All runtime data is stored under <code>~/.stig_assessor/</code>:</p>
+<pre><code>~/.stig_assessor/
+├── logs/              # Application logs (rotating, 10MB max)
+├── backups/           # Automatic CKL backups (.bak files)
+├── evidence/          # Evidence file storage (organized by VID)
+├── templates/         # Boilerplate templates (boilerplate.json)
+├── presets/           # Saved configuration presets
+├── fixes/             # Extracted remediation scripts
+├── exports/           # Export outputs
+├── history/           # SQLite history database
+├── plugins/           # Plugin directory
+└── settings.json      # GUI preferences (theme, logo, etc.)
+</code></pre>
+<p>Directory resolution order:
+1. <code>Path.home()</code> (standard)
+2. <code>$USERPROFILE</code> or <code>$HOME</code> environment variables
+3. <code>$TMPDIR/stig_user</code> (fallback)
+4. <code>$CWD/.stig_home</code> (last resort)</p>
+<h3 id="processing-limits">Processing Limits</h3>
+<table>
+<thead>
+<tr>
+<th>Limit</th>
+<th>Value</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MAX_FILE_SIZE</code></td>
+<td>500 MB</td>
+<td>Maximum file size</td>
+</tr>
+<tr>
+<td><code>MAX_FINDING_LENGTH</code></td>
+<td>65,000 chars</td>
+<td>Maximum finding details length</td>
+</tr>
+<tr>
+<td><code>MAX_COMMENT_LENGTH</code></td>
+<td>32,000 chars</td>
+<td>Maximum comments length</td>
+</tr>
+<tr>
+<td><code>MAX_HISTORY_ENTRIES</code></td>
+<td>200</td>
+<td>Maximum history entries per VID</td>
+</tr>
+<tr>
+<td><code>MAX_MERGE_FILES</code></td>
+<td>100</td>
+<td>Maximum checklists to merge</td>
+</tr>
+<tr>
+<td><code>MAX_VULNERABILITIES</code></td>
+<td>15,000</td>
+<td>Maximum VULNs per checklist</td>
+</tr>
+<tr>
+<td><code>KEEP_BACKUPS</code></td>
+<td>30</td>
+<td>Backup file retention count</td>
+</tr>
+<tr>
+<td><code>KEEP_LOGS</code></td>
+<td>15</td>
+<td>Log file retention count</td>
+</tr>
+<tr>
+<td><code>MAX_POST_PAYLOAD</code></td>
+<td>50 MB</td>
+<td>Web API max POST size</td>
+</tr>
+</tbody>
+</table>
+<h3 id="supported-file-formats">Supported File Formats</h3>
+<table>
+<thead>
+<tr>
+<th>Extension</th>
+<th>Format</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.xml</code></td>
+<td>XCCDF Benchmark</td>
+<td>Input for creation and fix extraction</td>
+</tr>
+<tr>
+<td><code>.ckl</code></td>
+<td>STIG Viewer 2 Checklist</td>
+<td>XML format, primary output</td>
+</tr>
+<tr>
+<td><code>.cklb</code></td>
+<td>STIG Viewer 3 Checklist</td>
+<td>JSON format, newer standard</td>
+</tr>
+<tr>
+<td><code>.json</code></td>
+<td>Remediation Results / History</td>
+<td>Various data interchange</td>
+</tr>
+<tr>
+<td><code>.csv</code></td>
+<td>Remediation Results / Stats</td>
+<td>Spreadsheet-compatible</td>
+</tr>
+<tr>
+<td><code>.zip</code></td>
+<td>Evidence Packages / Fleet Bundles</td>
+<td>Compressed archives</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="24-glossary">24. Glossary</h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>XCCDF</strong></td>
+<td>Extensible Configuration Checklist Description Format — the source benchmark format from DISA</td>
+</tr>
+<tr>
+<td><strong>CKL</strong></td>
+<td>Checklist — STIG Viewer's proprietary XML format</td>
+</tr>
+<tr>
+<td><strong>CKLB</strong></td>
+<td>Checklist (JSON) — STIG Viewer 3's new JSON-based format</td>
+</tr>
+<tr>
+<td><strong>STIG</strong></td>
+<td>Security Technical Implementation Guide — DoD security configuration standards</td>
+</tr>
+<tr>
+<td><strong>VID / V-ID</strong></td>
+<td>Vulnerability Identifier, e.g., <code>V-230234</code></td>
+</tr>
+<tr>
+<td><strong>CAT I / II / III</strong></td>
+<td>Severity categories: CAT I (High), CAT II (Medium), CAT III (Low)</td>
+</tr>
+<tr>
+<td><strong>CCI</strong></td>
+<td>Control Correlation Identifier — maps STIGs to NIST 800-53 controls</td>
+</tr>
+<tr>
+<td><strong>NotAFinding</strong></td>
+<td>Status indicating the system meets the security requirement</td>
+</tr>
+<tr>
+<td><strong>Open</strong></td>
+<td>Status indicating the system does NOT meet the requirement</td>
+</tr>
+<tr>
+<td><strong>Not_Applicable</strong></td>
+<td>Status indicating the requirement doesn't apply to this system</td>
+</tr>
+<tr>
+<td><strong>Not_Reviewed</strong></td>
+<td>Default status — assessment not yet performed</td>
+</tr>
+<tr>
+<td><strong>POAM</strong></td>
+<td>Plan of Action &amp; Milestones — required DoD remediation tracking document</td>
+</tr>
+<tr>
+<td><strong>eMASS</strong></td>
+<td>Enterprise Mission Assurance Support Service — DoD risk management platform</td>
+</tr>
+<tr>
+<td><strong>Boilerplate</strong></td>
+<td>Reusable template text for finding details and comments</td>
+</tr>
+<tr>
+<td><strong>Air-gapped</strong></td>
+<td>Environments with no network connectivity to external systems</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="appendix-a-quick-command-cheat-sheet">Appendix A: Quick Command Cheat Sheet</h2>
+<pre><code class="language-bash"># ───────────── CREATION ─────────────
+--create --xccdf FILE --asset NAME [--out FILE] [--apply-boilerplate] [--dry-run]
+--create-cklb --xccdf FILE --asset NAME
+
+# ───────────── CONVERSION ─────────────
+--convert-to-cklb FILE.ckl
+--convert-to-ckl  FILE.cklb
+
+# ───────────── MERGE ─────────────
+--merge --base FILE --histories FILE [FILE ...] [--merge-out FILE] [--merge-dry-run]
+
+# ───────────── EXTRACT ─────────────
+--extract FILE.xml [--outdir DIR] [--script-dry-run] [--enable-rollbacks]
+
+# ───────────── REMEDIATION ─────────────
+--apply-results FILE [FILE ...] --checklist FILE [--results-out FILE]
+    [--details-mode prepend|append|overwrite]
+    [--comment-mode prepend|append|overwrite]
+    [--no-auto-status] [--results-dry-run]
+
+# ───────────── EVIDENCE ─────────────
+--import-evidence VID FILE [--evidence-desc TEXT] [--evidence-cat CAT]
+--export-evidence DIR
+--package-evidence FILE.zip
+--import-evidence-package FILE.zip
+
+# ───────────── VALIDATION ─────────────
+--validate FILE
+--repair FILE [--repair-out FILE]
+--verify-integrity FILE
+--compute-checksum FILE
+
+# ───────────── STATISTICS ─────────────
+--stats FILE [--stats-format text|json|csv|html] [--stats-out FILE]
+--fleet-stats DIR_OR_ZIP
+
+# ───────────── COMPARISON ─────────────
+--diff FILE1 FILE2 [--diff-format summary|detailed|json]
+
+# ───────────── HISTORY ─────────────
+--track-ckl FILE
+--show-drift ASSET_NAME
+--export-history FILE
+--import-history FILE
+
+# ───────────── BOILERPLATE ─────────────
+--bp-list
+--bp-list-vid VID
+--bp-set --vid VID --status STATUS [--finding TEXT] [--comment TEXT]
+--bp-delete --vid VID [--status STATUS]
+--bp-clone FROM_VID TO_VID
+--bp-export FILE
+--bp-import FILE
+--bp-reset
+
+# ───────────── BULK OPERATIONS ─────────────
+--batch-convert DIR [--batch-out DIR] [--batch-asset-prefix PREFIX] [--batch-out-ext .ckl|.cklb]
+--bulk-edit FILE --apply-status STATUS --apply-comment TEXT
+    [--filter-severity high|medium|low] [--filter-vid REGEX] [--append-comment] [--bulk-out FILE]
+--export-poam FILE
+
+# ───────────── PROFILE MANAGEMENT ─────────────
+--save-profile NAME
+--use-profile NAME
+--export-configs FILE.zip
+--import-configs FILE.zip
+
+# ───────────── INTERFACE ─────────────
+--gui
+--web
+--verbose / -v
+--version
+</code></pre>
+<hr />
+<p><em>Generated for STIG Assessor Complete v8.1.0 · Air-Gap Certified · Zero Dependencies · MIT License</em></p>
+<hr />
+<h1 id="stig-assessor-deployment-portability-guide">STIG Assessor: Deployment &amp; Portability Guide</h1>
+<p>This guide details how to install, build, and deploy STIG Assessor across standard, restricted, or entirely air-gapped environments. </p>
+<hr />
+<h2 id="choosing-your-deployment-option">🚀 Choosing Your Deployment Option</h2>
+<p>We provide three primary distribution paths depending on your endpoint restrictions and auditing requirements.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"><strong>Option</strong></th>
+<th style="text-align: left;"><strong>Target OS</strong></th>
+<th style="text-align: left;"><strong>Dependencies</strong></th>
+<th style="text-align: left;"><strong>Auditability</strong></th>
+<th style="text-align: left;"><strong>Best For</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>1. Standalone EXE</strong></td>
+<td style="text-align: left;">Windows</td>
+<td style="text-align: left;"><strong>Zero.</strong> Python included.</td>
+<td style="text-align: left;">Low (Compiled)</td>
+<td style="text-align: left;">Simple, single-file distribution</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>2. Lean Portable</strong></td>
+<td style="text-align: left;">Win/Linux</td>
+<td style="text-align: left;">Python 3.9+ (System)</td>
+<td style="text-align: left;"><strong>High (Source)</strong></td>
+<td style="text-align: left;">Using host-resident Python</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>3. Full Portable</strong></td>
+<td style="text-align: left;">Win/Linux</td>
+<td style="text-align: left;"><strong>Zero.</strong> (Bundled 3.12)</td>
+<td style="text-align: left;"><strong>High (Source)</strong></td>
+<td style="text-align: left;">Zero-dependency source</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="automated-release-packaging">📦 Automated Release Packaging</h2>
+<p>To ensure the highest level of stability and zero-dependency readiness, we provide a unified packaging script that generates all distribution formats automatically.</p>
+<ol>
+<li>Open PowerShell in the root <code>STIG_Script</code> directory.</li>
+<li>Run the release packager:
+   <code>powershell
+   .\scripts\package_release.ps1</code></li>
+<li>This creates a <code>dist/</code> directory containing your ready-to-use bundles:</li>
+<li><code>STIG_Assessor.exe</code>: Single standalone binary (Option 1).</li>
+<li><code>STIG_Assessor_Lean_Portable/</code>: Source code + offline wheels for host-resident Python (Option 2).</li>
+<li><code>STIG_Assessor_Full_Portable/</code>: Source code + internal pre-configured Python 3.12 (Option 3).</li>
+</ol>
+<hr />
+<h2 id="deployment-usage-on-target">📂 Deployment &amp; Usage on Target</h2>
+<p>Copy your preferred bundle from <code>dist/</code> to your target machine.</p>
+<h3 id="launching-the-application"><strong>Launching the Application</strong></h3>
+<h4 id="on-windows-powershell"><strong>On Windows (PowerShell)</strong></h4>
+<pre><code class="language-powershell">.\launch.ps1          # Launches GUI
+.\launch.ps1 -Mode web # Launches Web
+.\launch.ps1 -Mode cli -Arguments &quot;--help&quot;
+</code></pre>
+<h4 id="on-linux-bash"><strong>On Linux (Bash)</strong></h4>
+<pre><code class="language-bash">./launch.sh           # Launches GUI
+./launch.sh web       # Launches Web
+./launch.sh cli --help
+</code></pre>
+<h3 id="hybrid-dependency-detection"><strong>Hybrid Dependency Detection</strong></h3>
+<p>The launchers (<code>launch.ps1</code> and <code>launch.sh</code>) use a multi-stage search to ensure the tool runs regardless of the environment:
+1. They prioritize a local virtual environment (<code>venv/</code>).
+2. They search for a bundled interpreter (<code>python312/</code> or <code>python/</code>).
+3. They search for a system-wide Python.
+4. <strong>Offline Auto-Harden</strong>: If a system Python is found but libraries (<code>defusedxml</code>, <code>sv-ttk</code>) are missing, the launchers will detect the <code>wheels/</code> directory and offer to create a local <code>venv</code> and install the dependencies offline.</p>
+<hr />
+<h2 id="troubleshooting-restrictions">🛠️ Troubleshooting &amp; Restrictions</h2>
+<h3 id="applocker-blocks-exe-extraction-to-temp">AppLocker blocks EXE extraction to %TEMP%</h3>
+<p>If your organization blocks executables from <code>%TEMP%</code>, <strong>Option 2 or 3 (Portable Folders)</strong> is the recommended solution as they run directly from the source folder without unpacking to temporary directories.</p>
+<h3 id="no-python-on-target-host">No Python on Target Host</h3>
+<p>If the target machine lacks a Python installation entirely, use <strong>Option 3 (Full Portable)</strong>. The internal <code>python312</code> folder is pre-configured with all required dependencies and is automatically prioritized by the launchers.</p>
+<h3 id="permission-denied-linux">Permission Denied (Linux)</h3>
+<p>Ensure the launcher and the bundled python have execution permissions:</p>
+<pre><code class="language-bash">chmod +x launch.sh python312/python
+</code></pre>
+<h3 id="execution-policy-windows">Execution Policy (Windows)</h3>
+<p>If <code>launch.ps1</code> is blocked by execution policy, run:</p>
+<pre><code class="language-powershell">powershell -ExecutionPolicy Bypass -File .\launch.ps1
+</code></pre>
+<hr />
+<h2 id="25-advanced-deep-dive-examples-edge-cases">25. Advanced Deep-Dive Examples &amp; Edge Cases</h2>
+<p>The following section provides highly detailed guidance and examples for every complex operation within STIG Assessor, ensuring you have comprehensive examples for every possible workflow.</p>
+<h3 id="example-1-creating-a-custom-profile-with-highly-specific-classification">Example 1: Creating a Custom Profile with Highly Specific Classification</h3>
+<pre><code class="language-bash"># Workflow: You are requested to scan an air-gapped classified environment where standard &quot;SECRET&quot; is not descriptive enough.
+stig-assessor --create --xccdf win_server.xml   --asset &quot;TS-SCI-NET-01&quot;   --ip &quot;192.168.100.5&quot;   --mac &quot;00:11:22:33:44:55&quot;   --role &quot;Domain Controller&quot;   --marking &quot;TOP SECRET//SCI//NOFORN&quot;   --apply-boilerplate   --out classified_dc.ckl
+</code></pre>
+<h3 id="example-2-handling-completely-air-gapped-powershell-remediation">Example 2: Handling Completely Air-Gapped PowerShell Remediation</h3>
+<p>When running remediation on a machine with no network and strict execution policies:</p>
+<pre><code class="language-powershell"># 1. First, export the script from the Assessor (on your workstation)
+stig-assessor --extract U_CIS_Ubuntu_20-04_V1R1_Manual-xccdf.xml --outdir cis_fixes
+
+# 2. On the target Windows Server, bypass Execution Policy temporarily for a single script:
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+.\Remediate.ps1
+
+# 3. Import the exact results back
+stig-assessor --apply-results ./stig_results_T1241.json --checklist classified_dc.ckl --results-out classified_dc_updated.ckl
+</code></pre>
+<h3 id="example-3-full-bulk-editing-for-system-wide-changes">Example 3: Full Bulk-Editing for System-Wide Changes</h3>
+<p>An auditor states that all CAT I and CAT II findings must have an additional comment stating they are covered by an external POAM.</p>
+<pre><code class="language-bash"># Update all CAT I (High)
+stig-assessor --bulk-edit final_assessment.ckl   --filter-severity high   --apply-comment &quot;Tracking POAM ID: POAM-2026-991&quot;   --append-comment
+
+# Update all CAT II (Medium)
+stig-assessor --bulk-edit final_assessment.ckl   --filter-severity medium   --apply-comment &quot;Tracking POAM ID: POAM-2026-991&quot;   --append-comment
+</code></pre>
+<h3 id="example-4-the-ultimate-merge-scenario-with-fallbacks">Example 4: The Ultimate Merge Scenario with Fallbacks</h3>
+<p>When a massive update invalidates previous finding structures, ensure history is fully packed:</p>
+<pre><code class="language-bash">stig-assessor --merge   --base Q1_2026_BLANK.ckl   --histories Q4_2025.ckl Q3_2025.ckl   --merge-out Q1_2026_MIGRATED.ckl
+</code></pre>
+<p>This forces STIG Assessor to chronologically parse Q3 and Q4, selecting the most recent status, embedding the past comments, and writing them perfectly into Q1.</p>
+<h2 id="26-air-gapped-packaging-dependencies-guide">26. Air-Gapped Packaging &amp; Dependencies Guide</h2>
+<p>The <code>STIG_Script</code> repository has been deliberately designed to be fully self-contained for deployment to heavily restricted, disconnected environments. We have pre-downloaded all recommended external dependencies into the <code>wheels/</code> directory within this project.</p>
+<h3 id="pre-packaged-project-dependencies">Pre-Packaged Project Dependencies</h3>
+<p>Your repository contains the following optional, but recommended libraries pre-downloaded in <code>wheels/</code>:
+- <strong><code>defusedxml</code></strong>: Hardens XML parsing against Billion Laughs (XXE) attacks. (Strongly recommended for DoD and high-side environments).
+- <strong><code>sv_ttk</code></strong>: Provides the premium Sun Valley Dark/Light theme for the GUI.
+- <strong><code>pyinstaller</code> (and its dependencies)</strong>: Used by the PowerShell build script to compile the application into a standalone binary.</p>
+<h3 id="building-the-standalone-executable-windows">Building the Standalone Executable (Windows)</h3>
+<p>We provide <code>build_portable.ps1</code>, which leverages PyInstaller to create a single <code>.exe</code> file containing Python and all STIG Assessor logic.
+1. Copy the entire <code>STIG_Script</code> directory to your build machine.
+2. Open PowerShell and run:
+   <code>powershell
+   .uild_portable.ps1</code>
+3. The script will automatically detect if PyInstaller is missing and <strong>will install it completely offline</strong> by resolving packages from the <code>wheels/</code> folder.
+4. The final standalone executable will be written to <code>dist/STIG_Assessor.exe</code>. 
+5. You can now transport <code>STIG_Assessor.exe</code> to any Windows system without needing Python or any internet access.</p>
+<h3 id="manual-source-deployment-linux-windows">Manual Source Deployment (Linux / Windows)</h3>
+<p>If you prefer running from source in a disconnected environment:
+1. Transfer the <code>STIG_Script</code> folder to the target system.
+2. Install the recommended modules securely entirely offline using the local <code>wheels/</code> folder:
+   <code>bash
+   pip install --no-index --find-links=wheels defusedxml sv-ttk</code>
+3. Run the application:
+   <code>bash
+   python -m stig_assessor --gui</code></p>
+    </div>
+</body>
+</html>

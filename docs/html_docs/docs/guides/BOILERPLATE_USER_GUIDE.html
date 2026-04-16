@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BOILERPLATE_USER_GUIDE</title>
+    
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Premium Modern Glassmorphism Styles for Auto-Generated Docs */
+:root {
+    --bg-color: #0b0f19;
+    --bg-gradient: linear-gradient(135deg, #0b0f19 0%, #171b2d 100%);
+    --glass-bg: rgba(25, 30, 50, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --card-hover-bg: rgba(30, 36, 60, 0.8);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-glow: rgba(59, 130, 246, 0.4);
+    --accent-hover: #60a5fa;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.7;
+    color: var(--text-main);
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+    padding-bottom: 5rem;
+    min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-main);
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 2em;
+    margin-bottom: 0.75em;
+}
+
+h1 { 
+    font-size: 2.8rem; 
+    background: linear-gradient(135deg, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    border-bottom: 2px solid var(--glass-border); 
+    padding-bottom: 0.3em; 
+    margin-top: 1em; 
+}
+h2 { font-size: 2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.3em; margin-top: 2.5em; }
+h3 { font-size: 1.5em; color: var(--accent-hover); margin-top: 2em; }
+
+a { color: var(--accent); text-decoration: none; transition: color 0.2s ease; }
+a:hover { text-decoration: underline; color: var(--accent-hover); }
+
+pre {
+    background: rgba(10, 12, 20, 0.8);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    overflow-x: auto;
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.2), 0 5px 15px rgba(0,0,0,0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+    font-size: 0.9em;
+    margin: 25px 0;
+}
+
+pre:hover {
+    transform: translateY(-2px);
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.2), 0 15px 35px rgba(0,0,0,0.4), 0 0 15px var(--accent-glow);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+code {
+    font-family: "JetBrains Mono", Consolas, Menlo, Monaco, monospace;
+    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--accent-hover);
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+    font-size: 0.9em;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+pre code {
+    background-color: transparent;
+    color: #e2e8f0;
+    padding: 0;
+    border: none;
+}
+
+blockquote {
+    border-left: 4px solid var(--accent);
+    padding: 1rem 1.5rem;
+    margin: 2rem 0;
+    color: var(--text-muted);
+    background: var(--glass-bg);
+    border-radius: 0 8px 8px 0;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-left-width: 4px;
+    font-size: 1.1rem;
+    font-style: italic;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 2.5rem 0;
+    background: rgba(10, 12, 20, 0.4);
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    backdrop-filter: blur(10px);
+}
+
+th, td {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+    text-align: left;
+}
+
+th {
+    background: rgba(255,255,255,0.03);
+    font-weight: 600;
+    color: var(--accent-hover);
+    border-bottom: 2px solid rgba(255,255,255,0.05);
+}
+
+tr:hover td {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    margin: 2rem 0;
+    border: 1px solid var(--glass-border);
+}
+
+hr {
+    border: 0;
+    height: 1px;
+    background: var(--glass-border);
+    margin: 3rem 0;
+}
+
+/* Nav */
+.nav {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--glass-border);
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    padding: 15px;
+    background: var(--glass-bg);
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+.nav strong { color: var(--text-main); }
+</style>
+
+</head>
+<body>
+    <div class="nav">
+        <strong>STIG Assessor Documentation</strong> - BOILERPLATE_USER_GUIDE
+    </div>
+    <h1 id="stig-assessor-boilerplate-templates-complete-user-guide">STIG Assessor — Boilerplate Templates: Complete User Guide</h1>
+<blockquote>
+<p><strong>Version</strong>: 8.1.0 | <strong>Last Updated</strong>: 2026-04-07 | <strong>Environment</strong>: Air-Gapped / Zero Dependencies</p>
+</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#1-overview">Overview</a></li>
+<li><a href="#2-core-concepts">Core Concepts</a></li>
+<li><a href="#3-template-structure-json">Template Structure (JSON)</a></li>
+<li><a href="#4-template-variables">Template Variables</a></li>
+<li><a href="#5-cli-reference">CLI Reference</a></li>
+<li><a href="#6-gui-guide">GUI Guide</a></li>
+<li><a href="#7-web-interface-guide">Web Interface Guide</a></li>
+<li><a href="#8-rest-api-reference">REST API Reference</a></li>
+<li><a href="#9-apply-modes">Apply Modes</a></li>
+<li><a href="#10-import--export-workflows">Import &amp; Export Workflows</a></li>
+<li><a href="#11-advanced-usage-patterns">Advanced Usage Patterns</a></li>
+<li><a href="#12-troubleshooting--faq">Troubleshooting &amp; FAQ</a></li>
+</ol>
+<hr />
+<h2 id="1-overview">1. Overview</h2>
+<p><strong>Boilerplate templates</strong> are pre-written text fragments for two CKL fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Max Length</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>finding_details</code></td>
+<td>Technical explanation of the finding state</td>
+<td>65,000</td>
+</tr>
+<tr>
+<td><code>comments</code></td>
+<td>Review notes, justifications, or auditor commentary</td>
+<td>32,000</td>
+</tr>
+</tbody>
+</table>
+<p>Templates are organized by <strong>Vulnerability ID (VID)</strong> and <strong>Status</strong>, so you can prepare standard responses for every combination you encounter during assessment.</p>
+<h3 id="when-are-boilerplates-applied">When are boilerplates applied?</h3>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Trigger</th>
+<th>Default Mode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--create</code> / Generate CKL</td>
+<td><code>--apply-boilerplate</code> flag or GUI checkbox</td>
+<td><code>overwrite_empty</code></td>
+</tr>
+<tr>
+<td><code>--merge</code></td>
+<td><code>--apply-boilerplate</code> flag</td>
+<td><code>overwrite_empty</code></td>
+</tr>
+<tr>
+<td>Bulk Operations</td>
+<td>Indirect (via template comments)</td>
+<td>N/A</td>
+</tr>
+</tbody>
+</table>
+<h3 id="file-location">File Location</h3>
+<p>Boilerplates are stored in:</p>
+<pre><code>~/.stig_assessor/templates/boilerplate.json
+</code></pre>
+<p>This file is auto-created on first run with sensible defaults.</p>
+<hr />
+<h2 id="2-core-concepts">2. Core Concepts</h2>
+<h3 id="21-vid-resolution-wildcard-fallback">2.1 VID Resolution (Wildcard Fallback)</h3>
+<p>Templates use a <strong>two-tier resolution</strong> system:</p>
+<ol>
+<li><strong>Specific VID</strong> — e.g., <code>V-12345</code> with status <code>NotAFinding</code></li>
+<li><strong>Global Wildcard</strong> — <code>V-*</code> with status <code>NotAFinding</code></li>
+</ol>
+<p>When applying a boilerplate, the system first checks for a VID-specific template. If none exists, it falls back to the global <code>V-*</code> template for that status.</p>
+<pre><code>Lookup order:
+  V-12345 → NotAFinding  →  found? → use it
+                           not found? ↓
+  V-*     → NotAFinding  →  found? → use it
+                           not found? → no boilerplate applied
+</code></pre>
+<h3 id="22-statuses">2.2 Statuses</h3>
+<p>STIG Viewer recognizes exactly four statuses (case-sensitive):</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NotAFinding</code></td>
+<td>The system satisfies the requirement</td>
+</tr>
+<tr>
+<td><code>Open</code></td>
+<td>The system does not satisfy the requirement</td>
+</tr>
+<tr>
+<td><code>Not_Applicable</code></td>
+<td>The requirement does not apply</td>
+</tr>
+<tr>
+<td><code>Not_Reviewed</code></td>
+<td>Assessment has not been completed</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-apply-modes">2.3 Apply Modes</h3>
+<p>When boilerplate is applied to a VULN element, the <strong>apply mode</strong> controls how template text interacts with any existing text:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>overwrite_empty</code></td>
+<td>Only fills in fields that are currently empty (default)</td>
+</tr>
+<tr>
+<td><code>prepend</code></td>
+<td>Adds boilerplate text <strong>before</strong> existing content</td>
+</tr>
+<tr>
+<td><code>append</code></td>
+<td>Adds boilerplate text <strong>after</strong> existing content</td>
+</tr>
+<tr>
+<td><code>merge</code></td>
+<td>Combines existing text with boilerplate, separated by a divider</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-template-structure-json">3. Template Structure (JSON)</h2>
+<p>The <code>boilerplate.json</code> file uses this schema:</p>
+<pre><code class="language-json">{
+  &quot;V-*&quot;: {
+    &quot;NotAFinding&quot;: {
+      &quot;finding_details&quot;: &quot;This control is satisfied. Evidence: {asset}&quot;,
+      &quot;comments&quot;: &quot;Reviewed by automated script.&quot;
+    },
+    &quot;Not_Applicable&quot;: {
+      &quot;finding_details&quot;: &quot;This control does not apply because: [justification]&quot;,
+      &quot;comments&quot;: &quot;Not applicable to {asset} configuration.&quot;
+    },
+    &quot;Open&quot;: {
+      &quot;finding_details&quot;: &quot;This control is not satisfied. Findings: [describe issue]&quot;,
+      &quot;comments&quot;: &quot;Remediation pending for {asset}.&quot;
+    }
+  },
+  &quot;V-12345&quot;: {
+    &quot;NotAFinding&quot;: {
+      &quot;finding_details&quot;: &quot;Firewall is configured with deny-all default policy.&quot;,
+      &quot;comments&quot;: &quot;Verified via running config on {asset}.&quot;
+    }
+  }
+}
+</code></pre>
+<h3 id="schema">Schema</h3>
+<pre><code>{
+  &quot;&lt;VID&gt;&quot;: {                         // &quot;V-*&quot; for global, &quot;V-12345&quot; for specific
+    &quot;&lt;Status&gt;&quot;: {                    // &quot;NotAFinding&quot;, &quot;Open&quot;, etc.
+      &quot;finding_details&quot;: &quot;&lt;string&gt;&quot;, // Text for the Finding Details field
+      &quot;comments&quot;: &quot;&lt;string&gt;&quot;         // Text for the Comments field
+    }
+  }
+}
+</code></pre>
+<h3 id="rules">Rules</h3>
+<ul>
+<li>VID keys must be strings. Use <code>V-*</code> for global defaults.</li>
+<li>Status keys must exactly match one of the four valid STIG statuses.</li>
+<li>Both <code>finding_details</code> and <code>comments</code> are required within each status entry.</li>
+<li>Template variable placeholders (e.g., <code>{asset}</code>) are optional.</li>
+</ul>
+<hr />
+<h2 id="4-template-variables">4. Template Variables</h2>
+<p>Templates support Python-style placeholder variables that are automatically replaced at apply time:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Replaced With</th>
+<th>Example Input</th>
+<th>Example Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{asset}</code></td>
+<td>The asset hostname/identifier</td>
+<td><code>WEBSERVER01</code></td>
+<td><code>"Evidence: WEBSERVER01"</code></td>
+</tr>
+<tr>
+<td><code>{severity}</code></td>
+<td>The vulnerability severity level</td>
+<td><code>high</code></td>
+<td><code>"Severity: high"</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="usage-example">Usage Example</h3>
+<pre><code class="language-json">{
+  &quot;V-*&quot;: {
+    &quot;NotAFinding&quot;: {
+      &quot;finding_details&quot;: &quot;Control is satisfied on {asset}. Severity: {severity}&quot;,
+      &quot;comments&quot;: &quot;Assessed by STIG Assessor.&quot;
+    }
+  }
+}
+</code></pre>
+<p>When applied to asset <code>DBSERVER02</code> with severity <code>medium</code>:</p>
+<pre><code>Finding Details: &quot;Control is satisfied on DBSERVER02. Severity: medium&quot;
+Comments:        &quot;Assessed by STIG Assessor.&quot;
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> If a variable placeholder is present in the template but no value is supplied, Python will raise a <code>KeyError</code>. The system gracefully handles this, but it's best to only use supported variables.</p>
+</blockquote>
+<hr />
+<h2 id="5-cli-reference">5. CLI Reference</h2>
+<h3 id="51-listing-boilerplates">5.1 Listing Boilerplates</h3>
+<p><strong>List all boilerplates:</strong></p>
+<pre><code class="language-bash">python -m stig_assessor --bp-list
+</code></pre>
+<p>Outputs the full <code>boilerplate.json</code> content as formatted JSON.</p>
+<p><strong>List boilerplates for a specific VID:</strong></p>
+<pre><code class="language-bash">python -m stig_assessor --bp-list-vid V-12345
+</code></pre>
+<h3 id="52-setting-creating-boilerplates">5.2 Setting / Creating Boilerplates</h3>
+<pre><code class="language-bash">python -m stig_assessor --bp-set \
+  --vid V-12345 \
+  --status NotAFinding \
+  --finding &quot;Firewall policy verified via running config.&quot; \
+  --comment &quot;Reviewed by admin. Compliant.&quot;
+</code></pre>
+<p><strong>Arguments:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--vid</code></td>
+<td>Yes</td>
+<td>Target VID (e.g., <code>V-12345</code>)</td>
+</tr>
+<tr>
+<td><code>--status</code></td>
+<td>Yes</td>
+<td>Target status</td>
+</tr>
+<tr>
+<td><code>--finding</code></td>
+<td>No</td>
+<td>Finding details text</td>
+</tr>
+<tr>
+<td><code>--comment</code></td>
+<td>No</td>
+<td>Comments text</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Set a global default:</strong></p>
+<pre><code class="language-bash">python -m stig_assessor --bp-set \
+  --vid &quot;V-*&quot; \
+  --status Open \
+  --finding &quot;This control is not satisfied. Issue: [describe]&quot; \
+  --comment &quot;CAP pending.&quot;
+</code></pre>
+<h3 id="53-deleting-boilerplates">5.3 Deleting Boilerplates</h3>
+<p><strong>Delete a specific status entry:</strong></p>
+<pre><code class="language-bash">python -m stig_assessor --bp-delete --vid V-12345 --status Open
+</code></pre>
+<p><strong>Delete all statuses for a VID:</strong></p>
+<pre><code class="language-bash">python -m stig_assessor --bp-delete --vid V-12345
+</code></pre>
+<h3 id="54-exporting-boilerplates">5.4 Exporting Boilerplates</h3>
+<pre><code class="language-bash">python -m stig_assessor --bp-export /path/to/my_boilerplates.json
+</code></pre>
+<p>This creates a standalone JSON file containing all current templates. Useful for:
+- Sharing templates across team members
+- Backing up before making changes
+- Transferring to air-gapped systems via removable media</p>
+<h3 id="55-importing-boilerplates">5.5 Importing Boilerplates</h3>
+<pre><code class="language-bash">python -m stig_assessor --bp-import /path/to/shared_boilerplates.json
+</code></pre>
+<p>Imported templates are <strong>merged</strong> with existing ones:
+- New VID/status entries are added.
+- Existing entries with the same VID/status are <strong>overwritten</strong> by the import.</p>
+<h3 id="56-cloning-boilerplates">5.6 Cloning Boilerplates</h3>
+<pre><code class="language-bash">python -m stig_assessor --bp-clone V-12345 V-67890
+</code></pre>
+<p>Copies all status templates from <code>V-12345</code> to <code>V-67890</code>. Useful when:
+- A new STIG version renames/renumbers a check
+- Multiple VIDs share the same finding response</p>
+<h3 id="57-resetting-to-defaults">5.7 Resetting to Defaults</h3>
+<pre><code class="language-bash">python -m stig_assessor --bp-reset
+</code></pre>
+<blockquote>
+<p><strong>⚠ Warning:</strong> This deletes all custom boilerplates and restores factory defaults. This action cannot be undone. Export first if you need a backup.</p>
+</blockquote>
+<h3 id="58-applying-during-ckl-generation">5.8 Applying During CKL Generation</h3>
+<pre><code class="language-bash">python -m stig_assessor --create \
+  --xccdf benchmark.xml \
+  --out checklist.ckl \
+  --asset WEBSERVER01 \
+  --apply-boilerplate
+</code></pre>
+<p>This creates a new CKL and fills in finding details and comments using boilerplate templates for each VULN element's status.</p>
+<h3 id="59-applying-during-merge">5.9 Applying During Merge</h3>
+<pre><code class="language-bash">python -m stig_assessor --merge \
+  --base current.ckl \
+  --history old1.ckl old2.ckl \
+  --out merged.ckl \
+  --apply-boilerplate
+</code></pre>
+<p>During merging, boilerplate is applied only to findings that have empty finding details or comments (default <code>overwrite_empty</code> mode).</p>
+<hr />
+<h2 id="6-gui-guide">6. GUI Guide</h2>
+<h3 id="61-accessing-the-boilerplate-editor">6.1 Accessing the Boilerplate Editor</h3>
+<ol>
+<li>Launch the GUI: <code>python -m stig_assessor --gui</code></li>
+<li>Click the <strong>📝 Boilerplates</strong> tab in the navigation bar.</li>
+</ol>
+<h3 id="62-interface-layout">6.2 Interface Layout</h3>
+<p>The Boilerplates tab has a split-pane layout:</p>
+<table>
+<thead>
+<tr>
+<th>Left Panel</th>
+<th>Right Panel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>List of all VIDs with color-coded status indicators</td>
+<td>Editor for the selected VID</td>
+</tr>
+<tr>
+<td><strong>+ Add VID</strong> button at bottom</td>
+<td>Status dropdown selector</td>
+</tr>
+<tr>
+<td></td>
+<td>Finding Details text area</td>
+</tr>
+<tr>
+<td></td>
+<td>Comments text area</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>💾 Save</strong> and <strong>🗑 Delete</strong> buttons</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63-editing-a-boilerplate">6.3 Editing a Boilerplate</h3>
+<ol>
+<li>Click a VID in the left panel (e.g., <code>V-*</code>)</li>
+<li>Select a <strong>Status</strong> from the dropdown (e.g., <code>NotAFinding</code>)</li>
+<li>Edit the <strong>Finding Details</strong> and/or <strong>Comments</strong> text areas</li>
+<li>Click <strong>💾 Save</strong></li>
+<li>A status bar message confirms: <code>"Saved boilerplate for V-* / NotAFinding"</code></li>
+</ol>
+<h3 id="64-adding-a-new-vid">6.4 Adding a New VID</h3>
+<ol>
+<li>Click <strong>+ Add VID</strong> at the bottom of the left panel</li>
+<li>Enter the VID (e.g., <code>V-12345</code>) in the dialog</li>
+<li>The VID is added to the list and selected for editing</li>
+<li>Fill in the status, finding details, and comments</li>
+<li>Click <strong>💾 Save</strong></li>
+</ol>
+<h3 id="65-deleting-a-boilerplate">6.5 Deleting a Boilerplate</h3>
+<ol>
+<li>Select the VID and status you want to delete</li>
+<li>Click <strong>🗑 Delete</strong></li>
+<li>Confirm the deletion in the dialog</li>
+</ol>
+<h3 id="66-import-export-via-menu">6.6 Import / Export via Menu</h3>
+<ul>
+<li><strong>File → Export Boilerplates…</strong> — Save all templates to a JSON file</li>
+<li><strong>File → Import Boilerplates…</strong> — Load and merge templates from a JSON file</li>
+</ul>
+<h3 id="67-applying-during-ckl-creation">6.7 Applying During CKL Creation</h3>
+<p>On the <strong>➕ Create Checklist</strong> tab:
+1. Check the <strong>☐ Apply boilerplate templates</strong> checkbox
+2. Proceed with CKL generation as normal</p>
+<p>This fills in finding details and comments for each VULN using the matching boilerplate template.</p>
+<h3 id="68-settings-integration">6.8 Settings Integration</h3>
+<p>Under <strong>⚙ Settings</strong>:
+- Toggle <strong>"Apply boilerplate by default"</strong> to auto-check the boilerplate checkbox on every new CKL creation operation.</p>
+<hr />
+<h2 id="7-web-interface-guide">7. Web Interface Guide</h2>
+<h3 id="71-accessing-the-boilerplate-editor">7.1 Accessing the Boilerplate Editor</h3>
+<ol>
+<li>Start the web server: <code>python -m stig_assessor --web</code></li>
+<li>Open <code>http://localhost:8080</code> in your browser</li>
+<li>Click <strong>Boilerplates</strong> in the sidebar under <strong>Management</strong></li>
+</ol>
+<h3 id="72-interface-layout">7.2 Interface Layout</h3>
+<p>The Boilerplates panel consists of:</p>
+<ul>
+<li><strong>Toolbar</strong> — <code>+ Add VID</code>, <code>⬇ Export</code>, <code>⬆ Import</code>, <code>↻ Reset Defaults</code> buttons</li>
+<li><strong>Left sidebar</strong> — Searchable list of VIDs with status count badges</li>
+<li><strong>Right editor</strong> — Form fields for editing the selected VID template</li>
+</ul>
+<h3 id="73-editing-a-boilerplate">7.3 Editing a Boilerplate</h3>
+<ol>
+<li>Click a VID in the sidebar list (e.g., <code>V-*</code>)</li>
+<li>The editor loads with the VID, first available status, and corresponding text</li>
+<li>Change the <strong>Status</strong> dropdown to switch between status templates</li>
+<li>Edit the <strong>Finding Details</strong> and <strong>Comments</strong> text areas</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<h3 id="74-adding-a-new-vid">7.4 Adding a New VID</h3>
+<ol>
+<li>Click <strong>+ Add VID</strong> in the toolbar</li>
+<li>Enter the VID in the prompt dialog</li>
+<li>The editor switches to the new VID with empty fields</li>
+<li>Fill in status, finding details, and comments</li>
+<li>Click <strong>Save</strong></li>
+</ol>
+<h3 id="75-export-import">7.5 Export / Import</h3>
+<p><strong>Export:</strong>
+1. Click <strong>⬇ Export</strong> in the toolbar
+2. A <code>boilerplates.json</code> file is downloaded to your browser</p>
+<p><strong>Import:</strong>
+1. Click <strong>⬆ Import</strong> in the toolbar
+2. Select a <code>.json</code> boilerplate file from your local filesystem
+3. Imported templates are merged with existing ones
+4. The sidebar refreshes to show any new VIDs</p>
+<h3 id="76-reset-to-defaults">7.6 Reset to Defaults</h3>
+<ol>
+<li>Click <strong>↻ Reset Defaults</strong> in the toolbar</li>
+<li>Confirm the action in the dialog</li>
+<li>All custom templates are replaced with factory defaults</li>
+</ol>
+<h3 id="77-template-variables-reference">7.7 Template Variables Reference</h3>
+<p>At the bottom of the editor panel, a <strong>📌 Template Variables</strong> section shows available placeholders:
+- <code>{asset}</code> — Asset hostname or identifier
+- <code>{severity}</code> — Vulnerability severity level</p>
+<p>Use these in your template text and they'll be substituted when boilerplate is applied during CKL generation.</p>
+<hr />
+<h2 id="8-rest-api-reference">8. REST API Reference</h2>
+<p>All endpoints accept <code>POST</code> with JSON body and return JSON responses.</p>
+<h3 id="post-apiv1bp_list"><code>POST /api/v1/bp_list</code></h3>
+<p>List all boilerplate templates.</p>
+<p><strong>Request:</strong> <code>{}</code> (no parameters)</p>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;data&quot;: {
+    &quot;V-*&quot;: {
+      &quot;NotAFinding&quot;: {
+        &quot;finding_details&quot;: &quot;This control is satisfied.&quot;,
+        &quot;comments&quot;: &quot;Reviewed.&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="post-apiv1bp_set"><code>POST /api/v1/bp_set</code></h3>
+<p>Create or update a boilerplate entry.</p>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  &quot;vid&quot;: &quot;V-12345&quot;,
+  &quot;status&quot;: &quot;NotAFinding&quot;,
+  &quot;finding&quot;: &quot;Firewall policy verified.&quot;,
+  &quot;comment&quot;: &quot;Compliant as of 2026-04-07.&quot;
+}
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;message&quot;: &quot;Updated boilerplate for V-12345 / NotAFinding&quot;
+}
+</code></pre>
+<h3 id="post-apiv1bp_delete"><code>POST /api/v1/bp_delete</code></h3>
+<p>Delete a specific boilerplate entry.</p>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  &quot;vid&quot;: &quot;V-12345&quot;,
+  &quot;status&quot;: &quot;NotAFinding&quot;
+}
+</code></pre>
+<h3 id="post-apiv1bp_export"><code>POST /api/v1/bp_export</code></h3>
+<p>Export all boilerplates as a base64-encoded JSON file.</p>
+<p><strong>Request:</strong> <code>{}</code> (no parameters)</p>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;data&quot;: {
+    &quot;bp_b64&quot;: &quot;&lt;base64-encoded JSON&gt;&quot;
+  }
+}
+</code></pre>
+<h3 id="post-apiv1bp_import"><code>POST /api/v1/bp_import</code></h3>
+<p>Import boilerplates from a base64-encoded JSON string. Merges with existing templates.</p>
+<p><strong>Request:</strong></p>
+<pre><code class="language-json">{
+  &quot;bp_b64&quot;: &quot;&lt;base64-encoded JSON&gt;&quot;
+}
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;message&quot;: &quot;Imported 5 VID template(s)&quot;
+}
+</code></pre>
+<h3 id="post-apiv1bp_reset"><code>POST /api/v1/bp_reset</code></h3>
+<p>Reset all boilerplates to factory defaults.</p>
+<p><strong>Request:</strong> <code>{}</code> (no parameters)</p>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;message&quot;: &quot;Boilerplates reset to factory defaults&quot;
+}
+</code></pre>
+<hr />
+<h2 id="9-apply-modes">9. Apply Modes</h2>
+<h3 id="91-overwrite_empty-default">9.1 <code>overwrite_empty</code> (Default)</h3>
+<p>Only fills in finding details or comments when the field is currently empty. This is the safest mode — it never overwrites existing data.</p>
+<p><strong>Use when:</strong> Generating new CKLs or applying defaults to unreviewed findings.</p>
+<h3 id="92-prepend">9.2 <code>prepend</code></h3>
+<p>Places the boilerplate text <strong>before</strong> any existing content, separated by a blank line.</p>
+<p><strong>Result:</strong></p>
+<pre><code>[Boilerplate text]
+
+[Existing text]
+</code></pre>
+<p><strong>Use when:</strong> Adding a standard header or policy statement above manual notes.</p>
+<h3 id="93-append">9.3 <code>append</code></h3>
+<p>Places the boilerplate text <strong>after</strong> any existing content, separated by a blank line.</p>
+<p><strong>Result:</strong></p>
+<pre><code>[Existing text]
+
+[Boilerplate text]
+</code></pre>
+<p><strong>Use when:</strong> Adding standardized footer notes below manual assessments.</p>
+<h3 id="94-merge">9.4 <code>merge</code></h3>
+<p>Combines existing text with boilerplate, separated by a clear divider line.</p>
+<p><strong>Result:</strong></p>
+<pre><code>[Existing text]
+--- Boilerplate ---
+[Boilerplate text]
+</code></pre>
+<p><strong>Use when:</strong> You want both the original and template text clearly delineated for audit review.</p>
+<hr />
+<h2 id="10-import-export-workflows">10. Import &amp; Export Workflows</h2>
+<h3 id="101-team-standardization-workflow">10.1 Team Standardization Workflow</h3>
+<pre><code>Team Lead                     Team Members
+────────                     ────────────
+1. Create standard templates
+2. Export: --bp-export team_bp.json
+3. Distribute via USB/share
+                              4. Import: --bp-import team_bp.json
+                              5. Customize per-VID as needed
+</code></pre>
+<h3 id="102-air-gapped-transfer">10.2 Air-Gapped Transfer</h3>
+<p>Since STIG Assessor runs in air-gapped environments:</p>
+<ol>
+<li>On the <strong>connected system</strong>: Create templates, export to JSON</li>
+<li>Copy JSON file to removable media (USB drive)</li>
+<li>On the <strong>air-gapped system</strong>: Import the JSON file</li>
+<li>Templates are merged — existing templates are preserved unless overridden</li>
+</ol>
+<h3 id="103-backup-before-changes">10.3 Backup Before Changes</h3>
+<p>Before making bulk changes, always export:</p>
+<pre><code class="language-bash">python -m stig_assessor --bp-export backup_$(date +%Y%m%d).json
+</code></pre>
+<p>If something goes wrong:</p>
+<pre><code class="language-bash">python -m stig_assessor --bp-reset
+python -m stig_assessor --bp-import backup_20260407.json
+</code></pre>
+<hr />
+<h2 id="11-advanced-usage-patterns">11. Advanced Usage Patterns</h2>
+<h3 id="111-per-vid-customization">11.1 Per-VID Customization</h3>
+<p>Build a library of VID-specific responses for your organization's most common findings:</p>
+<pre><code class="language-bash"># Set specific templates for commonly assessed controls
+python -m stig_assessor --bp-set --vid V-220813 --status NotAFinding \
+  --finding &quot;Password complexity requirements are configured via Group Policy. Minimum length: 15 characters, complexity enabled.&quot; \
+  --comment &quot;Verified via rsop.msc and secpol.msc on {asset}.&quot;
+
+python -m stig_assessor --bp-set --vid V-220813 --status Open \
+  --finding &quot;Password complexity requirements are not configured per STIG requirements.&quot; \
+  --comment &quot;CAP submitted. Target remediation date: [DATE].&quot;
+</code></pre>
+<h3 id="112-cloning-for-stig-version-migration">11.2 Cloning for STIG Version Migration</h3>
+<p>When a new STIG version renumbers checks:</p>
+<pre><code class="language-bash"># Old check V-220813 is now V-254239 in the new STIG
+python -m stig_assessor --bp-clone V-220813 V-254239
+</code></pre>
+<h3 id="113-multi-status-templates-via-json">11.3 Multi-Status Templates via JSON</h3>
+<p>For complex setups, edit <code>boilerplate.json</code> directly:</p>
+<pre><code class="language-json">{
+  &quot;V-*&quot;: {
+    &quot;NotAFinding&quot;: {
+      &quot;finding_details&quot;: &quot;This control is satisfied. Evidence collected from {asset}.&quot;,
+      &quot;comments&quot;: &quot;Assessed via automated tooling.&quot;
+    },
+    &quot;Open&quot;: {
+      &quot;finding_details&quot;: &quot;Finding: [describe technical issue]&quot;,
+      &quot;comments&quot;: &quot;POA&amp;M tracking number: [enter POA&amp;M ID]&quot;
+    },
+    &quot;Not_Applicable&quot;: {
+      &quot;finding_details&quot;: &quot;This control is not applicable: [provide technical justification]&quot;,
+      &quot;comments&quot;: &quot;N/A justification approved by ISSM.&quot;
+    },
+    &quot;Not_Reviewed&quot;: {
+      &quot;finding_details&quot;: &quot;Pending review. Scheduled assessment date: [DATE]&quot;,
+      &quot;comments&quot;: &quot;Awaiting system access or documentation.&quot;
+    }
+  },
+  &quot;V-220813&quot;: {
+    &quot;NotAFinding&quot;: {
+      &quot;finding_details&quot;: &quot;Password policy meets STIG requirements per GPO analysis.&quot;,
+      &quot;comments&quot;: &quot;secedit output collected as evidence on {asset}.&quot;
+    }
+  }
+}
+</code></pre>
+<h3 id="114-web-api-scripting">11.4 Web API Scripting</h3>
+<p>Use <code>curl</code> or Python <code>requests</code> to manage boilerplates programmatically:</p>
+<pre><code class="language-bash"># List all boilerplates
+curl -s -X POST http://localhost:8080/api/v1/bp_list \
+  -H &quot;Content-Type: application/json&quot; -d '{}' | python -m json.tool
+
+# Set a boilerplate
+curl -s -X POST http://localhost:8080/api/v1/bp_set \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;vid&quot;:&quot;V-99999&quot;,&quot;status&quot;:&quot;Open&quot;,&quot;finding&quot;:&quot;Test finding&quot;,&quot;comment&quot;:&quot;Test comment&quot;}'
+</code></pre>
+<hr />
+<h2 id="12-troubleshooting-faq">12. Troubleshooting &amp; FAQ</h2>
+<h3 id="q-my-boilerplate-wasnt-applied-to-the-ckl-why">Q: My boilerplate wasn't applied to the CKL. Why?</h3>
+<p><strong>A:</strong> Check these conditions:
+1. Did you use <code>--apply-boilerplate</code> flag (CLI) or check the "Apply boilerplate" checkbox (GUI/Web)?
+2. Does a matching template exist? The system resolves VID-specific first, then <code>V-*</code>.
+3. Is the field already populated? By default, <code>overwrite_empty</code> mode only fills empty fields.
+4. Is the status correct? Templates are status-specific — a <code>NotAFinding</code> template won't apply to an <code>Open</code> finding.</p>
+<h3 id="q-how-do-i-see-which-variables-are-available">Q: How do I see which variables are available?</h3>
+<p><strong>A:</strong> Currently supported variables:
+- <code>{asset}</code> — Replaced with the asset name provided during CKL generation
+- <code>{severity}</code> — Replaced with the vulnerability severity level</p>
+<p>In the Web UI, a <strong>📌 Template Variables</strong> reference is shown at the bottom of the editor panel.</p>
+<h3 id="q-can-i-use-html-or-special-formatting-in-boilerplate-text">Q: Can I use HTML or special formatting in boilerplate text?</h3>
+<p><strong>A:</strong> No. STIG Viewer treats finding details and comments as plain text. HTML tags will appear as literal text in the checklist.</p>
+<h3 id="q-what-happens-if-i-import-a-file-with-vids-that-already-exist">Q: What happens if I import a file with VIDs that already exist?</h3>
+<p><strong>A:</strong> Import uses a <strong>merge</strong> strategy:
+- New VID/status combinations are added.
+- Existing VID/status combinations are <strong>replaced</strong> with the imported values.
+- VIDs not present in the import file are preserved unchanged.</p>
+<h3 id="q-how-do-i-use-the-same-boilerplate-for-all-4-statuses">Q: How do I use the same boilerplate for all 4 statuses?</h3>
+<p><strong>A:</strong> You must create a separate template for each status. The system does not support a "universal" template that applies regardless of status.</p>
+<h3 id="q-i-accidentally-deleted-all-my-templates-how-do-i-recover">Q: I accidentally deleted all my templates. How do I recover?</h3>
+<p><strong>A:</strong> If you have a backup:</p>
+<pre><code class="language-bash">python -m stig_assessor --bp-import backup.json
+</code></pre>
+<p>If not, reset to factory defaults:</p>
+<pre><code class="language-bash">python -m stig_assessor --bp-reset
+</code></pre>
+<h3 id="q-where-is-the-boilerplate-file-stored">Q: Where is the boilerplate file stored?</h3>
+<p><strong>A:</strong> <code>~/.stig_assessor/templates/boilerplate.json</code></p>
+<p>On Windows: <code>%USERPROFILE%\.stig_assessor\templates\boilerplate.json</code></p>
+<h3 id="q-can-multiple-users-share-the-same-boilerplate-file">Q: Can multiple users share the same boilerplate file?</h3>
+<p><strong>A:</strong> The file is per-user by default. For team standardization:
+1. One person creates the master template
+2. Exports it: <code>--bp-export master_bp.json</code>
+3. Distributes to team members
+4. Each member imports: <code>--bp-import master_bp.json</code></p>
+<h3 id="q-is-there-a-limit-to-how-many-boilerplates-i-can-have">Q: Is there a limit to how many boilerplates I can have?</h3>
+<p><strong>A:</strong> No hard limit. However, the JSON file is loaded entirely into memory at startup, so keep it manageable. Thousands of VID-specific entries are fine; hundreds of thousands may impact startup time.</p>
+<hr />
+<p><em>This guide covers STIG Assessor v8.1.0 boilerplate functionality. For general tool usage, see the <a href="../guides/">main documentation</a>.</em></p>
+</body>
+</html>

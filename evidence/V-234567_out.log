@@ -1,0 +1,3 @@
+--- PRE-FIX CHECK ---
+--- APPLYING FIX ---
+test_fixes/remediate.sh: line 61: fix: command not found

@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Extremely Detailed Usage Documentation for STIG Assessor Remediation & Fix Extraction on Windows and Linux.">
+    <title>STIG Assessor - Remediation & Fix Extraction Guide</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --bg-gradient: linear-gradient(135deg, #0b0f19 0%, #171b2d 100%);
+            --glass-bg: rgba(25, 30, 50, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --card-hover-bg: rgba(30, 36, 60, 0.8);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.4);
+            --accent-hover: #60a5fa;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --sidebar-width: 320px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            line-height: 1.7;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Sidebar with Glassmorphism */
+        .sidebar {
+            width: var(--sidebar-width);
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-right: 1px solid var(--glass-border);
+            padding: 30px 20px;
+            overflow-y: auto;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.3);
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar h2 {
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--glass-border);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: linear-gradient(90deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .sidebar li {
+            margin: 8px 0;
+            position: relative;
+        }
+
+        .sidebar a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.95rem;
+            display: block;
+            padding: 10px 15px;
+            border-radius: 8px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+        }
+
+        .sidebar a:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateX(5px);
+            box-shadow: inset 3px 0 0 var(--accent);
+        }
+
+        /* Main Content Area */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 60px;
+            max-width: 1200px;
+            width: 100%;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1, h2, h3 {
+            color: var(--text-main);
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-top: 0;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            padding-bottom: 20px;
+            position: relative;
+        }
+
+        h1::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100px;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent), transparent);
+            border-radius: 2px;
+        }
+
+        h2 {
+            font-size: 2rem;
+            margin-top: 2.5em;
+            margin-bottom: 1em;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+        }
+
+        h2::before {
+            content: '#';
+            color: var(--accent);
+            margin-right: 10px;
+            opacity: 0.5;
+            font-size: 0.8em;
+        }
+
+        h3 {
+            font-size: 1.4rem;
+            color: var(--accent-hover);
+            margin-top: 2em;
+        }
+
+        p {
+            font-size: 1.05rem;
+            margin-bottom: 1.5em;
+        }
+
+        strong {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        /* Premium Code Blocks */
+        .code-container {
+            background: rgba(10, 12, 20, 0.8);
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            margin: 25px 0;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .code-container:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .code-header {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .mac-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot.red { background-color: #ff5f56; }
+        .dot.yellow { background-color: #ffbd2e; }
+        .dot.green { background-color: #27c93f; }
+
+        .code-lang {
+            margin-left: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        pre {
+            margin: 0;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            color: #e2e8f0;
+        }
+
+        p code, li code {
+            background-color: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--accent-hover);
+            font-size: 0.9em;
+        }
+
+        /* Admonitions/Callouts */
+        .admonition {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-left: 4px solid var(--accent);
+            padding: 20px 25px;
+            margin: 30px 0;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .admonition.warning {
+            border-left-color: var(--warning);
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.05), transparent);
+        }
+        
+        .admonition.success {
+            border-left-color: var(--success);
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.05), transparent);
+        }
+
+        .admonition-title {
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            font-size: 1.1em;
+            letter-spacing: 0.5px;
+            color: var(--accent);
+        }
+
+        .admonition-title svg {
+            margin-right: 10px;
+            width: 20px;
+            height: 20px;
+        }
+
+        .admonition.warning .admonition-title { color: var(--warning); }
+        .admonition.success .admonition-title { color: var(--success); }
+
+        /* Tables built with Cards */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .feature-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: 25px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--accent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            background: var(--card-hover-bg);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-card h3 {
+            margin-top: 0;
+            font-size: 1.25rem;
+            color: #fff;
+        }
+
+        .feature-card p {
+            margin-bottom: 0;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
+        /* Syntax Highlighting Base */
+        .token.keyword { color: #ff7b72; }
+        .token.string { color: #a5d6ff; }
+        .token.comment { color: #8b949e; font-style: italic; }
+        .token.function { color: #d2a8ff; }
+        .token.operator { color: #79c0ff; }
+        .token.number { color: #79c0ff; }
+        .token.flag { color: #79c0ff; }
+
+        @media (max-width: 900px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>STIG Assessor</h2>
+        <ul>
+            <li><a href="#overview">1. Overview</a></li>
+            <li><a href="#how-it-works">2. Fix Extraction Engine</a></li>
+            <li><a href="#cross-platform">3. Platform Reliability</a></li>
+            <li><a href="#scenario-windows">4. Scenario: Windows Golden Image</a></li>
+            <li><a href="#scenario-linux">5. Scenario: Linux Disconnected</a></li>
+            <li><a href="#bulk-apply">6. Bulk Apply Results</a></li>
+            <li><a href="#third-party">7. Integrating External Tools</a></li>
+            <li><a href="#interactive-playbook">8. HTML Interactive Playbooks</a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <h1>Remediation &amp; Fix Extraction Guide</h1>
+        <p>This document provides <strong>extremely detailed scenario-based usage documentation</strong> focusing on the <em>Extract Fix / Check Text</em> and <em>Apply Remediation</em> processes. By following this guide, you can ensure your STIG remediation workflows are 100% reliable and deterministic across complex Windows and Linux air-gapped environments.</p>
+
+        <h2 id="overview">1. Overview of the Remediation Lifecycle</h2>
+        <p>The STIG Assessor project allows compliance and systems engineers to fully automate their STIG hardening deployments through a highly structured 3-stage lifecycle:</p>
+        
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>1. Extraction (Export)</h3>
+                <p>Parse raw DISA XCCDF STIG benchmarks to intelligently identify strings, scripts, and registry keys needed to fix vulnerabilities.</p>
+            </div>
+            <div class="feature-card">
+                <h3>2. Execution (Deploy)</h3>
+                <p>Execute generated Shell, PowerShell, Ansible, or standalone HTML Playbook exports directly on isolated target images.</p>
+            </div>
+            <div class="feature-card">
+                <h3>3. Verification (Import)</h3>
+                <p>Ingest structured JSON or CSV scan logs from the target back into STIG Assessor to automatically annotate <code>.ckl</code> files.</p>
+            </div>
+        </div>
+
+        <h2 id="how-it-works">2. How the Fix Extraction Engine Works</h2>
+        <p>The core extraction capability does not rely on rudimentary string matching. Instead, it utilizes an advanced regex lexer combined with semantic bounds context analysis. It evaluates STIG <code>fixtext</code> and <code>check-content</code> nodes and matches them against more than 12 independent code patterns (such as standard POSIX prompts <code>#</code> / <code>$</code>, Markdown code blocks, PowerShell Cmdlets, <code>systemctl</code>/<code>apt</code> sequences, Registry paths, and GPO definitions).</p>
+        
+        <div class="code-container">
+            <div class="code-header">
+                <div class="mac-dots"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <div class="code-lang">CLI</div>
+            </div>
+            <pre><code><span class="token keyword">python</span> -m stig_assessor --extract <span class="token string">path/to/U_Windows_Server_2022_STIG_V3R1_Manual-xccdf.xml</span> --outdir <span class="token string">.\Fixes\</span></code></pre>
+        </div>
+
+        <div class="admonition warning">
+            <hdiv class="admonition-title">
+                <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                Platform Intelligence Details
+            </hdiv>
+            <p>The platform analyzer evaluates the extracted strings natively. If it detects <code>Set-Mdp</code>, <code>reg.exe</code>, or <code>Get-ItemProperty</code> it explicitly marks the required runtime as <strong>Windows</strong>. This guarantees that OS-specific scripts are exported accurately, regardless of the overarching title of the STIG benchmark.</p>
+        </div>
+
+        <h2 id="cross-platform">3. Ensuring Cross-Platform Reliability in Air-Gaps</h2>
+        <p>In highly regulated and disconnected environments, remediation pipelines are notoriously fragile. The STIG Assessor project mitigates this by guaranteeing deterministic behavior on both Windows and Linux without system-specific dependencies:</p>
+        <ul>
+            <li><strong>Environment Agnostic Core:</strong> All parsing and processing logic is restricted purely to standard Python libraries, thereby eliminating native C-bindings (like <code>lxml</code> natively built) that commonly cause pip installation failures on target platforms.</li>
+            <li><strong>Robust UTF-8 Encodings:</strong> Cross-platform file I/O operations explicitly declare <code>encoding="utf-8"</code>. This completely circumvents corruption during PowerShell string execution caused by Windows environments interacting with Linux-originated benchmarks.</li>
+            <li><strong>Dependency-Free HTML Payloads:</strong> HTML Interactive Playbooks function identically off-network by fully embedding all base64-encoded bash/powershell scripts, CSS tokens, and JavaScript engines internally.</li>
+        </ul>
+
+        <h2 id="scenario-windows">4. Scenario 1: Windows Server Over WinRM</h2>
+        <p><strong>Goal:</strong> Bulk remediate an air-gapped Windows Server 2022 golden image, dynamically extracting fixes and executing them.</p>
+
+        <p><strong>Step 1: Extract Fixes on Management Node</strong><br>
+        Extract only high and medium severity items to prevent unnecessary regressions in your pipeline.</p>
+        <div class="code-container">
+            <div class="code-header">
+                <div class="mac-dots"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <div class="code-lang">Powershell</div>
+            </div>
+            <pre><code><span class="token function">stig-assessor</span> <span class="token flag">--extract</span> <span class="token string">"U_Windows_Server_2022_STIG_V3R1_Manual-xccdf.xml"</span> `
+    <span class="token flag">--outdir</span> <span class="token string">"C:\Staging\Windows_Fixes"</span> `
+    <span class="token flag">--extract-severity</span> <span class="token string">high</span> <span class="token string">medium</span></code></pre>
+        </div>
+
+        <p><strong>Step 2: Transfer and Execute via WinRM Wrapper</strong><br>
+        Generate your results directly via an automated deployment shell. The resulting script execution produces a standard JSON payload reflecting vulnerability states.</p>
+        <div class="code-container">
+            <div class="code-header">
+                <div class="mac-dots"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <div class="code-lang">Powershell</div>
+            </div>
+            <pre><code><span class="token comment"># Inside your WinRM automated installation routine</span>
+<span class="token function">Invoke-Command</span> -ComputerName "SRV01" -ScriptBlock {
+    <span class="token keyword">$OutPath</span> = <span class="token string">"C:\Windows\Temp\remediation_results.json"</span>
+    <span class="token operator">&amp;</span> <span class="token string">"C:\Staging\Windows_Fixes\remediation.ps1"</span> | <span class="token function">ConvertTo-Json</span> | <span class="token function">Out-File</span> <span class="token keyword">$OutPath</span>
+}</code></pre>
+        </div>
+
+        <h2 id="scenario-linux">5. Scenario 2: Linux Disconnected (Bash/Ansible)</h2>
+        <p><strong>Goal:</strong> Standardize a Debian 13 Golden Image by bulk-importing manual bash remediation results to update the baseline CKL checklist.</p>
+
+        <p><strong>Step 1: Extract Base Configurations</strong></p>
+        <div class="code-container">
+            <div class="code-header">
+                <div class="mac-dots"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <div class="code-lang">Bash</div>
+            </div>
+            <pre><code><span class="token function">python3</span> -m stig_assessor --extract <span class="token string">Debian_12_STIG.xml</span> --outdir <span class="token string">/tmp/debian_fixes/</span>
+<span class="token function">cd</span> /tmp/debian_fixes
+<span class="token comment"># Make generated scripts executable and run</span>
+<span class="token function">chmod</span> +x *remediation.sh &amp;&amp; <span class="token function">./remediation.sh</span></code></pre>
+        </div>
+
+        <p><strong>Step 2: Generating Import Payload</strong><br>
+        Whether via custom scripting or standard toolchains, format the output of the execution logs to match the STIG Assessor JSON manifest standard: <code>remediation_results.json</code>.</p>
+        <div class="code-container">
+            <div class="code-header">
+                <div class="mac-dots"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <div class="code-lang">JSON</div>
+            </div>
+            <pre><code>[
+  {
+    <span class="token string">"vid"</span>: <span class="token string">"V-230221"</span>,
+    <span class="token string">"ok"</span>: <span class="token keyword">true</span>,
+    <span class="token string">"msg"</span>: <span class="token string">"Executed chmod 0600 successfully"</span>,
+    <span class="token string">"out"</span>: <span class="token string">"Files processed: 12"</span>,
+    <span class="token string">"err"</span>: <span class="token string">""</span>
+  }
+]</code></pre>
+        </div>
+
+        <p><strong>Step 3: Auto-Update STIG Checklist</strong><br>
+        Apply the results from the raw JSON scan directly to an existing base <code>.ckl</code> manifest. This step takes the raw output and annotates the STIG artifact securely.</p>
+        <div class="code-container">
+            <div class="code-header">
+                <div class="mac-dots"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <div class="code-lang">Bash</div>
+            </div>
+            <pre><code><span class="token function">python3</span> -m stig_assessor --apply-results <span class="token string">/tmp/remediation_results.json</span> \
+    --checklist <span class="token string">/tmp/target.ckl</span> \
+    --results-out <span class="token string">/tmp/target_updated.ckl</span></code></pre>
+        </div>
+
+        <div class="admonition success">
+            <hdiv class="admonition-title">
+                <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                Status Auto-Conversion Pipeline
+            </hdiv>
+            <p>If <code>"ok": true</code> is declared in the JSON payload, the engine natively mutates the CKL vulnerability's STATUS element from "Open" to "NotAFinding". The <code>msg</code>, <code>out</code>, and error variables are smartly consolidated and <em>Prepended</em> into the <strong>Finding Details</strong> field explicitly tagged with a <code>[AUTOMATED REMEDIATION]</code> watermark.</p>
+        </div>
+
+        <h2 id="bulk-apply">6. Deep-Dive: Bulk Application Logic</h2>
+        <p>The <code>--apply-results</code> operation works deterministically and guarantees idempotency. This is crucial for avoiding duplicate file mutations in automated environments:</p>
+        <ul>
+            <li><strong>Data Deduplication:</strong> When consecutive execution runs target the identical <code>vid</code>, the pipeline intelligently determines the most recent timestamp to dictate standard priority.</li>
+            <li><strong>Granular Injection Modes:</strong> The behavior is strictly bounded via <code>--details-mode [prepend | append | overwrite]</code> parameters. Utilizing <em>Prepend</em> retains historically recorded manual notes within the CKL.</li>
+            <li><strong>Strict Status Isolation:</strong> If integrating into CI pipelines strictly for log aggregation, pass <code>--no-auto-status</code>. This ingests all script outputs into finding details while mandating human QA to flip states from Open to Closed.</li>
+        </ul>
+
+        <h2 id="third-party">7. Integrating External Shell / 3rd-Party Scripts</h2>
+        <p>You absolutely are not locked into executing exclusively extracted STIG Assessor scripts! The CLI accepts generic outputs from Nessus scripts, proprietary Bash utilities, or configuration pipelines like Puppet.</p>
+        <p><strong>Comma-Separated Verification (CSV):</strong><br>
+        If your custom validation utility outputs logs in simplistic CSV patterns, the parser adapts natively. Target standard columns containing <code>vid</code>, <code>ok</code> (e.g. <code>true/false/1/0/Pass/Fail</code>), and <code>msg</code>.</p>
+        
+        <div class="code-container">
+            <div class="code-header">
+                <div class="mac-dots"><div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div></div>
+                <div class="code-lang">CLI</div>
+            </div>
+            <pre><code><span class="token function">stig-assessor</span> --apply-results <span class="token string">CustomScanExport.csv</span> --checklist <span class="token string">SRV1.ckl</span> --out <span class="token string">SRV1_Auto.ckl</span></code></pre>
+        </div>
+
+        <h2 id="interactive-playbook">8. The Standalone HTML Interactive Playbook</h2>
+        <p>For scenarios where automated configuration management utilities are restricted, STIG Assessor dynamically produces a fully-styled, robust, zero-dependency <code>.html</code> Application representing all necessary configurations structured structurally by Category metrics.</p>
+        
+        <div class="feature-grid" style="margin-top: 15px;">
+            <div class="feature-card">
+                <h3>Offline execution Context</h3>
+                <p>The DOM inherently isolates operations avoiding memory leaks. Relies purely on secure local storage allocations restricting network callbacks entirely.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Secure Text Serialization</h3>
+                <p>Features embedded Click-to-Copy capabilities. Extracted PowerShell commands are encoded in Base-64 pre-rendering preventing arbitrary quote escaping by browser renderers.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Smooth scrolling for sidebar links
+        document.querySelectorAll('.sidebar a').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                window.scrollTo({
+                    top: target.offsetTop - 30,
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>

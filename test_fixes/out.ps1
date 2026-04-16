@@ -1,0 +1,73 @@
+#requires -RunAsAdministrator
+# Generated: 2026-04-16 05:21:00 UTC
+# Mode: LIVE
+# Rollbacks Enabled: NO
+
+$ErrorActionPreference = 'Continue'
+$DryRun = $false
+$Log = "stig_fix_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+$Results = @()
+if (-not (Test-Path "evidence")) { New-Item -ItemType Directory -Path "evidence" | Out-Null }
+Start-Transcript -Path $Log -Append | Out-Null
+
+
+function Add-Result([string]$Vid, [bool]$Success, [string]$Message) {
+    $Results += [pscustomobject]@{
+        vid = $Vid;
+        ok = $Success;
+        msg = $Message;
+        ts = [DateTime]::UtcNow.ToString('o')
+    }
+}
+
+Write-Host "[1/1] V-12346 - Test Rule Title Windows" -ForegroundColor Cyan
+$EvidLog = "evidence\V-12346_out.log"
+"--- PRE-FIX CHECK ---" | Out-File $EvidLog -Encoding utf8
+    try {
+        Write-Host "  [CHECK] Running evidence collection..."
+        & {
+        Get-ItemProperty -Path "HKLM:\Some\Path"
+        } *>> $EvidLog
+    } catch {
+        Write-Host "  ! Check command failed (Expected if finding is OPEN)"
+        "Check failed: $($_.Exception.Message)" | Out-File $EvidLog -Append -Encoding utf8
+    }
+
+# === FIX ===
+"--- APPLYING FIX ---" | Out-File $EvidLog -Append -Encoding utf8
+try {
+    & {
+    Set-ItemProperty -Path "HKLM:\Some\Path" -Name "Value" -Value 1
+    } *>> $EvidLog
+    Write-Host "  [OK] Remediation Success" -ForegroundColor Green
+    
+    # === VERIFY ===
+    "--- POST-FIX VERIFY ---" | Out-File $EvidLog -Append -Encoding utf8
+    try {
+        Write-Host "  [VERIFY] Running post-fix verification..."
+        & {
+        Get-ItemProperty -Path "HKLM:\Some\Path"
+        } *>> $EvidLog
+        Write-Host "  [OK] Evidence: Check now PASSES (CLOSED)" -ForegroundColor Green
+    } catch {
+        Write-Host "  ! Evidence: Check still FAILS" -ForegroundColor Yellow
+        "Verify failed: $($_.Exception.Message)" | Out-File $EvidLog -Append -Encoding utf8
+    }
+    Add-Result "V-12346" $true "success"
+} catch {
+    Write-Warning "  [FAIL] Remediation Failed: $($_.Exception.Message)"
+    "ERROR: $($_.Exception.Message)" | Out-File $EvidLog -Append -Encoding utf8
+    Add-Result "V-12346" $false $_.Exception.Message
+}
+
+Stop-Transcript | Out-Null
+[pscustomobject]@{
+    meta = @{
+        generated = [DateTime]::UtcNow.ToString('o');
+        mode = if ($DryRun) { 'dry' } else { 'live' };
+        total = $Results.Count;
+        pass = ($Results | Where-Object { $_.ok }).Count;
+        fail = ($Results | Where-Object { -not $_.ok }).Count;
+    };
+    results = $Results
+} | ConvertTo-Json -Depth 10 | Out-File "stig_results_$(Get-Date -Format 'yyyyMMdd_HHmmss').json" -Encoding utf8

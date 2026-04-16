@@ -1,0 +1,14 @@
+{
+  "V-123456": [
+    {
+      "vid": "V-123456",
+      "filename": "20260416_045930_test1.txt",
+      "imported": "2026-04-16T04:59:30.603552+00:00",
+      "hash": "166cb94a04ebaef4ae79c2a0674d8cea1b7fc354eb2ea436b28c3531de10449c",
+      "size": 14,
+      "description": "",
+      "category": "config",
+      "who": "Madden"
+    }
+  ]
+}

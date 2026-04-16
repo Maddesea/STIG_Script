@@ -1,0 +1,4 @@
+--- PRE-FIX CHECK ---
+test_fixes/remediate.sh: line 29: content: command not found
+--- APPLYING FIX ---
+Failed to enable unit: Unit file test.service does not exist.

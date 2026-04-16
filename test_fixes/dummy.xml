@@ -1,0 +1,36 @@
+<Benchmark xmlns="http://checklists.nist.gov/xccdf/1.2">
+  <Group id="V-12345">
+    <title>Test Vulnerability Linux</title>
+    <Rule id="SV-12345r1_rule" severity="high">
+      <title>Test Rule Title</title>
+      <version>V-12345</version>
+      <description>Rule description</description>
+      <check><check-content>echo "Checking text..."
+if [ 1 -eq 0 ]; then
+  exit 1
+fi
+</check-content></check>
+      <fixtext>To fix, run this command:
+```bash
+echo "Fixing text..."
+chmod 600 /etc/test
+```
+      </fixtext>
+    </Rule>
+  </Group>
+  <Group id="V-12346">
+    <title>Test Vulnerability Windows</title>
+    <Rule id="SV-12346r1_rule" severity="high">
+      <title>Test Rule Title Windows</title>
+      <version>V-12346</version>
+      <description>Rule description</description>
+      <check><check-content>Get-ItemProperty -Path "HKLM:\Some\Path"
+</check-content></check>
+      <fixtext>To fix, run this command:
+```powershell
+Set-ItemProperty -Path "HKLM:\Some\Path" -Name "Value" -Value 1
+```
+      </fixtext>
+    </Rule>
+  </Group>
+</Benchmark>

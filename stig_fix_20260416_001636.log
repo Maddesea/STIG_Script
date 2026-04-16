@@ -1,0 +1,7 @@
+Remediation started (Output mapping to evidence/ folder)
+[1/2] V-123456 - Test Rule Title
+  ✘ Remediation Failed (See evidence/V-123456_out.log)
+[2/2] V-234567 - Second Rule
+  ✘ Remediation Failed (See evidence/V-234567_out.log)
+Summary: PASS=0 FAIL=2 SKIP=0
+Results saved to stig_results_20260416_001636.json

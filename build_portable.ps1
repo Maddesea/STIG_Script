@@ -29,10 +29,10 @@ if (-not (Get-Command "python" -ErrorAction SilentlyContinue)) {
 # 2. Ensure PyInstaller is installed
 Write-Host "[2/5] Checking for PyInstaller..." -ForegroundColor Yellow
 if (-not (Get-Command "pyinstaller" -ErrorAction SilentlyContinue)) {
-    Write-Host "PyInstaller not found. Attempting to install via pip..." -ForegroundColor DarkGray
-    python -m pip install pyinstaller
+    Write-Host "PyInstaller not found. Attempting to install via pip from local wheels..." -ForegroundColor DarkGray
+    python -m pip install --no-index --find-links=wheels pyinstaller
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to install PyInstaller. Please run: pip install pyinstaller"
+        Write-Error "Failed to install PyInstaller from local wheels. Ensure /wheels folder contains the required PyInstaller packages."
         exit 1
     }
 }

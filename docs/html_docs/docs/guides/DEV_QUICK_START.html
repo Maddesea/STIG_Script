@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEV_QUICK_START</title>
+    
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Premium Modern Glassmorphism Styles for Auto-Generated Docs */
+:root {
+    --bg-color: #0b0f19;
+    --bg-gradient: linear-gradient(135deg, #0b0f19 0%, #171b2d 100%);
+    --glass-bg: rgba(25, 30, 50, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --card-hover-bg: rgba(30, 36, 60, 0.8);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-glow: rgba(59, 130, 246, 0.4);
+    --accent-hover: #60a5fa;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.7;
+    color: var(--text-main);
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+    padding-bottom: 5rem;
+    min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-main);
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 2em;
+    margin-bottom: 0.75em;
+}
+
+h1 { 
+    font-size: 2.8rem; 
+    background: linear-gradient(135deg, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    border-bottom: 2px solid var(--glass-border); 
+    padding-bottom: 0.3em; 
+    margin-top: 1em; 
+}
+h2 { font-size: 2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.3em; margin-top: 2.5em; }
+h3 { font-size: 1.5em; color: var(--accent-hover); margin-top: 2em; }
+
+a { color: var(--accent); text-decoration: none; transition: color 0.2s ease; }
+a:hover { text-decoration: underline; color: var(--accent-hover); }
+
+pre {
+    background: rgba(10, 12, 20, 0.8);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    overflow-x: auto;
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.2), 0 5px 15px rgba(0,0,0,0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+    font-size: 0.9em;
+    margin: 25px 0;
+}
+
+pre:hover {
+    transform: translateY(-2px);
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.2), 0 15px 35px rgba(0,0,0,0.4), 0 0 15px var(--accent-glow);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+code {
+    font-family: "JetBrains Mono", Consolas, Menlo, Monaco, monospace;
+    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--accent-hover);
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+    font-size: 0.9em;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+pre code {
+    background-color: transparent;
+    color: #e2e8f0;
+    padding: 0;
+    border: none;
+}
+
+blockquote {
+    border-left: 4px solid var(--accent);
+    padding: 1rem 1.5rem;
+    margin: 2rem 0;
+    color: var(--text-muted);
+    background: var(--glass-bg);
+    border-radius: 0 8px 8px 0;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-left-width: 4px;
+    font-size: 1.1rem;
+    font-style: italic;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 2.5rem 0;
+    background: rgba(10, 12, 20, 0.4);
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    backdrop-filter: blur(10px);
+}
+
+th, td {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+    text-align: left;
+}
+
+th {
+    background: rgba(255,255,255,0.03);
+    font-weight: 600;
+    color: var(--accent-hover);
+    border-bottom: 2px solid rgba(255,255,255,0.05);
+}
+
+tr:hover td {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    margin: 2rem 0;
+    border: 1px solid var(--glass-border);
+}
+
+hr {
+    border: 0;
+    height: 1px;
+    background: var(--glass-border);
+    margin: 3rem 0;
+}
+
+/* Nav */
+.nav {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--glass-border);
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    padding: 15px;
+    background: var(--glass-bg);
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+.nav strong { color: var(--text-main); }
+</style>
+
+</head>
+<body>
+    <div class="nav">
+        <strong>STIG Assessor Documentation</strong> - DEV_QUICK_START
+    </div>
+    <h1 id="stig-assessor-modularization-developer-quick-start-guide">STIG Assessor Modularization - Developer Quick Start Guide</h1>
+<p><strong>Version:</strong> 1.0
+<strong>Date:</strong> 2025-11-16</p>
+<hr />
+<h2 id="quick-start-for-development-teams">🚀 Quick Start for Development Teams</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<ol>
+<li>Read <code>MODULARIZATION_SPEC.md</code> (full specification)</li>
+<li>Review your team's assigned module(s) below</li>
+<li>Set up development environment:
+   <code>bash
+   cd /home/user/STIG_Script
+   git checkout claude/modularize-for-parallel-dev-012hrduZvrxxwWsWvgZ7VimR
+   python3 -m venv venv
+   source venv/bin/activate  # or venv\Scripts\activate on Windows</code></li>
+</ol>
+<hr />
+<h2 id="team-assignments">👥 Team Assignments</h2>
+<h3 id="prerequisite-complete-first-sequential">✅ PREREQUISITE (Complete First - Sequential)</h3>
+<p><strong>TEAM 0 - Foundation Team</strong>
+- <strong>Duration</strong>: 2 days
+- <strong>Members</strong>: 2 developers
+- <strong>Deliverables</strong>:
+  - Package structure (<code>stig_assessor/</code> directory tree)
+  - <code>exceptions.py</code> (lines 276-299)
+  - <code>core/constants.py</code> (lines 66-181)
+  - All <code>__init__.py</code> files
+- <strong>Dependencies</strong>: None
+- <strong>Start</strong>: Immediately
+- <strong>Blocks</strong>: All other teams</p>
+<p><strong>Status</strong>: 🔴 <strong>MUST COMPLETE BEFORE OTHER TEAMS START</strong></p>
+<hr />
+<h3 id="phase-1-start-after-team-0-completes">🏃 PHASE 1 (Start After Team 0 Completes)</h3>
+<p><strong>TEAM 1 - Core Infrastructure</strong>
+- <strong>Module</strong>: <code>core/</code>
+- <strong>Files</strong>: <code>state.py</code>, <code>deps.py</code>, <code>config.py</code>, <code>logging.py</code>
+- <strong>Lines</strong>: 188-704
+- <strong>Duration</strong>: 3 days
+- <strong>Dependencies</strong>: constants.py, exceptions.py
+- <strong>Tests</strong>: <code>tests/test_core/</code>
+- <strong>Critical Features</strong>:
+  - GlobalState singleton with signal handling
+  - Config directory management (writable detection)
+  - Rotating file logger
+  - Dependency detection (tkinter, defusedxml)</p>
+<p><strong>TEAM 2 - XML Foundation</strong>
+- <strong>Module</strong>: <code>xml/</code>
+- <strong>Files</strong>: <code>schema.py</code>, <code>sanitizer.py</code>
+- <strong>Lines</strong>: 705-1229
+- <strong>Duration</strong>: 2 days
+- <strong>Dependencies</strong>: constants.py
+- <strong>Tests</strong>: <code>tests/test_xml/test_schema.py</code>, <code>tests/test_xml/test_sanitizer.py</code>
+- <strong>Critical Features</strong>:
+  - Namespace resolution
+  - XML escaping (all dangerous characters)
+  - IP/MAC validation
+  - Status/severity normalization</p>
+<p><strong>TEAM 3 - File Operations</strong>
+- <strong>Module</strong>: <code>io/</code>
+- <strong>Files</strong>: <code>file_ops.py</code>
+- <strong>Lines</strong>: 1230-1475
+- <strong>Duration</strong>: 4 days
+- <strong>Dependencies</strong>: core/<em>, exceptions.py
+- </em><em>Tests</em><em>: <code>tests/test_io/</code>
+- </em><em>Critical Features</em>*:
+  - Atomic writes with rollback
+  - Encoding detection (fallback through list)
+  - Symlink attack prevention
+  - Backup creation</p>
+<hr />
+<h3 id="phase-2-start-after-phase-1-completes">🏃 PHASE 2 (Start After Phase 1 Completes)</h3>
+<p><strong>TEAM 4 - XML Utilities</strong>
+- <strong>Module</strong>: <code>xml/</code>
+- <strong>Files</strong>: <code>utils.py</code>
+- <strong>Lines</strong>: 813-960
+- <strong>Duration</strong>: 2 days
+- <strong>Dependencies</strong>: xml/schema.py, xml/sanitizer.py
+- <strong>Tests</strong>: <code>tests/test_xml/test_utils.py</code>
+- <strong>Critical Features</strong>:
+  - STIG_DATA extraction
+  - Safe element text handling
+  - VID extraction</p>
+<p><strong>TEAM 5 - Validation</strong>
+- <strong>Module</strong>: <code>validation/</code>
+- <strong>Files</strong>: <code>validator.py</code>
+- <strong>Lines</strong>: 1932-2071
+- <strong>Duration</strong>: 3 days
+- <strong>Dependencies</strong>: xml/<em>, core/</em>
+- <strong>Tests</strong>: <code>tests/test_validation/</code>
+- <strong>Critical Features</strong>:
+  - CKL structure validation
+  - XCCDF validation
+  - Error threshold checking
+  - STIG Viewer 2.18 compliance</p>
+<p><strong>TEAM 6 - History Management</strong>
+- <strong>Module</strong>: <code>history/</code>
+- <strong>Files</strong>: <code>models.py</code>, <code>manager.py</code>
+- <strong>Lines</strong>: 1476-1762
+- <strong>Duration</strong>: 3 days
+- <strong>Dependencies</strong>: core/<em>, xml/</em>
+- <strong>Tests</strong>: <code>tests/test_history/</code>
+- <strong>Critical Features</strong>:
+  - Bisect insertion (maintain sort)
+  - Content-based deduplication
+  - XML serialization/parsing
+  - Timezone-aware timestamps</p>
+<p><strong>TEAM 7 - Boilerplate Templates</strong>
+- <strong>Module</strong>: <code>templates/</code>
+- <strong>Files</strong>: <code>boilerplate.py</code>
+- <strong>Lines</strong>: 1763-1931
+- <strong>Duration</strong>: 2 days
+- <strong>Dependencies</strong>: core/<em>, io/</em>
+- <strong>Tests</strong>: <code>tests/test_templates/</code>
+- <strong>Critical Features</strong>:
+  - Template load/save (JSON)
+  - VID + status lookup
+  - Apply to VULN elements</p>
+<p><strong>TEAM 8 - Remediation Models &amp; Extractor</strong>
+- <strong>Module</strong>: <code>remediation/</code>
+- <strong>Files</strong>: <code>models.py</code>, <code>extractor.py</code>
+- <strong>Lines</strong>: 3304-3977
+- <strong>Duration</strong>: 5 days
+- <strong>Dependencies</strong>: core/<em>, xml/</em>, io/<em>
+- </em><em>Tests</em><em>: <code>tests/test_remediation/</code>
+- </em><em>Critical Features</em>*:
+  - Command extraction (regex patterns)
+  - Multi-format export (JSON, CSV, Bash, PowerShell)
+  - Dry-run script generation
+  - Markdown code block parsing</p>
+<p><strong>TEAM 9 - Evidence Management</strong>
+- <strong>Module</strong>: <code>evidence/</code>
+- <strong>Files</strong>: <code>models.py</code>, <code>manager.py</code>
+- <strong>Lines</strong>: 4292-4598
+- <strong>Duration</strong>: 3 days
+- <strong>Dependencies</strong>: core/<em>, io/</em>
+- <strong>Tests</strong>: <code>tests/test_evidence/</code>
+- <strong>Critical Features</strong>:
+  - File import with deduplication (hash-based)
+  - ZIP packaging
+  - Metadata persistence
+  - Export to directory</p>
+<hr />
+<h3 id="phase-3-start-after-phase-2-completes">🏃 PHASE 3 (Start After Phase 2 Completes)</h3>
+<p><strong>TEAM 10 - Remediation Processor</strong>
+- <strong>Module</strong>: <code>remediation/</code>
+- <strong>Files</strong>: <code>processor.py</code>
+- <strong>Lines</strong>: 3978-4291
+- <strong>Duration</strong>: 4 days
+- <strong>Dependencies</strong>: remediation/<em>, xml/</em>, validation/<em>
+- </em><em>Tests</em><em>: <code>tests/test_remediation/</code>
+- </em><em>Critical Features</em>*:
+  - Bulk JSON import (array/object payloads)
+  - CKL update logic
+  - Deduplication by VID
+  - Report generation</p>
+<p><strong>TEAM 11 - Core Processor</strong>
+- <strong>Module</strong>: <code>processor/</code>
+- <strong>Files</strong>: <code>processor.py</code>
+- <strong>Lines</strong>: 2072-3303 (largest module!)
+- <strong>Duration</strong>: 7 days
+- <strong>Dependencies</strong>: ALL previous modules
+- <strong>Tests</strong>: <code>tests/test_processor/</code>
+- <strong>Critical Features</strong>:
+  - XCCDF → CKL conversion
+  - Merge with history preservation
+  - Diff functionality
+  - Repair mode
+  - Statistics generation</p>
+<hr />
+<h3 id="phase-4-final-integration">🏃 PHASE 4 (Final Integration)</h3>
+<p><strong>TEAM 12 - User Interface</strong>
+- <strong>Module</strong>: <code>ui/</code>
+- <strong>Files</strong>: <code>cli.py</code>, <code>gui.py</code>, <code>presets.py</code>
+- <strong>Lines</strong>: 4599-5951
+- <strong>Duration</strong>: 5 days
+- <strong>Dependencies</strong>: ALL modules
+- <strong>Tests</strong>: <code>tests/test_integration/</code>
+- <strong>Critical Features</strong>:
+  - CLI argument parsing
+  - Command dispatch
+  - GUI (tkinter)
+  - Preset management
+  - Async operations</p>
+<p><strong>TEAM 13 - Testing &amp; Documentation</strong>
+- <strong>Duration</strong>: Ongoing (parallel with all phases)
+- <strong>Deliverables</strong>:
+  - Unit tests for each module
+  - Integration test suite
+  - Performance benchmarks
+  - Updated CLAUDE.md
+  - API documentation
+  - Migration guide</p>
+<hr />
+<h2 id="development-workflow">📋 Development Workflow</h2>
+<h3 id="1-claim-your-module">1. Claim Your Module</h3>
+<p>Each team should:
+1. Review the specification for your assigned module(s)
+2. Read the source code lines indicated
+3. Identify all dependencies
+4. Create a task breakdown</p>
+<h3 id="2-create-branch">2. Create Branch</h3>
+<pre><code class="language-bash"># Team leads create feature branch
+git checkout -b team-N-module-name
+
+# Example:
+git checkout -b team-1-core-infrastructure
+</code></pre>
+<h3 id="3-module-development">3. Module Development</h3>
+<p><strong>File Structure</strong>:</p>
+<pre><code class="language-python"># stig_assessor/core/state.py
+&quot;&quot;&quot;Global state management.&quot;&quot;&quot;
+
+from __future__ import annotations
+from typing import Optional
+import threading
+
+# ... implementation ...
+</code></pre>
+<p><strong>Always Include</strong>:
+- Module docstring
+- Type hints
+- Error handling
+- Logging (where appropriate)
+- Thread safety documentation</p>
+<h3 id="4-testing">4. Testing</h3>
+<p><strong>Test File Template</strong>:</p>
+<pre><code class="language-python"># tests/test_core/test_state.py
+&quot;&quot;&quot;Tests for GlobalState singleton.&quot;&quot;&quot;
+
+import unittest
+from stig_assessor.core.state import GlobalState
+
+class TestGlobalState(unittest.TestCase):
+    def test_singleton(self):
+        &quot;&quot;&quot;Verify singleton behavior.&quot;&quot;&quot;
+        state1 = GlobalState()
+        state2 = GlobalState()
+        self.assertIs(state1, state2)
+
+    # ... more tests ...
+</code></pre>
+<p><strong>Run Tests</strong>:</p>
+<pre><code class="language-bash">python -m pytest tests/test_core/test_state.py -v
+</code></pre>
+<h3 id="5-code-review">5. Code Review</h3>
+<p><strong>Checklist</strong>:
+- [ ] Type hints complete
+- [ ] Docstrings present
+- [ ] Error handling robust
+- [ ] Tests pass (&gt;80% coverage)
+- [ ] No circular imports
+- [ ] Thread safety documented
+- [ ] Follows specification exactly</p>
+<h3 id="6-integration">6. Integration</h3>
+<p><strong>Merge Process</strong>:
+1. Pass all unit tests
+2. Pass integration tests (if applicable)
+3. Code review approved
+4. Merge to main branch</p>
+<hr />
+<h2 id="common-pitfalls">🔍 Common Pitfalls</h2>
+<h3 id="dont">❌ DON'T</h3>
+<pre><code class="language-python"># Circular import
+from stig_assessor.processor.processor import Proc  # In xml/utils.py - BAD!
+
+# Missing error handling
+def load_file(path):
+    return open(path).read()  # No try/except - BAD!
+
+# No type hints
+def process(data):  # What type is data? - BAD!
+    pass
+
+# Direct import from old file
+from STIG_Script import Cfg  # Old import - BAD!
+</code></pre>
+<h3 id="do">✅ DO</h3>
+<pre><code class="language-python"># Use absolute imports
+from stig_assessor.core.config import CFG
+
+# Proper error handling
+from stig_assessor.exceptions import FileError
+
+def load_file(path: Path) -&gt; str:
+    try:
+        with path.open('r') as f:
+            return f.read()
+    except IOError as e:
+        raise FileError(f&quot;Failed to load {path}: {e}&quot;)
+
+# Complete type hints
+from typing import List, Optional
+
+def process(data: List[str]) -&gt; Optional[dict]:
+    &quot;&quot;&quot;Process data and return result.&quot;&quot;&quot;
+    # ...
+</code></pre>
+<hr />
+<h2 id="testing-requirements">🧪 Testing Requirements</h2>
+<h3 id="unit-test-coverage">Unit Test Coverage</h3>
+<p><strong>Minimum</strong>: 80% line coverage per module</p>
+<p><strong>Required Tests</strong>:
+- Happy path (normal operation)
+- Error cases (exceptions raised)
+- Edge cases (empty input, None, max values)
+- Thread safety (if applicable)</p>
+<h3 id="integration-tests">Integration Tests</h3>
+<p><strong>Required Scenarios</strong> (all teams collaborate):
+1. Full XCCDF→CKL workflow
+2. Merge workflow (3+ files)
+3. Remediation end-to-end
+4. Evidence lifecycle</p>
+<h3 id="performance-benchmarks">Performance Benchmarks</h3>
+<p><strong>Targets</strong>:
+- Large file (15K VULNs): &lt;60 seconds
+- Merge (100 files): &lt;5 minutes
+- Memory usage: &lt;500MB peak</p>
+<hr />
+<h2 id="key-resources">📚 Key Resources</h2>
+<h3 id="documentation">Documentation</h3>
+<ul>
+<li><strong>Full Spec</strong>: <code>MODULARIZATION_SPEC.md</code> (4379 lines)</li>
+<li><strong>Original Code</strong>: <code>STIG_Script.py</code> (5951 lines)</li>
+<li><strong>Project Docs</strong>: <code>CLAUDE.md</code> (current architecture)</li>
+</ul>
+<h3 id="code-references">Code References</h3>
+<p>Use line numbers from spec to find code in <code>STIG_Script.py</code>:</p>
+<pre><code class="language-bash"># View specific lines
+sed -n '188,275p' STIG_Script.py  # GlobalState class
+
+# Search for class
+grep -n &quot;^class GlobalState&quot; STIG_Script.py
+</code></pre>
+<h3 id="communication">Communication</h3>
+<p><strong>Daily Standups</strong>:
+- What did you complete yesterday?
+- What are you working on today?
+- Any blockers?</p>
+<p><strong>Blockers</strong>:
+- Dependency on another team's module?
+- Unclear specification?
+- Technical challenge?</p>
+<p>Report immediately to unblock!</p>
+<hr />
+<h2 id="success-criteria">🎯 Success Criteria</h2>
+<h3 id="module-complete-when">Module Complete When:</h3>
+<ul>
+<li>[ ] All code extracted from original file</li>
+<li>[ ] All imports use new package structure</li>
+<li>[ ] Unit tests written (&gt;80% coverage)</li>
+<li>[ ] All tests pass</li>
+<li>[ ] Code review approved</li>
+<li>[ ] Documentation updated</li>
+<li>[ ] No regression in functionality</li>
+</ul>
+<h3 id="phase-complete-when">Phase Complete When:</h3>
+<ul>
+<li>[ ] All modules in phase complete</li>
+<li>[ ] Integration tests pass</li>
+<li>[ ] Performance benchmarks met</li>
+<li>[ ] Next phase can start</li>
+</ul>
+<hr />
+<h2 id="support">📞 Support</h2>
+<p><strong>Questions?</strong></p>
+<ol>
+<li>Check <code>MODULARIZATION_SPEC.md</code> first</li>
+<li>Review original code in <code>STIG_Script.py</code></li>
+<li>Ask team lead</li>
+<li>Escalate to project coordinator</li>
+</ol>
+<p><strong>Found an issue in the spec?</strong></p>
+<ol>
+<li>Document the issue</li>
+<li>Propose a solution</li>
+<li>Discuss with all teams</li>
+<li>Update specification</li>
+</ol>
+<hr />
+<h2 id="example-extracting-a-module">🎓 Example: Extracting a Module</h2>
+<h3 id="step-by-step-extract-corestatepy">Step-by-Step: Extract <code>core/state.py</code></h3>
+<p><strong>1. Identify Code</strong> (from spec: lines 188-275)</p>
+<pre><code class="language-bash">sed -n '188,275p' STIG_Script.py &gt; temp_state.py
+</code></pre>
+<p><strong>2. Create Module File</strong></p>
+<pre><code class="language-python"># stig_assessor/core/state.py
+&quot;&quot;&quot;Global state management and shutdown coordination.&quot;&quot;&quot;
+
+from __future__ import annotations
+from typing import Optional, List, Callable, Set
+from pathlib import Path
+import threading
+import signal
+import atexit
+import sys
+
+# Copy GlobalState class from lines 188-275
+# ... paste code here ...
+</code></pre>
+<p><strong>3. Update Imports</strong></p>
+<p>Original:</p>
+<pre><code class="language-python"># Inside class methods
+from STIG_Script import LOG
+</code></pre>
+<p>New:</p>
+<pre><code class="language-python"># At module top
+from stig_assessor.core.logging import LOG  # Lazy import to avoid circular
+</code></pre>
+<p><strong>4. Create <code>__init__.py</code></strong></p>
+<pre><code class="language-python"># stig_assessor/core/__init__.py
+&quot;&quot;&quot;Core infrastructure modules.&quot;&quot;&quot;
+
+from stig_assessor.core.state import GlobalState, GLOBAL_STATE
+from stig_assessor.core.config import Cfg, CFG
+from stig_assessor.core.logging import Log, LOG
+from stig_assessor.core.deps import Deps
+from stig_assessor.core.constants import *
+
+__all__ = [
+    &quot;GlobalState&quot;, &quot;GLOBAL_STATE&quot;,
+    &quot;Cfg&quot;, &quot;CFG&quot;,
+    &quot;Log&quot;, &quot;LOG&quot;,
+    &quot;Deps&quot;,
+]
+</code></pre>
+<p><strong>5. Write Tests</strong></p>
+<pre><code class="language-python"># tests/test_core/test_state.py
+import unittest
+from stig_assessor.core.state import GlobalState
+
+class TestGlobalState(unittest.TestCase):
+    def test_singleton(self):
+        s1 = GlobalState()
+        s2 = GlobalState()
+        self.assertIs(s1, s2)
+
+    def test_shutdown_flag(self):
+        state = GlobalState()
+        self.assertFalse(state.is_shutdown())
+        state.shutdown()
+        self.assertTrue(state.is_shutdown())
+
+    # ... more tests ...
+</code></pre>
+<p><strong>6. Run Tests</strong></p>
+<pre><code class="language-bash">python -m pytest tests/test_core/test_state.py -v --cov=stig_assessor.core.state
+</code></pre>
+<p><strong>7. Integration</strong></p>
+<p>Update code that uses GlobalState:</p>
+<pre><code class="language-python"># Old
+from STIG_Script import GlobalState
+GLOBAL = GlobalState()
+
+# New
+from stig_assessor.core.state import GLOBAL_STATE
+# Use GLOBAL_STATE directly (module-level singleton)
+</code></pre>
+<hr />
+<h2 id="status-tracking">🚦 Status Tracking</h2>
+<h3 id="current-status">Current Status</h3>
+<ul>
+<li>[ ] Phase 0 (Foundation): Not started</li>
+<li>[ ] Phase 1: Not started</li>
+<li>[ ] Phase 2: Not started</li>
+<li>[ ] Phase 3: Not started</li>
+<li>[ ] Phase 4: Not started</li>
+</ul>
+<p>Update this document as teams complete work!</p>
+<hr />
+<p><strong>Good luck, teams! Let's build something great! 🚀</strong></p>
+</body>
+</html>

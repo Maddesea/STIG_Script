@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>README</title>
+    
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Premium Modern Glassmorphism Styles for Auto-Generated Docs */
+:root {
+    --bg-color: #0b0f19;
+    --bg-gradient: linear-gradient(135deg, #0b0f19 0%, #171b2d 100%);
+    --glass-bg: rgba(25, 30, 50, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --card-hover-bg: rgba(30, 36, 60, 0.8);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-glow: rgba(59, 130, 246, 0.4);
+    --accent-hover: #60a5fa;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.7;
+    color: var(--text-main);
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+    padding-bottom: 5rem;
+    min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-main);
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 2em;
+    margin-bottom: 0.75em;
+}
+
+h1 { 
+    font-size: 2.8rem; 
+    background: linear-gradient(135deg, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    border-bottom: 2px solid var(--glass-border); 
+    padding-bottom: 0.3em; 
+    margin-top: 1em; 
+}
+h2 { font-size: 2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.3em; margin-top: 2.5em; }
+h3 { font-size: 1.5em; color: var(--accent-hover); margin-top: 2em; }
+
+a { color: var(--accent); text-decoration: none; transition: color 0.2s ease; }
+a:hover { text-decoration: underline; color: var(--accent-hover); }
+
+pre {
+    background: rgba(10, 12, 20, 0.8);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    overflow-x: auto;
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.2), 0 5px 15px rgba(0,0,0,0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+    font-size: 0.9em;
+    margin: 25px 0;
+}
+
+pre:hover {
+    transform: translateY(-2px);
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.2), 0 15px 35px rgba(0,0,0,0.4), 0 0 15px var(--accent-glow);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+code {
+    font-family: "JetBrains Mono", Consolas, Menlo, Monaco, monospace;
+    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--accent-hover);
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+    font-size: 0.9em;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+pre code {
+    background-color: transparent;
+    color: #e2e8f0;
+    padding: 0;
+    border: none;
+}
+
+blockquote {
+    border-left: 4px solid var(--accent);
+    padding: 1rem 1.5rem;
+    margin: 2rem 0;
+    color: var(--text-muted);
+    background: var(--glass-bg);
+    border-radius: 0 8px 8px 0;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-left-width: 4px;
+    font-size: 1.1rem;
+    font-style: italic;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 2.5rem 0;
+    background: rgba(10, 12, 20, 0.4);
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    backdrop-filter: blur(10px);
+}
+
+th, td {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+    text-align: left;
+}
+
+th {
+    background: rgba(255,255,255,0.03);
+    font-weight: 600;
+    color: var(--accent-hover);
+    border-bottom: 2px solid rgba(255,255,255,0.05);
+}
+
+tr:hover td {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    margin: 2rem 0;
+    border: 1px solid var(--glass-border);
+}
+
+hr {
+    border: 0;
+    height: 1px;
+    background: var(--glass-border);
+    margin: 3rem 0;
+}
+
+/* Nav */
+.nav {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--glass-border);
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    padding: 15px;
+    background: var(--glass-bg);
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+.nav strong { color: var(--text-main); }
+</style>
+
+</head>
+<body>
+    <div class="nav">
+        <strong>STIG Assessor Documentation</strong> - README
+    </div>
+    <h1 id="stig-assessor-test-suite">STIG Assessor Test Suite</h1>
+<p><strong>Version:</strong> 1.0
+<strong>Date:</strong> 2025-11-16
+<strong>Coverage Target:</strong> 80% minimum per module</p>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>Comprehensive test suite for the STIG Assessor modular architecture, covering:
+- <strong>Unit tests</strong> for individual modules
+- <strong>Integration tests</strong> for end-to-end workflows
+- <strong>Performance benchmarks</strong> for ensuring no regression
+- <strong>GUI tests</strong> for user interface components</p>
+<hr />
+<h2 id="quick-start">Quick Start</h2>
+<h3 id="installation">Installation</h3>
+<pre><code class="language-bash"># Install test dependencies
+pip install pytest pytest-cov pytest-benchmark memory-profiler
+
+# Or install all development dependencies
+pip install -r requirements-dev.txt
+</code></pre>
+<h3 id="run-all-tests">Run All Tests</h3>
+<pre><code class="language-bash"># Run complete test suite
+python -m pytest tests/ -v
+
+# Run with coverage report
+python -m pytest tests/ -v --cov=stig_assessor --cov-report=html
+
+# Open coverage report
+open htmlcov/index.html  # macOS
+xdg-open htmlcov/index.html  # Linux
+start htmlcov/index.html  # Windows
+</code></pre>
+<hr />
+<h2 id="test-organization">Test Organization</h2>
+<pre><code>tests/
+├── __init__.py                 # Test package initialization
+├── conftest.py                 # Shared fixtures and utilities
+├── README.md                   # This file
+│
+├── test_core/                  # Core infrastructure tests (TEAM 1)
+│   ├── test_state.py           # GlobalState singleton tests
+│   ├── test_config.py          # Cfg configuration tests
+│   ├── test_logging.py         # Log logger tests
+│   └── test_deps.py            # Deps dependency detection tests
+│
+├── test_xml/                   # XML processing tests (TEAMS 2, 4)
+│   ├── test_schema.py          # Sch schema tests
+│   ├── test_sanitizer.py       # San sanitizer tests
+│   └── test_utils.py           # XML utility tests
+│
+├── test_io/                    # File operations tests (TEAM 3)
+│   └── test_file_ops.py        # FO atomic writes, backups, encoding
+│
+├── test_validation/            # Validation tests (TEAM 5)
+│   └── test_validator.py       # Val STIG Viewer compliance tests
+│
+├── test_history/               # History management tests (TEAM 6)
+│   ├── test_models.py          # Hist dataclass tests
+│   └── test_manager.py         # HistMgr lifecycle tests
+│
+├── test_templates/             # Boilerplate tests (TEAM 7)
+│   └── test_boilerplate.py     # BP template management tests
+│
+├── test_processor/             # Main processor tests (TEAM 11)
+│   └── test_processor.py       # Proc XCCDF→CKL, merge, diff tests
+│
+├── test_remediation/           # Remediation tests (TEAMS 8, 10)
+│   ├── test_models.py          # Fix dataclass tests
+│   ├── test_extractor.py       # FixExt extraction tests
+│   └── test_processor.py       # FixResPro import tests
+│
+├── test_evidence/              # Evidence management tests (TEAM 9)
+│   ├── test_models.py          # EvidenceMeta dataclass tests
+│   └── test_manager.py         # EvidenceMgr lifecycle tests
+│
+├── test_ui/                    # User interface tests (TEAM 12)
+│   ├── test_cli.py             # CLI argument parsing tests
+│   ├── test_gui.py             # GUI tests (requires tkinter)
+│   └── test_presets.py         # Preset management tests
+│
+├── test_integration/           # Integration tests (TEAM 13)
+│   └── test_workflows.py       # End-to-end workflow tests
+│
+└── test_performance/           # Performance benchmarks (TEAM 13)
+    └── test_benchmarks.py      # Performance and memory tests
+</code></pre>
+<hr />
+<h2 id="running-specific-tests">Running Specific Tests</h2>
+<h3 id="by-module">By Module</h3>
+<pre><code class="language-bash"># Test specific module
+python -m pytest tests/test_core/ -v
+python -m pytest tests/test_xml/ -v
+python -m pytest tests/test_remediation/ -v
+
+# Test specific file
+python -m pytest tests/test_core/test_state.py -v
+
+# Test specific test
+python -m pytest tests/test_core/test_state.py::TestGlobalState::test_singleton_pattern -v
+</code></pre>
+<h3 id="by-category-markers">By Category (Markers)</h3>
+<pre><code class="language-bash"># Run only integration tests
+python -m pytest tests/ -v -m integration
+
+# Run only performance benchmarks
+python -m pytest tests/ -v -m performance --benchmark-only
+
+# Skip slow tests
+python -m pytest tests/ -v -m &quot;not slow&quot;
+
+# Run GUI tests (requires tkinter)
+python -m pytest tests/ -v -m gui
+</code></pre>
+<p>Available markers:
+- <code>integration</code> - Integration tests (end-to-end workflows)
+- <code>performance</code> - Performance benchmarks
+- <code>slow</code> - Slow-running tests
+- <code>gui</code> - Tests requiring GUI/tkinter</p>
+<hr />
+<h2 id="coverage-reports">Coverage Reports</h2>
+<h3 id="generate-html-coverage-report">Generate HTML Coverage Report</h3>
+<pre><code class="language-bash">python -m pytest tests/ --cov=stig_assessor --cov-report=html
+open htmlcov/index.html
+</code></pre>
+<h3 id="generate-terminal-coverage-report">Generate Terminal Coverage Report</h3>
+<pre><code class="language-bash">python -m pytest tests/ --cov=stig_assessor --cov-report=term-missing
+</code></pre>
+<h3 id="coverage-requirements">Coverage Requirements</h3>
+<p>Minimum coverage per module: <strong>80%</strong></p>
+<p>Check coverage for specific module:</p>
+<pre><code class="language-bash">python -m pytest tests/test_core/ --cov=stig_assessor.core --cov-report=term-missing
+</code></pre>
+<hr />
+<h2 id="performance-benchmarks">Performance Benchmarks</h2>
+<h3 id="run-benchmarks">Run Benchmarks</h3>
+<pre><code class="language-bash"># Run all benchmarks
+python -m pytest tests/test_performance/ -v --benchmark-only
+
+# Run with comparison
+python -m pytest tests/test_performance/ --benchmark-autosave
+
+# Compare to saved baseline
+python -m pytest tests/test_performance/ --benchmark-compare=0001
+</code></pre>
+<h3 id="performance-targets">Performance Targets</h3>
+<table>
+<thead>
+<tr>
+<th>Benchmark</th>
+<th>Target</th>
+<th>Current</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Load 15K VULNs</td>
+<td>&lt; 30s</td>
+<td>TBD</td>
+</tr>
+<tr>
+<td>Process 15K VULNs</td>
+<td>&lt; 60s</td>
+<td>TBD</td>
+</tr>
+<tr>
+<td>Merge 10 files</td>
+<td>&lt; 30s</td>
+<td>TBD</td>
+</tr>
+<tr>
+<td>Merge 100 files</td>
+<td>&lt; 5min</td>
+<td>TBD</td>
+</tr>
+<tr>
+<td>Import 1000 results</td>
+<td>&lt; 30s</td>
+<td>TBD</td>
+</tr>
+<tr>
+<td>Peak memory (15K)</td>
+<td>&lt; 500MB</td>
+<td>TBD</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="writing-tests">Writing Tests</h2>
+<h3 id="test-template">Test Template</h3>
+<pre><code class="language-python">&quot;&quot;&quot;
+Tests for [module name].
+
+Tests cover:
+- [Feature 1]
+- [Feature 2]
+- [Feature 3]
+&quot;&quot;&quot;
+
+import unittest
+from pathlib import Path
+
+
+class TestModuleName(unittest.TestCase):
+    &quot;&quot;&quot;Test suite for [ClassName].&quot;&quot;&quot;
+
+    def setUp(self):
+        &quot;&quot;&quot;Set up test fixtures.&quot;&quot;&quot;
+        # Initialize test data
+        pass
+
+    def tearDown(self):
+        &quot;&quot;&quot;Clean up test artifacts.&quot;&quot;&quot;
+        # Clean up temporary files
+        pass
+
+    def test_specific_feature(self):
+        &quot;&quot;&quot;Test [specific feature].
+
+        Requirements:
+        - [Requirement 1]
+        - [Requirement 2]
+        &quot;&quot;&quot;
+        # Arrange
+        # ... set up test data ...
+
+        # Act
+        # ... execute test ...
+
+        # Assert
+        # self.assertEqual(actual, expected)
+        pass
+
+
+if __name__ == '__main__':
+    unittest.main()
+</code></pre>
+<h3 id="using-fixtures">Using Fixtures</h3>
+<pre><code class="language-python">def test_with_temp_directory(temp_dir):
+    &quot;&quot;&quot;Test using temporary directory fixture.&quot;&quot;&quot;
+    # temp_dir is a Path object to temporary directory
+    test_file = temp_dir / &quot;test.txt&quot;
+    test_file.write_text(&quot;content&quot;)
+    assert test_file.exists()
+    # Automatically cleaned up after test
+
+
+def test_with_sample_xccdf(sample_xccdf_file):
+    &quot;&quot;&quot;Test using sample XCCDF file.&quot;&quot;&quot;
+    # sample_xccdf_file is a Path to temporary XCCDF file
+    assert sample_xccdf_file.exists()
+    content = sample_xccdf_file.read_text()
+    assert &quot;Benchmark&quot; in content
+</code></pre>
+<h3 id="testing-exceptions">Testing Exceptions</h3>
+<pre><code class="language-python">from stig_assessor.exceptions import ValidationError
+
+def test_validation_error_raised():
+    &quot;&quot;&quot;Test that validation error is raised for invalid input.&quot;&quot;&quot;
+    with self.assertRaises(ValidationError) as ctx:
+        Val.validate_ckl(invalid_file_path)
+
+    # Optionally check error message
+    self.assertIn(&quot;Invalid CKL&quot;, str(ctx.exception))
+</code></pre>
+<hr />
+<h2 id="shared-fixtures">Shared Fixtures</h2>
+<p>Available in <code>conftest.py</code>:</p>
+<h3 id="directory-fixtures">Directory Fixtures</h3>
+<ul>
+<li><code>temp_dir</code> - Temporary directory (auto-cleanup)</li>
+</ul>
+<h3 id="file-content-fixtures">File Content Fixtures</h3>
+<ul>
+<li><code>sample_xccdf_content</code> - Valid XCCDF XML string</li>
+<li><code>sample_ckl_content</code> - Valid CKL XML string</li>
+<li><code>sample_remediation_json</code> - Remediation results JSON</li>
+</ul>
+<h3 id="file-fixtures">File Fixtures</h3>
+<ul>
+<li><code>sample_xccdf_file</code> - Temporary XCCDF file</li>
+<li><code>sample_ckl_file</code> - Temporary CKL file</li>
+</ul>
+<h3 id="mock-fixtures">Mock Fixtures</h3>
+<ul>
+<li><code>mock_logger</code> - Mock logger for testing log output</li>
+</ul>
+<h3 id="utility-functions">Utility Functions</h3>
+<ul>
+<li><code>create_test_ckl(temp_dir, num_vulns)</code> - Create test CKL with N VULNs</li>
+<li><code>assert_valid_ckl_structure(ckl_path)</code> - Validate CKL structure</li>
+</ul>
+<hr />
+<h2 id="integration-tests">Integration Tests</h2>
+<p>Integration tests verify end-to-end workflows:</p>
+<h3 id="test-workflows">Test Workflows</h3>
+<ol>
+<li>
+<p><strong>XCCDF to CKL Workflow</strong>
+   - Load XCCDF benchmark
+   - Convert to CKL
+   - Apply boilerplate templates
+   - Validate output</p>
+</li>
+<li>
+<p><strong>Merge Workflow</strong>
+   - Create base checklist
+   - Create history checklists
+   - Merge with history preservation
+   - Verify deduplication</p>
+</li>
+<li>
+<p><strong>Remediation Workflow</strong>
+   - Extract fixes from XCCDF
+   - Generate remediation scripts
+   - Import results to CKL
+   - Verify status updates</p>
+</li>
+<li>
+<p><strong>Evidence Workflow</strong>
+   - Import evidence files
+   - Export evidence
+   - Package to ZIP
+   - Verify integrity</p>
+</li>
+</ol>
+<h3 id="running-integration-tests">Running Integration Tests</h3>
+<pre><code class="language-bash"># Run all integration tests
+python -m pytest tests/test_integration/ -v -m integration
+
+# Run specific workflow
+python -m pytest tests/test_integration/test_workflows.py::TestXCCDFtoCKLWorkflow -v
+</code></pre>
+<hr />
+<h2 id="test-driven-development-tdd">Test-Driven Development (TDD)</h2>
+<p>Recommended workflow for new features:</p>
+<h3 id="1-write-test-first">1. Write Test First</h3>
+<pre><code class="language-python">def test_new_feature():
+    &quot;&quot;&quot;Test new feature behavior.&quot;&quot;&quot;
+    # This test will fail initially
+    result = new_feature_function()
+    assert result == expected_value
+</code></pre>
+<h3 id="2-run-test-should-fail">2. Run Test (Should Fail)</h3>
+<pre><code class="language-bash">python -m pytest tests/test_module/test_file.py::test_new_feature -v
+# Expected: FAILED (feature not implemented yet)
+</code></pre>
+<h3 id="3-implement-feature">3. Implement Feature</h3>
+<pre><code class="language-python">def new_feature_function():
+    # Implement feature
+    return expected_value
+</code></pre>
+<h3 id="4-run-test-again-should-pass">4. Run Test Again (Should Pass)</h3>
+<pre><code class="language-bash">python -m pytest tests/test_module/test_file.py::test_new_feature -v
+# Expected: PASSED
+</code></pre>
+<h3 id="5-refactor-and-verify">5. Refactor and Verify</h3>
+<pre><code class="language-bash"># Ensure all tests still pass after refactoring
+python -m pytest tests/ -v
+</code></pre>
+<hr />
+<h2 id="continuous-integration">Continuous Integration</h2>
+<h3 id="pre-commit-checks">Pre-Commit Checks</h3>
+<p>Before committing code:</p>
+<pre><code class="language-bash"># Run all tests
+python -m pytest tests/ -v
+
+# Check coverage
+python -m pytest tests/ --cov=stig_assessor --cov-fail-under=80
+
+# Run linting (if configured)
+# flake8 stig_assessor/
+# pylint stig_assessor/
+</code></pre>
+<h3 id="ci-pipeline">CI Pipeline</h3>
+<p>Recommended CI pipeline (GitHub Actions, GitLab CI, etc.):</p>
+<pre><code class="language-yaml">name: Test Suite
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10, 3.11]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        pip install -e .
+        pip install pytest pytest-cov pytest-benchmark
+
+    - name: Run tests
+      run: |
+        python -m pytest tests/ -v --cov=stig_assessor --cov-report=xml
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v2
+</code></pre>
+<hr />
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="tests-fail-due-to-missing-dependencies">Tests Fail Due to Missing Dependencies</h3>
+<pre><code class="language-bash"># Install all test dependencies
+pip install pytest pytest-cov pytest-benchmark memory-profiler
+
+# Or use requirements file
+pip install -r requirements-dev.txt
+</code></pre>
+<h3 id="importerror-no-module-named-stig_assessor">ImportError: No module named 'stig_assessor'</h3>
+<pre><code class="language-bash"># Ensure package is in Python path
+export PYTHONPATH=/path/to/STIG_Script:$PYTHONPATH
+
+# Or install in development mode
+pip install -e .
+</code></pre>
+<h3 id="gui-tests-fail">GUI Tests Fail</h3>
+<pre><code class="language-bash"># GUI tests require tkinter
+# Ubuntu/Debian:
+sudo apt-get install python3-tk
+
+# RHEL/CentOS:
+sudo yum install python3-tkinter
+
+# Skip GUI tests if not needed:
+python -m pytest tests/ -v -m &quot;not gui&quot;
+</code></pre>
+<h3 id="slow-test-execution">Slow Test Execution</h3>
+<pre><code class="language-bash"># Run only fast tests
+python -m pytest tests/ -v -m &quot;not slow&quot;
+
+# Run tests in parallel (requires pytest-xdist)
+pip install pytest-xdist
+python -m pytest tests/ -v -n auto
+</code></pre>
+<hr />
+<h2 id="test-coverage-goals">Test Coverage Goals</h2>
+<h3 id="phase-1-foundation-target-85">Phase 1 (Foundation) - Target: 85%</h3>
+<ul>
+<li>Core infrastructure</li>
+<li>XML processing</li>
+<li>File operations</li>
+</ul>
+<h3 id="phase-2-business-logic-target-80">Phase 2 (Business Logic) - Target: 80%</h3>
+<ul>
+<li>Validation</li>
+<li>History management</li>
+<li>Templates</li>
+<li>Remediation extraction</li>
+<li>Evidence management</li>
+</ul>
+<h3 id="phase-3-integration-target-80">Phase 3 (Integration) - Target: 80%</h3>
+<ul>
+<li>Main processor</li>
+<li>Remediation processor</li>
+</ul>
+<h3 id="phase-4-ui-target-70">Phase 4 (UI) - Target: 70%</h3>
+<ul>
+<li>CLI (easier to test)</li>
+<li>GUI (harder to test, lower target acceptable)</li>
+</ul>
+<hr />
+<h2 id="contributing">Contributing</h2>
+<h3 id="adding-new-tests">Adding New Tests</h3>
+<ol>
+<li><strong>Identify module</strong> to test</li>
+<li><strong>Create test file</strong> in appropriate directory</li>
+<li><strong>Write comprehensive tests</strong> covering:
+   - Happy path (normal operation)
+   - Error cases (exceptions)
+   - Edge cases (boundary conditions)
+   - Thread safety (if applicable)</li>
+<li><strong>Run tests</strong> and verify they pass</li>
+<li><strong>Check coverage</strong> meets minimum 80%</li>
+<li><strong>Submit PR</strong> with tests</li>
+</ol>
+<h3 id="test-naming-conventions">Test Naming Conventions</h3>
+<pre><code class="language-python"># Class names: TestClassName
+class TestGlobalState(unittest.TestCase):
+    pass
+
+# Method names: test_what_it_tests
+def test_singleton_pattern(self):
+    pass
+
+# Descriptive names for clarity
+def test_merge_deduplicates_identical_history_entries(self):
+    pass
+</code></pre>
+<hr />
+<h2 id="resources">Resources</h2>
+<h3 id="documentation">Documentation</h3>
+<ul>
+<li><strong>Project Docs</strong>: <code>CLAUDE.md</code></li>
+<li><strong>API Docs</strong>: <code>API_DOCUMENTATION.md</code></li>
+<li><strong>Migration Guide</strong>: <code>MIGRATION_GUIDE.md</code></li>
+<li><strong>Dev Guide</strong>: <code>DEV_QUICK_START.md</code></li>
+</ul>
+<h3 id="testing-frameworks">Testing Frameworks</h3>
+<ul>
+<li><strong>pytest</strong>: https://docs.pytest.org/</li>
+<li><strong>unittest</strong>: https://docs.python.org/3/library/unittest.html</li>
+<li><strong>pytest-cov</strong>: https://pytest-cov.readthedocs.io/</li>
+<li><strong>pytest-benchmark</strong>: https://pytest-benchmark.readthedocs.io/</li>
+</ul>
+<hr />
+<h2 id="contact">Contact</h2>
+<ul>
+<li><strong>Issues</strong>: https://github.com/Maddesea/STIG_Script/issues</li>
+<li><strong>Discussions</strong>: https://github.com/Maddesea/STIG_Script/discussions</li>
+</ul>
+<hr />
+<p><strong>Maintained By:</strong> TEAM 13 (Testing &amp; Documentation)
+<strong>Last Updated:</strong> 2025-11-16</p>
+<h2 id="overview_1">Overview</h2>
+<p>This directory contains unit and integration tests for the STIG Assessor modular package.</p>
+<h2 id="test-structure">Test Structure</h2>
+<pre><code>tests/
+├── test_core/          # Core infrastructure tests (Team 1)
+├── test_xml/           # XML processing tests (Teams 2, 4)
+├── test_io/            # File operations tests (Team 3) ✅ COMPLETE
+├── test_validation/    # Validation tests (Team 5)
+├── test_history/       # History management tests (Team 6)
+├── test_templates/     # Boilerplate tests (Team 7)
+├── test_processor/     # Core processor tests (Team 11)
+├── test_remediation/   # Remediation tests (Teams 8, 10)
+├── test_evidence/      # Evidence management tests (Team 9)
+└── test_integration/   # Integration tests (Team 13)
+</code></pre>
+<h2 id="running-tests">Running Tests</h2>
+<h3 id="run-all-tests_1">Run All Tests</h3>
+<pre><code class="language-bash">python -m unittest discover -s tests -v
+</code></pre>
+<h3 id="run-specific-module-tests">Run Specific Module Tests</h3>
+<pre><code class="language-bash"># Team 3 - File Operations
+python -m unittest tests.test_io.test_file_ops -v
+</code></pre>
+<h3 id="run-with-coverage-if-pytest-cov-is-available">Run with Coverage (if pytest-cov is available)</h3>
+<pre><code class="language-bash">python -m pytest tests/ --cov=stig_assessor --cov-report=html
+</code></pre>
+<h2 id="test-requirements">Test Requirements</h2>
+<ul>
+<li><strong>Coverage Target</strong>: &gt;80% line coverage per module</li>
+<li><strong>Test Types</strong>: Unit tests, integration tests, edge cases</li>
+<li><strong>Error Handling</strong>: All exception paths must be tested</li>
+<li><strong>Thread Safety</strong>: Concurrent access tests where applicable</li>
+</ul>
+<h2 id="team-3-file-operations-test-status">Team 3 (File Operations) - Test Status ✅</h2>
+<p><strong>Module</strong>: <code>stig_assessor/io/file_ops.py</code>
+<strong>Tests</strong>: 25 tests, all passing
+<strong>Coverage</strong>: Comprehensive coverage of:
+- ✅ Retry decorator (3 tests)
+- ✅ Atomic writes with rollback (6 tests)
+- ✅ Encoding detection (5 tests)
+- ✅ XML parsing with security checks (4 tests)
+- ✅ ZIP archive creation (4 tests)
+- ✅ Edge cases and error conditions (3 tests)</p>
+<h3 id="test-results">Test Results</h3>
+<pre><code>Ran 25 tests in 0.166s
+OK
+</code></pre>
+<h2 id="notes">Notes</h2>
+<ul>
+<li>Tests use placeholder implementations for dependencies from Teams 1 and 2</li>
+<li>Once Teams 1 and 2 complete their work, replace placeholders with real implementations</li>
+<li>All tests maintain backward compatibility with air-gap requirements (no external dependencies)</li>
+</ul>
+</body>
+</html>

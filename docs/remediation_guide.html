@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STIG Assessor - Remediation Guide</title>
+    <style>
+        :root {
+            --bg-color: #0b1120;
+            --surface: #1e293b;
+            --surface-hover: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #38bdf8;
+            --accent-hover: #0284c7;
+            --success: #10b981;
+            --warning: #fbbf24;
+            --danger: #ef4444;
+            --border: #334155;
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            background-color: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 2rem 1.5rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            color: var(--accent);
+            letter-spacing: 0.5px;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background-color: var(--surface-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-link.active {
+            border-left: 4px solid var(--accent);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex-grow: 1;
+            padding: 3rem 4rem;
+            margin-left: 280px;
+            max-width: 1000px;
+        }
+
+        header {
+            margin-bottom: 4rem;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h3 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin: 3rem 0 1.5rem 0;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            color: #d1d5db;
+        }
+
+        h4 {
+            font-size: 1.3rem;
+            margin: 2rem 0 1rem 0;
+            color: var(--accent);
+        }
+
+        p {
+            margin-bottom: 1.5rem;
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+        }
+
+        /* Code Blocks & Terminal */
+        pre {
+            background-color: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            position: relative;
+        }
+
+        code {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: #e2e8f0;
+        }
+
+        .inline-code {
+            background-color: var(--surface);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+            color: var(--accent);
+        }
+
+        /* Callouts / Warnings */
+        .callout {
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+            display: flex;
+            align-items: flex-start;
+            background-color: var(--surface);
+            border-left: 4px solid var(--accent);
+        }
+
+        .callout.warning {
+            border-left-color: var(--warning);
+            background-color: rgba(251, 191, 36, 0.1);
+        }
+        
+        .callout.danger {
+            border-left-color: var(--danger);
+            background-color: rgba(239, 68, 68, 0.1);
+        }
+
+        .callout-icon {
+            font-size: 1.5rem;
+            margin-right: 1rem;
+            line-height: 1;
+        }
+
+        .callout-text p {
+            margin: 0;
+            color: var(--text-primary);
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            background-color: var(--surface);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: rgba(0, 0, 0, 0.2);
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Scenario Cards */
+        .scenario-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .scenario-card {
+            background-color: var(--surface);
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid var(--border);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .scenario-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            border-color: var(--surface-hover);
+        }
+
+        .scenario-card h4 {
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .scenario-badge {
+            background-color: var(--accent);
+            color: var(--bg-color);
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-right: 1rem;
+        }
+
+        ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        ol li {
+            margin-bottom: 0.5rem;
+        }
+
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <h2>STIG Assessor</h2>
+        <a href="#overview" class="nav-link active">Overview</a>
+        <a href="#extraction" class="nav-link">Fix Extraction</a>
+        <a href="#scripts" class="nav-link">Executing Remediation</a>
+        <a href="#importing" class="nav-link">Importing Results</a>
+        <a href="#scenarios" class="nav-link">Real-World Scenarios</a>
+        <a href="#troubleshooting" class="nav-link">Troubleshooting</a>
+    </nav>
+
+    <main class="main-content">
+        <header id="overview">
+            <h1>Automated STIG Remediation</h1>
+            <p>A comprehensive guide to utilizing the STIG Assessor's script extraction and bulk-import features to automate security compliance on Linux and Windows endpoints.</p>
+        </header>
+
+        <section>
+            <p>The STIG Assessor provides a highly deterministic pipeline for extracting STIG remediation steps directly from DISA XCCDF benchmarks, automatically synthesizing cross-platform execution scripts, and ingesting execution results directly back into your checklists.</p>
+            
+            <div class="callout warning">
+                <span class="callout-icon">⚡</span>
+                <div class="callout-text">
+                    <p><strong>Warning:</strong> Always test extracted scripts in a staging or development environment before running in production. Some findings inherently require manual intervention.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="extraction">
+            <h3>1. Extracting Fixes</h3>
+            <p>The first step in the remediation lifecycle is securely extracting executable logic from STIG baselines. The <span class="inline-code">--extract</span> flag will automatically parse an XCCDF dataset and synthesize matching operational logic into <span class="inline-code">Bash</span>, <span class="inline-code">PowerShell</span>, <span class="inline-code">Ansible</span>, <span class="inline-code">JSON</span>, and <span class="inline-code">CSV</span> formats.</p>
+            
+            <h4>Basic Extraction Syntax</h4>
+            <pre><code>python STIG_Script.py --extract U_RHEL_9_STIG_V1R1_Manual-xccdf.xml --outdir .\Fixes\</code></pre>
+            
+            <h4>Filtered Extraction</h4>
+            <p>You can optimize targeting by filtering severities, passing an existing checklist to extract fixes <strong>only</strong> for <span class="inline-code">Open</span> findings, or filtering by Vulnerability IDs (VIDs):</p>
+            <pre><code>python STIG_Script.py --extract U_Windows_10_STIG.xml ^
+    --extract-ckl WORKSTATION01.ckl ^
+    --status-filter Open Not_Reviewed ^
+    --extract-severity high medium ^
+    --outdir .\Fixes\</code></pre>
+
+            <div class="callout">
+                <span class="callout-icon">💡</span>
+                <div class="callout-text">
+                    <p><strong>Tip:</strong> You can append <span class="inline-code">--script-dry-run</span> to synthesize scripts in simulation mode, which generates the output scripts structure but replaces execution with safe Print/Echo commands instead. You can also append <span class="inline-code">--enable-rollbacks</span> to generate automatic Registry backup logic primarily for Windows modules.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="scripts">
+            <h3>2. Executing Remediation Scripts</h3>
+            <p>After extraction, you will find fully automated remediation scripts deposited in the specified <span class="inline-code">--outdir</span>. Execute the script natively on the target host or deploy via centralized configuration management strategies.</p>
+
+            <h4>Linux Execution (Bash)</h4>
+            <p>Ensure you run the bash script from an elevated or Root context to securely apply OS-level hardenings. The bash execution harness protects operations explicitly utilizing <span class="inline-code">set -euo pipefail</span> architectures to guarantee deterministic operation logic across all air-gapped nodes.</p>
+            <pre><code>sudo bash .\Fixes\remediate.sh</code></pre>
+
+            <h4>Windows Execution (PowerShell)</h4>
+            <p>Invoke PowerShell natively as an Administrator. Executions synthesize localized artifacts securely mapping verification evidence to STIG configurations natively.</p>
+            <pre><code>.\Fixes\Remediate.ps1</code></pre>
+
+            <p><strong>Script Output Characteristics:</strong></p>
+            <ul>
+                <li>The script dynamically creates an <span class="inline-code">evidence/</span> folder containing sub-logs for each Finding ID validation sequence.</li>
+                <li>At completion, a master JSON result file (e.g., <span class="inline-code">stig_results_YYYYMMDD_HHMMSS.json</span>) will be synthesized in your root working directory. <strong>This is the file you will inject!</strong></li>
+            </ul>
+        </section>
+
+        <section id="importing">
+            <h3>3. Bulk Importing Results</h3>
+            <p>Once remediation routines are completed, ingest the generated JSON directly back into the <span class="inline-code">.ckl</span> or <span class="inline-code">.cklb</span> checklist file to finalize the operational verification loop via the <span class="inline-code">--apply-results</span> flag.</p>
+
+            <pre><code>python STIG_Script.py --apply-results stig_results_20261105_120400.json ^
+             --checklist WORKSTATION01.ckl ^
+             --results-out WORKSTATION01_Updated.ckl</code></pre>
+            
+            <p>The import mechanism processes the deterministic results. Finding states that evaluate to successful remediation will be securely tagged with operational updates.</p>
+        </section>
+
+        <section id="scenarios">
+            <h3>Real-World Scenarios</h3>
+            
+            <div class="scenario-grid">
+                <div class="scenario-card">
+                    <h4><span class="scenario-badge">Scenario 1</span> Resolving Open Vulnerabilities Automatically</h4>
+                    <p>An auditor gives you a checklist with 55 "Open" findings. You want to extract scripts strictly for the exact 55 failures, run them automatically, and update the checklist to submit for Approval.</p>
+                    <ol>
+                        <li>Extract exactly the 55 open fixes.<br>
+                        <span class="inline-code">python STIG_Script.py --extract U_Ubuntu_STIG.xml --extract-ckl Audit.ckl --status-filter Open --outdir .\FixDir</span></li>
+                        <li>SCP <span class="inline-code">remediate.sh</span> to the Ubuntu server and run it. The script mitigates the configuration and generates <span class="inline-code">stig_results_xxxx.json</span>. SCP the JSON back to your workstation.</li>
+                        <li>Inject the resultant compliance mapping back!<br>
+                        <span class="inline-code">python STIG_Script.py --apply-results stig_results_xxxx.json --checklist Audit.ckl --results-out Completed_Audit.ckl</span></li>
+                    </ol>
+                </div>
+
+                <div class="scenario-card">
+                    <h4><span class="scenario-badge">Scenario 2</span> Creating Deployment Hardening Templates</h4>
+                    <p>You need to integrate a fully hardened Windows Server 2025 golden image inside of a native Hyper-V build orchestration process automatically prior to system deployment in air-gapped data centers.</p>
+                    <ol>
+                        <li>You extract the entire framework for a fresh image.<br>
+                        <span class="inline-code">python STIG_Script.py --extract U_Windows_Server_2022_STIG_V3R1.xml --outdir .\Hardening</span></li>
+                        <li>Integrate <span class="inline-code">Remediate.ps1</span> directly into your declarative Packer, Ansible, or MDT provisioning structure prior to Sysprep encapsulation phases.</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <section id="troubleshooting">
+            <h3>Troubleshooting</h3>
+            <table>
+                <tr>
+                    <th>Issue</th>
+                    <th>Resolution</th>
+                </tr>
+                <tr>
+                    <td>Script fails halfway through execution, skipping checks.</td>
+                    <td>Generated scripts correctly encapsulate failure blocks via the built-in conditional logic to circumvent rigid <code>set -e</code> failure events organically while maintaining logging precision. Verify specific commands manually inside the <code>evidence/</code> trace.</td>
+                </tr>
+                <tr>
+                    <td>No JSON is generated post PowerShell process.</td>
+                    <td>Double-check ExecutionPolicy in Windows limits. Confirm script execution generated STDOUT logging context sequentially and verify transcript locations precisely.</td>
+                </tr>
+                <tr>
+                    <td>Remediation failed to change Open status in checklist.</td>
+                    <td>Check your execution JSON output trace. If the shell script exited with a failure on specific commands, it passes <code>false</code> systematically, meaning the JSON records standard compliance failures purposefully avoiding accidental auto-closures!</td>
+                </tr>
+            </table>
+        </section>
+        <br><br>
+    </main>
+
+    <script>
+        // Simple scroll spy for sidebar navigation highlighting
+        const sections = document.querySelectorAll('section, header');
+        const navLinks = document.querySelectorAll('.nav-link');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (scrollY >= sectionTop - 150) {
+                    current = section.getAttribute('id') || section.querySelector('h1, h3')?.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').includes(current)) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

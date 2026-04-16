@@ -1,0 +1,14 @@
+{
+  "meta": {
+    "generated": "2026-04-16T05:16:36Z",
+    "mode": "live",
+    "total": 2,
+    "pass": 0,
+    "fail": 2,
+    "skip": 0
+  },
+  "results": [
+    {"vid":"V-123456","ok":false,"msg":"failed","ts":"2026-04-16T05:16:36Z"},
+    {"vid":"V-234567","ok":false,"msg":"failed","ts":"2026-04-16T05:16:36Z"}
+  ]
+}

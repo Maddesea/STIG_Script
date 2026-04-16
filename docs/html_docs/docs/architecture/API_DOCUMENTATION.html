@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API_DOCUMENTATION</title>
+    
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Premium Modern Glassmorphism Styles for Auto-Generated Docs */
+:root {
+    --bg-color: #0b0f19;
+    --bg-gradient: linear-gradient(135deg, #0b0f19 0%, #171b2d 100%);
+    --glass-bg: rgba(25, 30, 50, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --card-hover-bg: rgba(30, 36, 60, 0.8);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-glow: rgba(59, 130, 246, 0.4);
+    --accent-hover: #60a5fa;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.7;
+    color: var(--text-main);
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+    padding-bottom: 5rem;
+    min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-main);
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 2em;
+    margin-bottom: 0.75em;
+}
+
+h1 { 
+    font-size: 2.8rem; 
+    background: linear-gradient(135deg, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    border-bottom: 2px solid var(--glass-border); 
+    padding-bottom: 0.3em; 
+    margin-top: 1em; 
+}
+h2 { font-size: 2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.3em; margin-top: 2.5em; }
+h3 { font-size: 1.5em; color: var(--accent-hover); margin-top: 2em; }
+
+a { color: var(--accent); text-decoration: none; transition: color 0.2s ease; }
+a:hover { text-decoration: underline; color: var(--accent-hover); }
+
+pre {
+    background: rgba(10, 12, 20, 0.8);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    overflow-x: auto;
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.2), 0 5px 15px rgba(0,0,0,0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+    font-size: 0.9em;
+    margin: 25px 0;
+}
+
+pre:hover {
+    transform: translateY(-2px);
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.2), 0 15px 35px rgba(0,0,0,0.4), 0 0 15px var(--accent-glow);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+code {
+    font-family: "JetBrains Mono", Consolas, Menlo, Monaco, monospace;
+    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--accent-hover);
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+    font-size: 0.9em;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+pre code {
+    background-color: transparent;
+    color: #e2e8f0;
+    padding: 0;
+    border: none;
+}
+
+blockquote {
+    border-left: 4px solid var(--accent);
+    padding: 1rem 1.5rem;
+    margin: 2rem 0;
+    color: var(--text-muted);
+    background: var(--glass-bg);
+    border-radius: 0 8px 8px 0;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-left-width: 4px;
+    font-size: 1.1rem;
+    font-style: italic;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 2.5rem 0;
+    background: rgba(10, 12, 20, 0.4);
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    backdrop-filter: blur(10px);
+}
+
+th, td {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+    text-align: left;
+}
+
+th {
+    background: rgba(255,255,255,0.03);
+    font-weight: 600;
+    color: var(--accent-hover);
+    border-bottom: 2px solid rgba(255,255,255,0.05);
+}
+
+tr:hover td {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    margin: 2rem 0;
+    border: 1px solid var(--glass-border);
+}
+
+hr {
+    border: 0;
+    height: 1px;
+    background: var(--glass-border);
+    margin: 3rem 0;
+}
+
+/* Nav */
+.nav {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--glass-border);
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    padding: 15px;
+    background: var(--glass-bg);
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+.nav strong { color: var(--text-main); }
+</style>
+
+</head>
+<body>
+    <div class="nav">
+        <strong>STIG Assessor Documentation</strong> - API_DOCUMENTATION
+    </div>
+    <h1 id="stig-assessor-api-documentation">STIG Assessor API Documentation</h1>
+<p><strong>Version:</strong> 8.0.0 (Modular Architecture)
+<strong>Date:</strong> 2025-11-16
+<strong>Python:</strong> 3.9+</p>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#core-modules">Core Modules</a></li>
+<li><a href="#xml-processing">XML Processing</a></li>
+<li><a href="#file-operations">File Operations</a></li>
+<li><a href="#validation">Validation</a></li>
+<li><a href="#history-management">History Management</a></li>
+<li><a href="#templates">Templates</a></li>
+<li><a href="#main-processor">Main Processor</a></li>
+<li><a href="#remediation">Remediation</a></li>
+<li><a href="#evidence-management">Evidence Management</a></li>
+<li><a href="#user-interface">User Interface</a></li>
+<li><a href="#error-handling">Error Handling</a></li>
+<li><a href="#examples">Examples</a></li>
+</ol>
+<hr />
+<h2 id="introduction">Introduction</h2>
+<p>The STIG Assessor API provides programmatic access to all STIG assessment functionality. The modular architecture allows you to use individual components or the complete workflow.</p>
+<h3 id="installation">Installation</h3>
+<pre><code class="language-bash"># Install from source
+git clone https://github.com/Maddesea/STIG_Script.git
+cd STIG_Script
+pip install -e .
+
+# Or add to PYTHONPATH
+export PYTHONPATH=/path/to/STIG_Script:$PYTHONPATH
+</code></pre>
+<h3 id="quick-start">Quick Start</h3>
+<pre><code class="language-python">from stig_assessor.processor.processor import Proc
+from pathlib import Path
+
+# Create processor
+proc = Proc()
+
+# Convert XCCDF to CKL
+proc.xccdf_to_ckl(
+    xccdf=Path(&quot;benchmark.xml&quot;),
+    output=Path(&quot;checklist.ckl&quot;),
+    asset_name=&quot;SERVER-01&quot;,
+    ip=&quot;192.168.1.100&quot;,
+    mac=&quot;00:11:22:33:44:55&quot;,
+    role=&quot;Member Server&quot;
+)
+</code></pre>
+<hr />
+<h2 id="core-modules">Core Modules</h2>
+<h3 id="globalstate-stig_assessorcorestate">GlobalState (stig_assessor.core.state)</h3>
+<p>Singleton for process-wide state management and shutdown coordination.</p>
+<pre><code class="language-python">from stig_assessor.core.state import GlobalState, GLOBAL_STATE
+
+# Get singleton instance
+state = GlobalState()  # Same as GLOBAL_STATE
+
+# Check shutdown status
+if not state.is_shutdown():
+    # Do work
+    process_data()
+
+# Trigger shutdown
+state.shutdown()
+
+# Register cleanup callback
+def cleanup():
+    print(&quot;Cleaning up...&quot;)
+
+state.register_cleanup(cleanup)
+</code></pre>
+<p><strong>API:</strong>
+- <code>is_shutdown() -&gt; bool</code> - Check if shutdown flag is set
+- <code>shutdown() -&gt; None</code> - Set shutdown flag and call cleanup callbacks
+- <code>register_cleanup(callback: Callable) -&gt; None</code> - Register cleanup function</p>
+<p><strong>Thread Safety:</strong> ✅ Thread-safe (uses RLock)</p>
+<hr />
+<h3 id="cfg-stig_assessorcoreconfig">Cfg (stig_assessor.core.config)</h3>
+<p>Configuration and directory management.</p>
+<pre><code class="language-python">from stig_assessor.core.config import Cfg, CFG
+
+# Get singleton instance
+cfg = Cfg()  # Same as CFG
+
+# Access directories
+print(f&quot;Logs: {cfg.log_dir}&quot;)
+print(f&quot;Backups: {cfg.backup_dir}&quot;)
+print(f&quot;Evidence: {cfg.evidence_dir}&quot;)
+
+# Cleanup old files
+cfg.cleanup_old_backups()  # Keep 30 most recent
+cfg.cleanup_old_logs()     # Keep 15 most recent
+</code></pre>
+<p><strong>API:</strong>
+- <code>home_dir: Path</code> - User home directory
+- <code>stig_dir: Path</code> - ~/.stig_assessor/
+- <code>log_dir: Path</code> - ~/.stig_assessor/logs/
+- <code>backup_dir: Path</code> - ~/.stig_assessor/backups/
+- <code>evidence_dir: Path</code> - ~/.stig_assessor/evidence/
+- <code>template_dir: Path</code> - ~/.stig_assessor/templates/
+- <code>cleanup_old_backups() -&gt; int</code> - Returns number deleted
+- <code>cleanup_old_logs() -&gt; int</code> - Returns number deleted</p>
+<p><strong>Thread Safety:</strong> ❌ Not thread-safe (use from main thread only)</p>
+<hr />
+<h3 id="log-stig_assessorcorelogging">Log (stig_assessor.core.logging)</h3>
+<p>Thread-safe rotating file logger.</p>
+<pre><code class="language-python">from stig_assessor.core.logging import Log, LOG
+
+# Get singleton instance
+log = Log()  # Same as LOG
+
+# Log messages
+LOG.debug(&quot;Detailed debug information&quot;)
+LOG.info(&quot;General information&quot;)
+LOG.warning(&quot;Warning message&quot;)
+LOG.error(&quot;Error occurred&quot;, exc_info=True)
+LOG.critical(&quot;Critical failure&quot;)
+
+# Context logging
+LOG.info(&quot;Processing VID&quot;, extra={&quot;vid&quot;: &quot;V-123456&quot;, &quot;status&quot;: &quot;Open&quot;})
+</code></pre>
+<p><strong>API:</strong>
+- <code>debug(msg: str, **kwargs) -&gt; None</code>
+- <code>info(msg: str, **kwargs) -&gt; None</code>
+- <code>warning(msg: str, **kwargs) -&gt; None</code>
+- <code>error(msg: str, **kwargs) -&gt; None</code>
+- <code>critical(msg: str, **kwargs) -&gt; None</code></p>
+<p><strong>Features:</strong>
+- Rotating file handler (10MB max, 5 backups)
+- Thread-safe logging
+- Console and file output
+- Contextual metadata support</p>
+<p><strong>Thread Safety:</strong> ✅ Thread-safe</p>
+<hr />
+<h3 id="deps-stig_assessorcoredeps">Deps (stig_assessor.core.deps)</h3>
+<p>Dependency detection for optional components.</p>
+<pre><code class="language-python">from stig_assessor.core.deps import Deps
+
+# Check dependencies
+if Deps.has_tkinter():
+    from stig_assessor.ui.gui import GUI
+    gui = GUI()
+    gui.run()
+else:
+    print(&quot;GUI not available (tkinter missing)&quot;)
+
+if Deps.has_defusedxml():
+    # Use defusedxml for enhanced security
+    pass
+else:
+    # Fall back to standard ElementTree
+    pass
+</code></pre>
+<p><strong>API:</strong>
+- <code>has_tkinter() -&gt; bool</code> - Check if tkinter available
+- <code>has_defusedxml() -&gt; bool</code> - Check if defusedxml available
+- <code>get_xml_parser() -&gt; module</code> - Get best available XML parser</p>
+<hr />
+<h2 id="xml-processing">XML Processing</h2>
+<h3 id="sch-stig_assessorxmlschema">Sch (stig_assessor.xml.schema)</h3>
+<p>XML schema definitions and namespace resolution.</p>
+<pre><code class="language-python">from stig_assessor.xml.schema import Sch
+import xml.etree.ElementTree as ET
+
+# Parse with namespaces
+tree = ET.parse(&quot;benchmark.xml&quot;)
+root = tree.getroot()
+
+# Find elements with namespace
+groups = root.findall(&quot;.//ns:Group&quot;, Sch.NS)
+for group in groups:
+    title = group.find(&quot;ns:title&quot;, Sch.NS)
+    print(title.text if title is not None else &quot;&quot;)
+
+# Get namespace URI
+xccdf_ns = Sch.ns(&quot;xccdf&quot;)  # Returns full namespace URI
+</code></pre>
+<p><strong>API:</strong>
+- <code>NS: Dict[str, str]</code> - Namespace dictionary for findall/find
+- <code>ns(prefix: str) -&gt; str</code> - Get full namespace URI
+- <code>XCCDF_ELEMENTS: Set[str]</code> - Valid XCCDF element names
+- <code>CKL_ELEMENTS: Set[str]</code> - Valid CKL element names</p>
+<hr />
+<h3 id="san-stig_assessorxmlsanitizer">San (stig_assessor.xml.sanitizer)</h3>
+<p>XML sanitization and input validation.</p>
+<pre><code class="language-python">from stig_assessor.xml.sanitizer import San
+
+# Sanitize text for XML
+safe_text = San.txt(&quot;&lt;script&gt;alert('xss')&lt;/script&gt;&quot;)
+# Result: &quot;&amp;lt;script&amp;gt;alert('xss')&amp;lt;/script&amp;gt;&quot;
+
+# Comprehensive XML escaping
+safe_xml = San.xml_safe(&quot;Value with &lt;, &gt;, &amp;, ', and \&quot;&quot;)
+
+# Truncate long text
+truncated = San.trunc(&quot;A&quot; * 100000, max_len=65000)
+
+# Validate IP addresses
+if San.is_valid_ip(&quot;192.168.1.100&quot;):
+    print(&quot;Valid IP&quot;)
+
+# Validate MAC addresses
+if San.is_valid_mac(&quot;00:11:22:33:44:55&quot;):
+    print(&quot;Valid MAC&quot;)
+
+# Normalize status values
+status = San.normalize_status(&quot;notafinding&quot;)  # Returns: &quot;NotAFinding&quot;
+
+# Normalize severity
+severity = San.normalize_severity(&quot;cat ii&quot;)  # Returns: &quot;medium&quot;
+</code></pre>
+<p><strong>API:</strong>
+- <code>txt(text: Optional[str]) -&gt; str</code> - Escape dangerous XML characters
+- <code>xml_safe(text: str) -&gt; str</code> - Comprehensive XML escaping
+- <code>trunc(text: str, max_len: int) -&gt; str</code> - Truncate with ellipsis
+- <code>is_valid_ip(ip: str) -&gt; bool</code> - Validate IPv4 address
+- <code>is_valid_mac(mac: str) -&gt; bool</code> - Validate MAC address
+- <code>normalize_status(status: str) -&gt; str</code> - Normalize to valid status
+- <code>normalize_severity(severity: str) -&gt; str</code> - Normalize to valid severity</p>
+<p><strong>Thread Safety:</strong> ✅ Thread-safe (stateless functions)</p>
+<hr />
+<h2 id="file-operations">File Operations</h2>
+<h3 id="fo-stig_assessoriofile_ops">FO (stig_assessor.io.file_ops)</h3>
+<p>Atomic file operations with backup and rollback.</p>
+<pre><code class="language-python">from stig_assessor.io.file_ops import FO
+from pathlib import Path
+
+# Atomic write with automatic backup
+content = &quot;&lt;?xml version='1.0'?&gt;...&quot;
+FO.atomic_write(
+    path=Path(&quot;checklist.ckl&quot;),
+    content=content,
+    backup=True  # Creates .bak file
+)
+
+# Read with encoding fallback
+content = FO.read_with_fallback(Path(&quot;checklist.ckl&quot;))
+
+# Save XML tree
+import xml.etree.ElementTree as ET
+tree = ET.parse(&quot;input.xml&quot;)
+FO.save_xml(tree, Path(&quot;output.xml&quot;), backup=True)
+
+# Create backup manually
+backup_path = FO.create_backup(Path(&quot;important.ckl&quot;))
+print(f&quot;Backup created: {backup_path}&quot;)
+</code></pre>
+<p><strong>API:</strong>
+- <code>atomic_write(path: Path, content: str, backup: bool = False) -&gt; None</code>
+- <code>read_with_fallback(path: Path) -&gt; str</code> - Try UTF-8, then UTF-16, then latin-1
+- <code>save_xml(tree: ET.ElementTree, path: Path, backup: bool = False) -&gt; None</code>
+- <code>create_backup(path: Path) -&gt; Path</code> - Returns backup path
+- <code>detect_encoding(path: Path) -&gt; str</code> - Detect file encoding</p>
+<p><strong>Features:</strong>
+- Atomic writes (write to temp, then rename)
+- Automatic backups before overwrite
+- Encoding detection and fallback
+- Symlink attack prevention
+- Rollback on failure</p>
+<p><strong>Thread Safety:</strong> ✅ Thread-safe (atomic operations)</p>
+<hr />
+<h2 id="validation">Validation</h2>
+<h3 id="val-stig_assessorvalidationvalidator">Val (stig_assessor.validation.validator)</h3>
+<p>STIG Viewer 2.18 compatibility validation.</p>
+<pre><code class="language-python">from stig_assessor.validation.validator import Val
+from pathlib import Path
+
+# Validate CKL structure
+try:
+    Val.validate_ckl(Path(&quot;checklist.ckl&quot;))
+    print(&quot;✓ Valid CKL structure&quot;)
+except ValidationError as e:
+    print(f&quot;✗ Validation failed: {e}&quot;)
+
+# Validate XCCDF
+try:
+    Val.validate_xccdf(Path(&quot;benchmark.xml&quot;))
+    print(&quot;✓ Valid XCCDF structure&quot;)
+except ValidationError as e:
+    print(f&quot;✗ Validation failed: {e}&quot;)
+
+# Check error threshold
+errors = [&quot;Error 1&quot;, &quot;Error 2&quot;, &quot;Error 3&quot;]
+Val.check_error_threshold(errors, max_errors=10, context=&quot;merge&quot;)
+</code></pre>
+<p><strong>API:</strong>
+- <code>validate_ckl(path: Path) -&gt; None</code> - Raises ValidationError if invalid
+- <code>validate_xccdf(path: Path) -&gt; None</code> - Raises ValidationError if invalid
+- <code>check_error_threshold(errors: List[str], max_errors: int, context: str) -&gt; None</code></p>
+<p><strong>Validation Rules:</strong>
+- CKL must have CHECKLIST root
+- Required elements: ASSET, STIGS, iSTIG, STIG_INFO, VULN
+- Valid status values: NotAFinding, Open, Not_Applicable, Not_Reviewed
+- Valid severity: high, medium, low</p>
+<p><strong>Thread Safety:</strong> ✅ Thread-safe (stateless validation)</p>
+<hr />
+<h2 id="history-management">History Management</h2>
+<h3 id="hist-stig_assessorhistorymodels">Hist (stig_assessor.history.models)</h3>
+<p>Individual history entry (immutable dataclass).</p>
+<pre><code class="language-python">from stig_assessor.history.models import Hist
+from datetime import datetime
+
+# Create history entry
+entry = Hist(
+    timestamp=datetime.now(),
+    status=&quot;NotAFinding&quot;,
+    finding_details=&quot;Service is enabled and running&quot;,
+    comments=&quot;Verified via systemctl status&quot;,
+    username=&quot;admin&quot;
+)
+
+# Access fields
+print(f&quot;Status: {entry.status}&quot;)
+print(f&quot;Time: {entry.timestamp.isoformat()}&quot;)
+
+# Serialize to XML element
+xml_element = entry.to_xml()
+
+# Parse from XML element
+entry2 = Hist.from_xml(xml_element)
+</code></pre>
+<p><strong>API:</strong>
+- <code>timestamp: datetime</code> - When entry was created
+- <code>status: str</code> - Status value
+- <code>finding_details: str</code> - Finding details
+- <code>comments: str</code> - Comments
+- <code>username: str</code> - Who made the change
+- <code>to_xml() -&gt; ET.Element</code> - Serialize to XML
+- <code>from_xml(element: ET.Element) -&gt; Hist</code> - Deserialize from XML</p>
+<hr />
+<h3 id="histmgr-stig_assessorhistorymanager">HistMgr (stig_assessor.history.manager)</h3>
+<p>History lifecycle management with deduplication.</p>
+<pre><code class="language-python">from stig_assessor.history.manager import HistMgr
+from stig_assessor.history.models import Hist
+
+# Create manager
+mgr = HistMgr(max_entries=200)
+
+# Add entry (automatic deduplication)
+mgr.add(Hist(
+    timestamp=datetime.now(),
+    status=&quot;Open&quot;,
+    finding_details=&quot;Issue found&quot;,
+    comments=&quot;Needs remediation&quot;,
+    username=&quot;admin&quot;
+))
+
+# Get all entries (chronological order)
+entries = mgr.get_all()
+
+# Get latest entry
+latest = mgr.get_latest()
+
+# Merge from another manager
+other_mgr = HistMgr()
+# ... populate other_mgr ...
+mgr.merge(other_mgr)
+
+# Serialize/deserialize
+xml_elements = mgr.to_xml_list()
+mgr2 = HistMgr.from_xml_list(xml_elements)
+</code></pre>
+<p><strong>API:</strong>
+- <code>add(entry: Hist) -&gt; None</code> - Add entry (deduplicated)
+- <code>get_all() -&gt; List[Hist]</code> - Get all entries (chronological)
+- <code>get_latest() -&gt; Optional[Hist]</code> - Get most recent entry
+- <code>merge(other: HistMgr) -&gt; None</code> - Merge entries from another manager
+- <code>to_xml_list() -&gt; List[ET.Element]</code> - Serialize all entries
+- <code>from_xml_list(elements: List[ET.Element]) -&gt; HistMgr</code> - Deserialize</p>
+<p><strong>Features:</strong>
+- Content-based deduplication
+- Chronological ordering (bisect insertion)
+- Maximum entry limit (keeps most recent)
+- Microsecond-precision timestamps</p>
+<p><strong>Thread Safety:</strong> ❌ Not thread-safe (use locks if needed)</p>
+<hr />
+<h2 id="templates">Templates</h2>
+<h3 id="bp-stig_assessortemplatesboilerplate">BP (stig_assessor.templates.boilerplate)</h3>
+<p>Boilerplate template management.</p>
+<pre><code class="language-python">from stig_assessor.templates.boilerplate import BP
+from pathlib import Path
+
+# Load templates
+bp = BP()
+bp.load(Path(&quot;~/.stig_assessor/templates/boilerplate.json&quot;))
+
+# Get template
+template = bp.get(&quot;V-123456&quot;, &quot;NotAFinding&quot;)
+if template:
+    print(f&quot;Template: {template}&quot;)
+
+# Set template
+bp.set(&quot;V-123456&quot;, &quot;Open&quot;, &quot;Service is not enabled. Enable with: systemctl enable httpd&quot;)
+
+# Save templates
+bp.save(Path(&quot;~/.stig_assessor/templates/boilerplate.json&quot;))
+
+# Apply to CKL
+bp.apply_to_ckl(
+    ckl_path=Path(&quot;checklist.ckl&quot;),
+    output_path=Path(&quot;checklist_with_templates.ckl&quot;)
+)
+</code></pre>
+<p><strong>API:</strong>
+- <code>load(path: Path) -&gt; None</code> - Load templates from JSON
+- <code>save(path: Path) -&gt; None</code> - Save templates to JSON
+- <code>get(vid: str, status: str) -&gt; Optional[str]</code> - Get template text
+- <code>set(vid: str, status: str, template: str) -&gt; None</code> - Set template
+- <code>apply_to_ckl(ckl_path: Path, output_path: Path) -&gt; int</code> - Returns count applied</p>
+<hr />
+<h2 id="main-processor">Main Processor</h2>
+<h3 id="proc-stig_assessorprocessorprocessor">Proc (stig_assessor.processor.processor)</h3>
+<p>Main processor for XCCDF→CKL conversion, merging, and more.</p>
+<pre><code class="language-python">from stig_assessor.processor.processor import Proc
+from pathlib import Path
+
+# Create processor
+proc = Proc()
+
+# Convert XCCDF to CKL
+proc.xccdf_to_ckl(
+    xccdf=Path(&quot;benchmark.xml&quot;),
+    output=Path(&quot;checklist.ckl&quot;),
+    asset_name=&quot;SERVER-01&quot;,
+    ip=&quot;192.168.1.100&quot;,
+    mac=&quot;00:11:22:33:44:55&quot;,
+    role=&quot;Member Server&quot;,
+    marking=&quot;CUI&quot;,
+    apply_boilerplate=True
+)
+
+# Merge checklists
+proc.merge(
+    base=Path(&quot;current.ckl&quot;),
+    histories=[Path(&quot;old1.ckl&quot;), Path(&quot;old2.ckl&quot;)],
+    output=Path(&quot;merged.ckl&quot;)
+)
+
+# Diff two checklists
+diff = proc.diff(
+    old=Path(&quot;checklist_v1.ckl&quot;),
+    new=Path(&quot;checklist_v2.ckl&quot;)
+)
+for vid, changes in diff.items():
+    print(f&quot;{vid}: {changes}&quot;)
+
+# Generate statistics
+stats = proc.statistics(Path(&quot;checklist.ckl&quot;))
+print(f&quot;Total VULNs: {stats['total']}&quot;)
+print(f&quot;Open: {stats['open']}, NaF: {stats['naf']}&quot;)
+</code></pre>
+<p><strong>API:</strong>
+- <code>xccdf_to_ckl(...) -&gt; None</code> - Convert XCCDF to CKL
+- <code>merge(base: Path, histories: List[Path], output: Path) -&gt; None</code>
+- <code>diff(old: Path, new: Path) -&gt; Dict[str, Dict[str, Any]]</code>
+- <code>statistics(ckl: Path) -&gt; Dict[str, int]</code>
+- <code>repair(ckl: Path, output: Path) -&gt; int</code> - Fix common issues</p>
+<hr />
+<h2 id="remediation">Remediation</h2>
+<h3 id="fix-stig_assessorremediationmodels">Fix (stig_assessor.remediation.models)</h3>
+<p>Single remediation fix (immutable dataclass).</p>
+<pre><code class="language-python">from stig_assessor.remediation.models import Fix
+
+# Create fix
+fix = Fix(
+    vid=&quot;V-123456&quot;,
+    title=&quot;Enable HTTP service&quot;,
+    severity=&quot;medium&quot;,
+    commands=[&quot;systemctl enable httpd&quot;, &quot;systemctl start httpd&quot;],
+    description=&quot;Enable and start Apache HTTP server&quot;
+)
+
+# Access fields
+print(f&quot;VID: {fix.vid}&quot;)
+print(f&quot;Commands: {', '.join(fix.commands)}&quot;)
+</code></pre>
+<hr />
+<h3 id="fixext-stig_assessorremediationextractor">FixExt (stig_assessor.remediation.extractor)</h3>
+<p>Extract remediation fixes from XCCDF.</p>
+<pre><code class="language-python">from stig_assessor.remediation.extractor import FixExt
+from pathlib import Path
+
+# Create extractor
+extractor = FixExt(xccdf_path=Path(&quot;benchmark.xml&quot;))
+
+# Extract fixes
+fixes = extractor.extract()
+print(f&quot;Extracted {len(fixes)} fixes&quot;)
+
+# Export to JSON
+json_path = extractor.to_json(Path(&quot;fixes.json&quot;))
+
+# Export to CSV
+csv_path = extractor.to_csv(Path(&quot;fixes.csv&quot;))
+
+# Generate Bash script
+bash_path = extractor.to_bash(Path(&quot;remediate.sh&quot;), dry_run=True)
+
+# Generate PowerShell script
+ps_path = extractor.to_powershell(Path(&quot;Remediate.ps1&quot;), dry_run=True)
+</code></pre>
+<p><strong>API:</strong>
+- <code>extract() -&gt; List[Fix]</code> - Extract all fixes from XCCDF
+- <code>to_json(path: Path) -&gt; Path</code> - Export to JSON
+- <code>to_csv(path: Path) -&gt; Path</code> - Export to CSV
+- <code>to_bash(path: Path, dry_run: bool = False) -&gt; Path</code> - Generate Bash script
+- <code>to_powershell(path: Path, dry_run: bool = False) -&gt; Path</code> - Generate PS script</p>
+<hr />
+<h3 id="fixrespro-stig_assessorremediationprocessor">FixResPro (stig_assessor.remediation.processor)</h3>
+<p>Remediation results processor - import bulk fixes.</p>
+<pre><code class="language-python">from stig_assessor.remediation.processor import FixResPro
+from pathlib import Path
+
+# Create processor
+processor = FixResPro()
+
+# Load results from JSON
+processor.load(Path(&quot;remediation_results.json&quot;))
+
+# Update CKL with results
+updated_ckl = processor.update_ckl(
+    ckl_path=Path(&quot;checklist.ckl&quot;),
+    output_path=Path(&quot;checklist_updated.ckl&quot;)
+)
+
+print(f&quot;Updated {processor.count_applied()} VULNs&quot;)
+
+# Generate report
+report = processor.generate_report()
+print(report)
+</code></pre>
+<p><strong>API:</strong>
+- <code>load(path: Path) -&gt; None</code> - Load results from JSON
+- <code>update_ckl(ckl_path: Path, output_path: Path) -&gt; Path</code>
+- <code>count_applied() -&gt; int</code> - Count how many results applied
+- <code>generate_report() -&gt; str</code> - Generate summary report</p>
+<p><strong>JSON Format:</strong></p>
+<pre><code class="language-json">{
+  &quot;results&quot;: [
+    {
+      &quot;vid&quot;: &quot;V-123456&quot;,
+      &quot;status&quot;: &quot;NotAFinding&quot;,
+      &quot;finding_details&quot;: &quot;Fix applied successfully&quot;,
+      &quot;comments&quot;: &quot;Automated remediation&quot;
+    }
+  ]
+}
+</code></pre>
+<hr />
+<h2 id="evidence-management">Evidence Management</h2>
+<h3 id="evidencemgr-stig_assessorevidencemanager">EvidenceMgr (stig_assessor.evidence.manager)</h3>
+<p>Evidence file import, export, and packaging.</p>
+<pre><code class="language-python">from stig_assessor.evidence.manager import EvidenceMgr
+from pathlib import Path
+
+# Create manager
+mgr = EvidenceMgr(base_dir=Path(&quot;~/.stig_assessor/evidence&quot;))
+
+# Import evidence file
+mgr.import_file(
+    vid=&quot;V-123456&quot;,
+    file_path=Path(&quot;screenshot.png&quot;),
+    description=&quot;System configuration screenshot&quot;,
+    category=&quot;config&quot;
+)
+
+# Import multiple files for same VID
+mgr.import_file(&quot;V-123456&quot;, Path(&quot;log.txt&quot;), &quot;System log&quot;, &quot;logs&quot;)
+
+# Export all evidence
+mgr.export_all(output_dir=Path(&quot;evidence_export&quot;))
+
+# Package evidence to ZIP
+mgr.package(output_path=Path(&quot;evidence.zip&quot;))
+
+# List evidence for VID
+evidence = mgr.list_for_vid(&quot;V-123456&quot;)
+for e in evidence:
+    print(f&quot;{e.filename}: {e.description}&quot;)
+</code></pre>
+<p><strong>API:</strong>
+- <code>import_file(vid: str, file_path: Path, description: str, category: str) -&gt; None</code>
+- <code>export_all(output_dir: Path) -&gt; int</code> - Returns count exported
+- <code>package(output_path: Path) -&gt; Path</code> - Create ZIP package
+- <code>list_for_vid(vid: str) -&gt; List[EvidenceMeta]</code>
+- <code>delete(vid: str, filename: str) -&gt; None</code></p>
+<p><strong>Features:</strong>
+- Hash-based deduplication
+- Metadata persistence (JSON)
+- Organized by VID
+- ZIP packaging with manifest</p>
+<hr />
+<h2 id="error-handling">Error Handling</h2>
+<h3 id="exception-hierarchy">Exception Hierarchy</h3>
+<pre><code class="language-python">from stig_assessor.exceptions import (
+    STIGError,          # Base exception
+    ValidationError,    # Validation failures
+    FileError,          # File I/O errors
+    ParseError          # XML parsing errors
+)
+
+# Catch specific errors
+try:
+    proc.xccdf_to_ckl(...)
+except ValidationError as e:
+    print(f&quot;Validation failed: {e}&quot;)
+except FileError as e:
+    print(f&quot;File error: {e}&quot;)
+except STIGError as e:
+    print(f&quot;General STIG error: {e}&quot;)
+</code></pre>
+<hr />
+<h2 id="examples">Examples</h2>
+<h3 id="example-1-complete-xccdf-to-ckl-workflow">Example 1: Complete XCCDF to CKL Workflow</h3>
+<pre><code class="language-python">from stig_assessor.processor.processor import Proc
+from stig_assessor.templates.boilerplate import BP
+from pathlib import Path
+
+# Initialize
+proc = Proc()
+bp = BP()
+bp.load(Path(&quot;~/.stig_assessor/templates/boilerplate.json&quot;))
+
+# Convert XCCDF to CKL
+proc.xccdf_to_ckl(
+    xccdf=Path(&quot;benchmarks/RHEL_8_STIG.xml&quot;),
+    output=Path(&quot;checklists/rhel8_baseline.ckl&quot;),
+    asset_name=&quot;RHEL-WEB-01&quot;,
+    ip=&quot;10.0.1.50&quot;,
+    mac=&quot;00:50:56:AB:CD:EF&quot;,
+    role=&quot;Web Server&quot;,
+    marking=&quot;CUI&quot;
+)
+
+# Apply boilerplate templates
+bp.apply_to_ckl(
+    ckl_path=Path(&quot;checklists/rhel8_baseline.ckl&quot;),
+    output_path=Path(&quot;checklists/rhel8_with_templates.ckl&quot;)
+)
+
+print(&quot;✓ CKL created with templates&quot;)
+</code></pre>
+<h3 id="example-2-merge-multiple-assessments">Example 2: Merge Multiple Assessments</h3>
+<pre><code class="language-python">from stig_assessor.processor.processor import Proc
+from pathlib import Path
+
+proc = Proc()
+
+# Merge multiple assessment iterations
+proc.merge(
+    base=Path(&quot;checklists/current.ckl&quot;),
+    histories=[
+        Path(&quot;checklists/2025-01.ckl&quot;),
+        Path(&quot;checklists/2025-02.ckl&quot;),
+        Path(&quot;checklists/2025-03.ckl&quot;),
+    ],
+    output=Path(&quot;checklists/merged.ckl&quot;)
+)
+
+print(&quot;✓ Assessments merged with history preserved&quot;)
+</code></pre>
+<h3 id="example-3-full-remediation-workflow">Example 3: Full Remediation Workflow</h3>
+<pre><code class="language-python">from stig_assessor.remediation.extractor import FixExt
+from stig_assessor.remediation.processor import FixResPro
+from pathlib import Path
+import subprocess
+import json
+
+# Step 1: Extract fixes from benchmark
+extractor = FixExt(xccdf_path=Path(&quot;benchmark.xml&quot;))
+extractor.extract()
+json_path = extractor.to_json(Path(&quot;fixes.json&quot;))
+bash_path = extractor.to_bash(Path(&quot;remediate.sh&quot;), dry_run=False)
+
+print(f&quot;✓ Fixes extracted to {json_path}&quot;)
+print(f&quot;✓ Remediation script: {bash_path}&quot;)
+
+# Step 2: Execute remediation (simulated)
+# subprocess.run([&quot;bash&quot;, str(bash_path)], capture_output=True)
+
+# Step 3: Create results (simulated)
+results = {
+    &quot;results&quot;: [
+        {
+            &quot;vid&quot;: &quot;V-123456&quot;,
+            &quot;status&quot;: &quot;NotAFinding&quot;,
+            &quot;finding_details&quot;: &quot;Service enabled via systemctl&quot;,
+            &quot;comments&quot;: &quot;Automated remediation successful&quot;
+        },
+        {
+            &quot;vid&quot;: &quot;V-234567&quot;,
+            &quot;status&quot;: &quot;Open&quot;,
+            &quot;finding_details&quot;: &quot;Remediation failed: permission denied&quot;,
+            &quot;comments&quot;: &quot;Requires manual intervention&quot;
+        }
+    ]
+}
+
+results_path = Path(&quot;results.json&quot;)
+results_path.write_text(json.dumps(results, indent=2))
+
+# Step 4: Import results to CKL
+processor = FixResPro()
+processor.load(results_path)
+processor.update_ckl(
+    ckl_path=Path(&quot;checklist.ckl&quot;),
+    output_path=Path(&quot;checklist_remediated.ckl&quot;)
+)
+
+print(f&quot;✓ Updated {processor.count_applied()} findings&quot;)
+</code></pre>
+<h3 id="example-4-evidence-management">Example 4: Evidence Management</h3>
+<pre><code class="language-python">from stig_assessor.evidence.manager import EvidenceMgr
+from pathlib import Path
+
+mgr = EvidenceMgr()
+
+# Import evidence for multiple VIDs
+evidence_items = [
+    (&quot;V-123456&quot;, &quot;screenshots/firewall_config.png&quot;, &quot;Firewall settings&quot;, &quot;config&quot;),
+    (&quot;V-123456&quot;, &quot;logs/firewall.log&quot;, &quot;Firewall audit log&quot;, &quot;logs&quot;),
+    (&quot;V-234567&quot;, &quot;screenshots/selinux_status.png&quot;, &quot;SELinux status&quot;, &quot;config&quot;),
+]
+
+for vid, file_path, desc, cat in evidence_items:
+    mgr.import_file(vid, Path(file_path), desc, cat)
+    print(f&quot;✓ Imported {file_path}&quot;)
+
+# Package everything
+package_path = mgr.package(Path(&quot;evidence_package.zip&quot;))
+print(f&quot;✓ Evidence packaged: {package_path}&quot;)
+</code></pre>
+<hr />
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="1-always-use-context-managers-for-resources">1. Always Use Context Managers for Resources</h3>
+<pre><code class="language-python"># Good
+from pathlib import Path
+
+path = Path(&quot;file.txt&quot;)
+content = path.read_text()  # Automatically closed
+
+# Also good with explicit try/finally
+try:
+    content = FO.read_with_fallback(path)
+finally:
+    # Cleanup if needed
+    pass
+</code></pre>
+<h3 id="2-enable-verbose-logging-for-debugging">2. Enable Verbose Logging for Debugging</h3>
+<pre><code class="language-python">from stig_assessor.core.logging import LOG
+import logging
+
+# Set debug level
+LOG.setLevel(logging.DEBUG)
+
+# Your operations here
+proc.xccdf_to_ckl(...)
+</code></pre>
+<h3 id="3-validate-files-after-operations">3. Validate Files After Operations</h3>
+<pre><code class="language-python">from stig_assessor.validation.validator import Val
+
+# After creating CKL
+proc.xccdf_to_ckl(...)
+Val.validate_ckl(output_path)  # Verify it's valid
+</code></pre>
+<h3 id="4-use-atomic-operations-for-critical-files">4. Use Atomic Operations for Critical Files</h3>
+<pre><code class="language-python">from stig_assessor.io.file_ops import FO
+
+# Always create backups
+FO.atomic_write(path, content, backup=True)
+</code></pre>
+<h3 id="5-handle-exceptions-appropriately">5. Handle Exceptions Appropriately</h3>
+<pre><code class="language-python">from stig_assessor.exceptions import ValidationError, FileError
+
+try:
+    proc.merge(base, histories, output)
+except ValidationError as e:
+    LOG.error(f&quot;Validation failed: {e}&quot;)
+    # Handle validation error
+except FileError as e:
+    LOG.error(f&quot;File error: {e}&quot;)
+    # Handle file error
+</code></pre>
+<hr />
+<h2 id="performance-tips">Performance Tips</h2>
+<ol>
+<li><strong>Batch Operations</strong>: Process multiple files in one call when possible</li>
+<li><strong>Memory Management</strong>: For large files (15K+ VULNs), call <code>gc.collect()</code> after processing</li>
+<li><strong>Concurrent Processing</strong>: Most operations are thread-safe - use ThreadPoolExecutor</li>
+<li><strong>Caching</strong>: Reuse Proc, BP, and other manager instances</li>
+</ol>
+<hr />
+<h2 id="versioning">Versioning</h2>
+<p>This API follows semantic versioning:
+- <strong>Major</strong>: Breaking API changes
+- <strong>Minor</strong>: New features, backward compatible
+- <strong>Patch</strong>: Bug fixes, backward compatible</p>
+<p>Current version: <strong>8.0.0</strong></p>
+<hr />
+<h2 id="support">Support</h2>
+<ul>
+<li><strong>Documentation</strong>: See <code>CLAUDE.md</code>, <code>DEV_QUICK_START.md</code>, <code>MODULARIZATION_SPEC.md</code></li>
+<li><strong>Issues</strong>: https://github.com/Maddesea/STIG_Script/issues</li>
+<li><strong>Discussions</strong>: https://github.com/Maddesea/STIG_Script/discussions</li>
+</ul>
+<hr />
+<p><strong>Last Updated:</strong> 2025-11-16
+<strong>Maintained By:</strong> STIG Assessor Development Team</p>
+</body>
+</html>

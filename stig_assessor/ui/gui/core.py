@@ -153,10 +153,30 @@ if Deps.HAS_TKINTER:
         evid_tree: ttk.Treeview
 
         def __init__(self):
+            # ── High DPI Awareness for Windows ──
+            if sys.platform == "win32":
+                try:
+                    from ctypes import windll
+                    windll.shcore.SetProcessDpiAwareness(1)
+                except Exception:
+                    pass
+
             self.root = tk.Tk()
+            
+            # Additional cross-platform scaling proportionality
+            try:
+                self.root.tk.call('tk', 'scaling', self.root.winfo_fpixels('1i') / 72.0)
+            except Exception:
+                pass
+
             self.root.title(f"{APP_NAME} v{VERSION}")
-            # Dynamic min size
-            self.root.minsize(1100, 750)
+            
+            # Proportional Grid Configuration for Root
+            self.root.columnconfigure(0, weight=1)
+            self.root.rowconfigure(0, weight=1)
+            
+            # Dynamic min size (Reduced to prevent cutoff on 1080p/125% DPI displays)
+            self.root.minsize(800, 600)
             self.root.geometry("1280x800")
             if sys.platform == "win32":
                 with suppress(tk.TclError):
@@ -708,9 +728,36 @@ if Deps.HAS_TKINTER:
             if self._wizard_var.get():
                 self._build_wizard_bar()
 
-            notebook = ttk.Notebook(self.root)
+            main_split = ttk.Frame(self.root)
+            main_split.pack(fill="both", expand=True, padx=GUI_PADDING, pady=GUI_PADDING)
+
+            sidebar_frame = ttk.Frame(main_split)
+            sidebar_frame.pack(side="left", fill="y", padx=(0, 10))
+
+            content_frame = ttk.Frame(main_split)
+            content_frame.pack(side="left", fill="both", expand=True)
+
+            self._sidebar_list = tk.Listbox(
+                sidebar_frame, 
+                width=24, 
+                font=GUI_FONT_NORMAL, 
+                bg=self._colors.get("treeview_bg", "#ffffff"),
+                fg=self._colors.get("treeview_fg", "#000000"),
+                selectbackground=self._colors.get("select_bg", "#0078D7"),
+                selectforeground=self._colors.get("fg", "#ffffff"),
+                borderwidth=1, 
+                relief="flat", 
+                activestyle="none"
+            )
+            self._sidebar_list.pack(side="left", fill="y", expand=True)
+
+            with suppress(tk.TclError, NameError):
+                style = ttk.Style()
+                style.layout('HiddenTabs.TNotebook.Tab', [])
+
+            notebook = ttk.Notebook(content_frame, style='HiddenTabs.TNotebook')
             self.notebook = notebook
-            notebook.pack(fill="both", expand=True, padx=GUI_PADDING, pady=GUI_PADDING)
+            notebook.pack(fill="both", expand=True)
 
             tabs = [
                 ("🏠 Dashboard", lambda f: build_dashboard_tab(self, f)),
@@ -734,6 +781,25 @@ if Deps.HAS_TKINTER:
                 frame = ttk.Frame(notebook, padding=GUI_PADDING_LARGE)
                 notebook.add(frame, text=title)
                 builder(frame)
+                self._sidebar_list.insert("end", "  " + title)
+
+            def _on_sidebar_select(evt):
+                sel = self._sidebar_list.curselection()
+                if sel:
+                    notebook.select(sel[0])
+
+            self._sidebar_list.bind("<<ListboxSelect>>", _on_sidebar_select)
+
+            def _sync_listbox(e):
+                idx = notebook.index(notebook.select())
+                self._sidebar_list.selection_clear(0, "end")
+                self._sidebar_list.selection_set(idx)
+                self._sidebar_list.activate(idx)
+                self._sidebar_list.see(idx)
+
+            notebook.bind("<<NotebookTabChanged>>", _sync_listbox)
+            self._sidebar_list.selection_set(0)
+            notebook.select(0)
 
         def _create_status_bar(self) -> None:
             """Create global status bar with progress indicator at the bottom."""
